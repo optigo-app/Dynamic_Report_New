@@ -1,0 +1,27 @@
+*{
+    font-family: "Poppins", sans-serif;
+}
+
+
+  .loading-text span {
+      display: inline-block;
+      animation: bounce 1s infinite;
+      animation-delay: calc(var(--i) * 0.1s);
+      font-size: 15px;
+    }
+
+    @keyframes bounce {
+      0%,
+      100% {
+        transform: translateY(0);
+      }
+      25% {
+        transform: translateY(-5px);
+      }
+      50% {
+        transform: translateY(0);
+      }
+      75% {
+        transform: translateY(5px);
+      }
+    }
