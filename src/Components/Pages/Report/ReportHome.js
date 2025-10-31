@@ -51,8 +51,7 @@ const SelectionBox = ({
       });
   }, [data, search]);
 
-  const displayData = showAll ? filteredData : filteredData.slice(0, 10);
-
+  const displayData = showAll ? filteredData : filteredData.slice(0, 100);
   const handleScroll = () => {
     if (boxRef.current) setShowScrollTop(boxRef.current.scrollTop > 100);
   };
@@ -118,7 +117,9 @@ const SelectionBox = ({
                 const keyName = Object.keys(item)[0];
                 const value = item[keyName];
                 const strValue = value?.toString().trim();
-
+                if (!strValue) {
+                  return;
+                }
                 let actualValue = "";
                 if (item.MasterId === "0" || item.MasterId === 0) {
                   actualValue = item[item.MasterType];
@@ -128,9 +129,7 @@ const SelectionBox = ({
                   );
                   actualValue = item[idKey];
                 }
-
                 const isChecked = selected.includes(actualValue);
-
                 return (
                   <label
                     key={idx}
@@ -152,7 +151,7 @@ const SelectionBox = ({
               </div>
             )}
 
-            {filteredData.length > 10 && (
+            {filteredData.length > 100 && (
               <button
                 className="show-more-btn"
                 onClick={() => setShowAll(!showAll)}
@@ -172,6 +171,9 @@ export default function ReportHome({
   spNumber,
   largeData,
   largeDataTitle,
+  dateOptions,
+  dateOptionsShow,
+  reportName
 }) {
   const [isLoading, setIsLoading] = useState(false);
   const [spData, setSpData] = useState(null);
@@ -186,8 +188,10 @@ export default function ReportHome({
   const pid = searchParams.get("pid");
   const [loadingMaster, setLoadingMaster] = useState(false);
   const [openSnackbar, setOpenSnackbar] = useState(false);
-  const [errorMessage, setErrorMessage] = useState(false);
+  const [errorMessage, setErrorMessage] = useState();
+  const [errorMessageColor, setErrorMessageColor] = useState("error");
   const [filteredValue, setFilteredValue] = useState();
+  const [selectedDateOption, setSelectedDateOption] = useState("");
 
   useEffect(() => {
     setShowReportMaster(largeData);
@@ -274,65 +278,196 @@ export default function ReportHome({
       if (responseMaster) {
         setMasterData(responseMaster);
       }
+      // Normalize
+      let FilterHeader = "";
+      let FilterValue = "";
+      let ServerFilterHeader = "";
+      let ServerFilterValue = "";
 
+      if (Array.isArray(filters) && filters.length > 0) {
+        const normalFilters = filters.filter(
+          (f) => f.FilterHeader && f.FilterValue
+        );
+        const serverFilters = filters.filter(
+          (f) => f.ServerFilterHeader && f.ServerFilterValue
+        );
+
+        FilterHeader = normalFilters.map((f) => f.FilterHeader).join("#");
+        FilterValue = normalFilters.map((f) => f.FilterValue).join("#");
+
+        ServerFilterHeader = serverFilters
+          .map((f) => f.ServerFilterHeader)
+          .join("#");
+        ServerFilterValue = serverFilters
+          .map((f) => f.ServerFilterValue)
+          .join("#");
+      }
+      // ✅ Handle object filters (from handleSave)
+      else if (filters.FilterHeader && filters.FilterValue) {
+        FilterHeader = filters.FilterHeader;
+        FilterValue = filters.FilterValue;
+        ServerFilterHeader = filters.ServerFilterHeader || "";
+        ServerFilterValue = filters.ServerFilterValue || "";
+      }
+
+      // Build API body
       const body = {
         con: JSON.stringify({
           mode: "GetFullReport",
-          appuserid: AllData?.uid,
+          appuserid: AllData?.LUId,
         }),
         p: JSON.stringify({
           ReportId: reportId,
           IsMaster: Master,
-          ...(filters.FilterHeader && { FilterHeader: filters.FilterHeader }),
-          ...(filters.FilterValue && { FilterValue: filters.FilterValue }),
+          ...(FilterHeader && { FilterHeader }),
+          ...(FilterValue && { FilterValue }),
+          ...(ServerFilterHeader && { ServerFilterHeader }),
+          ...(ServerFilterValue && { ServerFilterValue }),
+          ...(filters.FilterStartDate && {
+            FilterStartDate: filters.FilterStartDate,
+          }),
+          ...(filters.FilterEndDate && {
+            FilterEndDate: filters.FilterEndDate,
+          }),
         }),
         f: "DynamicReport ( data )",
       };
       const response = await ReportCallApi(body, spNumber);
       if (Master === "-1") {
         const filtersArray = [];
-        if (filters.FilterHeader && filters.FilterValue) {
-          const headers = filters.FilterHeader.split("#");
-          const values = filters.FilterValue.split("#");
-          headers.forEach((header, index) => {
-            filtersArray.push({ name: header, value: values[index] || "" });
-          });
+        if (FilterHeader && FilterValue) {
+          const headers = FilterHeader.split("#");
+          const values = FilterValue.split("#");
+          headers.forEach((header, i) =>
+            filtersArray.push({ name: header, value: values[i] || "" })
+          );
         }
-        const merged = [...filtersArray];
-        const uniqueMerged = merged.reduce((acc, cur) => {
-          const exists = acc.find((item) => item.name === cur.name);
-          if (exists) {
-            acc = acc.map((item) => (item.name === cur.name ? cur : item));
-          } else {
-            acc.push(cur);
-          }
-          return acc;
-        }, []);
-        setFilteredValue(uniqueMerged);
+        setFilteredValue(filtersArray);
         setServerSider(true);
-      } else if (Master === "2") {
-        setFilteredValue();
       }
 
       if (response?.rd[0]?.stat == 0) {
-        if (response?.rd[0]?.stat_msg == '"Contact yours Admin"') {
-          setErrorMessage("Contact yours Admin");
-          setOpenSnackbar(true);
-        } else {
-          setErrorMessage("please narrow your search");
-          setOpenSnackbar(true);
-        }
+        setErrorMessageColor("warning");
+        setErrorMessage(
+          `Found ${response?.rd[0]?.ActualCount} records, limit ${response?.rd[0]?.LargeDataCount}. Please narrow your filters.`
+        );
+        setOpenSnackbar(true);
       } else if (response?.rd[0]?.stat == 2) {
+        setErrorMessageColor("error");
         setErrorMessage("No Records Found");
         setOpenSnackbar(true);
       } else {
         setSpData(response);
-        setIsLoading(false);
         setShowReportMaster(false);
       }
+
+      setIsLoading(false);
     } catch (error) {
       console.error("getReportData failed:", error);
+      setIsLoading(false);
     }
+  };
+
+  // const fetchReportData = async (filters = {}, Master) => {
+  //   try {
+  //     setIsLoading(true);
+  //     let AllData = JSON.parse(sessionStorage.getItem("reportVarible"));
+  //     const masterDataBody = {
+  //       con: JSON.stringify({
+  //         id: "",
+  //         mode: "GetFullMaster",
+  //         appuserid: AllData?.LUId,
+  //       }),
+  //       p: JSON.stringify({
+  //         ReportId: reportId,
+  //       }),
+  //       f: "DynamicReport ( get sp list )",
+  //     };
+
+  //     const responseMaster = await ReportCallApi(masterDataBody, spNumber);
+  //     if (responseMaster) {
+  //       setMasterData(responseMaster);
+  //     }
+
+  //     const body = {
+  //       con: JSON.stringify({
+  //         mode: "GetFullReport",
+  //         appuserid: AllData?.LUId,
+  //       }),
+  //       p: JSON.stringify({
+  //         ReportId: reportId,
+  //         IsMaster: Master,
+  //         ...(filters.FilterHeader && { FilterHeader: filters.FilterHeader }),
+  //         ...(filters.FilterValue && { FilterValue: filters.FilterValue }),
+  //         ...(filters.FilterStartDate && {
+  //           FilterStartDate: filters.FilterStartDate,
+  //         }),
+  //         ...(filters.FilterEndDate && {
+  //           FilterEndDate: filters.FilterEndDate,
+  //         }),
+  //       }),
+  //       f: "DynamicReport ( data )",
+  //     };
+
+  //     const response = await ReportCallApi(body, spNumber);
+  //     if (Master === "-1") {
+  //       const filtersArray = [];
+  //       if (filters.FilterHeader && filters.FilterValue) {
+  //         const headers = filters.FilterHeader.split("#");
+  //         const values = filters.FilterValue.split("#");
+  //         headers.forEach((header, index) => {
+  //           filtersArray.push({ name: header, value: values[index] || "" });
+  //         });
+  //       }
+  //       const merged = [...filtersArray];
+  //       const uniqueMerged = merged.reduce((acc, cur) => {
+  //         const exists = acc.find((item) => item.name === cur.name);
+  //         if (exists) {
+  //           acc = acc.map((item) => (item.name === cur.name ? cur : item));
+  //         } else {
+  //           acc.push(cur);
+  //         }
+  //         return acc;
+  //       }, []);
+  //       setFilteredValue(uniqueMerged);
+  //       setServerSider(true);
+  //       setIsLoading(false);
+  //     } else if (Master === "2") {
+  //       setFilteredValue();
+  //     }
+
+  //     if (response?.rd[0]?.stat == 0) {
+  //       if (response?.rd[0]?.stat_msg == '"Contact yours Admin"') {
+  //         setErrorMessageColor("error");
+  //         setErrorMessage("Contact yours Admin");
+  //         setOpenSnackbar(true);
+  //         setIsLoading(false);
+  //       } else {
+  //         setErrorMessageColor("warning");
+  //         setErrorMessage(
+  //           `Found ${response?.rd[0]?.ActualCount} records, limit is ${response?.rd[0]?.LargeDataCount}. Please narrow your filters.`
+  //         );
+  //         setOpenSnackbar(true);
+  //         setIsLoading(false);
+  //       }
+  //     } else if (response?.rd[0]?.stat == 2) {
+  //       setErrorMessageColor("error");
+  //       setErrorMessage("No Records Found");
+  //       setOpenSnackbar(true);
+  //       setIsLoading(false);
+  //     } else {
+  //       setSpData(response);
+  //       setIsLoading(false);
+  //       setShowReportMaster(false);
+  //       setIsLoading(false);
+  //     }
+  //   } catch (error) {
+  //     console.error("getReportData failed:", error);
+  //   }
+  // };
+
+  const handleDateSelection = (option) => {
+    setSelectedDateOption((prev) => (prev === option ? "" : option));
   };
 
   const handleSelection = (fieldKey, item) => {
@@ -359,12 +494,155 @@ export default function ReportHome({
     });
   };
 
+  const getDateRange = (option) => {
+    const today = new Date();
+    let startDate = null;
+    let endDate = null;
+
+    switch (option) {
+      case "Today":
+        startDate = endDate = today;
+        break;
+      case "Yesterday":
+        startDate = endDate = new Date(today);
+        startDate.setDate(today.getDate() - 1);
+        break;
+      case "This Week": {
+        const day = today.getDay(); // 0 (Sun) to 6 (Sat)
+        startDate = new Date(today);
+        startDate.setDate(today.getDate() - day);
+        endDate = today;
+        break;
+      }
+      case "Last Week": {
+        const day = today.getDay();
+        endDate = new Date(today);
+        endDate.setDate(today.getDate() - day - 1);
+        startDate = new Date(endDate);
+        startDate.setDate(endDate.getDate() - 6);
+        break;
+      }
+      case "Last 7 Days":
+        endDate = today;
+        startDate = new Date(today);
+        startDate.setDate(today.getDate() - 6);
+        break;
+      case "This Month":
+        startDate = new Date(today.getFullYear(), today.getMonth(), 1);
+        endDate = today;
+        break;
+      case "Last Month":
+        startDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+        endDate = new Date(today.getFullYear(), today.getMonth(), 0);
+        break;
+      case "Last 3 Months":
+        endDate = today;
+        startDate = new Date(
+          today.getFullYear(),
+          today.getMonth() - 3,
+          today.getDate() + 1
+        );
+        break;
+      case "Last 6 Months":
+        endDate = today;
+        startDate = new Date(
+          today.getFullYear(),
+          today.getMonth() - 6,
+          today.getDate() + 1
+        );
+        break;
+      case "1 Year":
+        endDate = today;
+        startDate = new Date(
+          today.getFullYear() - 1,
+          today.getMonth(),
+          today.getDate() + 1
+        );
+        break;
+      default:
+        break;
+    }
+
+    const format = (d) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+        d.getDate()
+      ).padStart(2, "0")}`;
+
+    return startDate && endDate
+      ? { FilterStartDate: format(startDate), FilterEndDate: format(endDate) }
+      : {};
+  };
+
+  // const handleSave = () => {
+  //   const activeSelections = Object.entries(selectedValues).filter(
+  //     ([, v]) => Array.isArray(v) && v.length > 0
+  //   );
+  //   if (!activeSelections.length) {
+  //     alert("Please select at least one record before saving.");
+  //     return;
+  //   }
+
+  //   let FilterHeaders = [];
+  //   let FilterValues = [];
+  //   let formattedSelections = [];
+
+  //   activeSelections.forEach(([header, values]) => {
+  //     FilterHeaders.push(header);
+
+  //     // Find matching field group (like rd2)
+  //     const fieldGroup = Object.values(masterFields)
+  //       .flat()
+  //       .filter((obj) => obj.MasterType === header);
+
+  //     // Try to find display values (for UI) from masterFields
+  //     const displayValues = values
+  //       .map((val) => {
+  //         const match = fieldGroup.find((obj) => {
+  //           // match either by ID or by direct value
+  //           const idKey = Object.keys(obj).find(
+  //             (k) => k.toLowerCase().includes("id") && k !== "MasterId"
+  //           );
+  //           return (
+  //             obj[idKey] == val ||
+  //             obj[header] == val ||
+  //             obj[obj.MasterType] == val
+  //           );
+  //         });
+  //         if (match) {
+  //           // pick the first readable value (not MasterType/Id)
+  //           const displayKey = Object.keys(match).find(
+  //             (k) =>
+  //               !["MasterId", "MasterType", "FriendlyName"].includes(k) &&
+  //               !k.toLowerCase().includes("id")
+  //           );
+  //           return match[displayKey] || val;
+  //         }
+  //         return val;
+  //       })
+  //       .filter(Boolean);
+
+  //     FilterValues.push(values.join(","));
+  //     const friendlyName = fieldGroup?.[0]?.FriendlyName || header;
+
+  //     formattedSelections.push({
+  //       name: friendlyName?.trim() || header,
+  //       value: displayValues.join(","),
+  //     });
+  //   });
+
+  //   const FilterHeader = FilterHeaders.join("#");
+  //   const FilterValue = FilterValues.join("#");
+  //   setFilteredValue(formattedSelections);
+  //   fetchReportData({ FilterHeader, FilterValue }, "0");
+  // };
+
   const handleSave = () => {
     const activeSelections = Object.entries(selectedValues).filter(
       ([, v]) => Array.isArray(v) && v.length > 0
     );
-    if (!activeSelections.length) {
-      alert("Please select at least one record before saving.");
+
+    if (!activeSelections.length && !selectedDateOption) {
+      alert("Please select at least one record or date before saving.");
       return;
     }
 
@@ -374,94 +652,228 @@ export default function ReportHome({
 
     activeSelections.forEach(([header, values]) => {
       FilterHeaders.push(header);
-      FilterValues.push(values.join(","));
-      const friendlyName = Object.values(masterFields)
+
+      const fieldGroup = Object.values(masterFields)
         .flat()
-        .find((obj) => obj.MasterType === header)?.FriendlyName;
+        .filter((obj) => obj.MasterType === header);
+
+      const displayValues = values
+        .map((val) => {
+          const match = fieldGroup.find((obj) => {
+            const idKey = Object.keys(obj).find(
+              (k) => k.toLowerCase().includes("id") && k !== "MasterId"
+            );
+            return (
+              obj[idKey] == val ||
+              obj[header] == val ||
+              obj[obj.MasterType] == val
+            );
+          });
+          if (match) {
+            const displayKey = Object.keys(match).find(
+              (k) =>
+                !["MasterId", "MasterType", "FriendlyName"].includes(k) &&
+                !k.toLowerCase().includes("id")
+            );
+            return match[displayKey] || val;
+          }
+          return val;
+        })
+        .filter(Boolean);
+
+      FilterValues.push(values.join(","));
+      const friendlyName = fieldGroup?.[0]?.FriendlyName || header;
+
       formattedSelections.push({
         name: friendlyName?.trim() || header,
-        value: values.join(","),
+        value: displayValues.join(","),
       });
     });
 
+    // 🔹 Handle Date Filters
+    const dateFilters = getDateRange(selectedDateOption);
+    if (
+      selectedDateOption &&
+      dateFilters?.FilterStartDate &&
+      dateFilters?.FilterEndDate
+    ) {
+      formattedSelections.push({
+        name: "Date",
+        value: `${selectedDateOption} (${dateFilters.FilterStartDate} → ${dateFilters.FilterEndDate})`,
+      });
+    }
+
     const FilterHeader = FilterHeaders.join("#");
     const FilterValue = FilterValues.join("#");
+
+    // 🔹 Update display filter list
     setFilteredValue(formattedSelections);
-    fetchReportData({ FilterHeader, FilterValue }, "0");
+
+    // 🔹 Call API (normal filters only)
+    fetchReportData(
+      {
+        FilterHeader,
+        FilterValue,
+        ...dateFilters,
+      },
+      "0"
+    );
   };
 
   const handleBack = () => {
     setShowReportMaster(true);
   };
-
   return (
     <DragDropContext onDragEnd={() => {}}>
+      {/* {isLoading && (
+        <div className="loader-overlay">
+          <CircularProgress className="loadingBarManage" />
+        </div>
+      )} */}
       <SwitchTransition>
         <CSSTransition
           key={showReportMaster ? "master" : "report"}
           timeout={600}
           classNames="fade-slide"
           nodeRef={showReportMaster ? masterRef : reportRef}
+          style={{
+            overflow: "hidden",
+          }}
         >
           {showReportMaster ? (
             <div ref={masterRef} className="master-container">
               <div className="report_master_header">
                 <p className="topHeader_title">Report Filter Panel</p>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    marginLeft: "20px",
+                  }}
+                >
+                  <Button
+                    className="Btn_Show_Report"
+                    disableElevation
+                    onClick={handleSave}
+                  >
+                    <p>Show Report</p>
+                    <ArrowRight />
+                  </Button>
+                </div>
               </div>
 
-              <Container
-                sx={{
-                  maxWidth: "95% !important",
-                  margin: "10px auto",
-                  height: "85vh",
-                }}
-              >
-                <Grid container spacing={2}>
-                  {parsedTitles.map(({ field, title }, idx) => {
-                    const dataArray =
-                      Object.values(masterFields).find((arr) =>
-                        arr.some((item) => item.hasOwnProperty(field))
-                      ) || [];
-
-                    return (
-                      <Grid item key={idx}>
-                        <SelectionBox
-                          title={title}
-                          data={dataArray}
-                          selected={selectedValues[field] || []}
-                          setSelected={(val) => handleSelection(field, val)}
-                          clearAll={() => clearFieldSelections(field)}
-                          loading={loadingMaster}
-                        />
-                      </Grid>
-                    );
-                  })}
-
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      marginLeft: "20px",
-                      width:
-                        Object.entries(masterFields).length % 5 === 0 && "100%",
-                      justifyContent:
-                        Object.entries(masterFields).length % 5 === 0 &&
-                        "center",
-                      margin:
-                        Object.entries(masterFields).length % 5 === 0 && "20px",
-                    }}
-                  >
-                    <Button
-                      className="Btn_Show_Report"
-                      disableElevation
-                      onClick={handleSave}
-                    >
-                      <p>Show Report</p>
-                      <ArrowRight />
-                    </Button>
-                  </div>
-                </Grid>
-              </Container>
+              <div className="reportOption_main">
+                {dateOptionsShow && (
+                  <Grid item>
+                    <div className="selection-box">
+                      <div
+                        className="selection-header"
+                        style={{
+                          minHeight: "50px",
+                          borderBottom: " 1px solid #ddd",
+                          padding: "6px 6px 10px 6px",
+                        }}
+                      >
+                        <p
+                          className="selection-title"
+                          style={{
+                            width: "100%",
+                            maxWidth: "100%",
+                            textAlign: "center",
+                          }}
+                        >
+                          Date
+                        </p>
+                      </div>
+                      <div
+                        className="master-box"
+                        style={{ maxHeight: "310px" }}
+                      >
+                        {loadingMaster ? (
+                          Array.from(new Array(6)).map((_, idx) => (
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                marginBottom: 8,
+                              }}
+                            >
+                              <Skeleton
+                                variant="circular"
+                                width={24}
+                                height={24}
+                              />
+                              <Skeleton
+                                variant="text"
+                                width={120}
+                                height={24}
+                                style={{ marginLeft: 8 }}
+                              />
+                            </div>
+                          ))
+                        ) : (
+                          <div className="dateOption">
+                            <div>
+                              {dateOptions.filter((option) => option.IsOn)
+                                .length > 0 ? (
+                                dateOptions
+                                  .filter((option) => option.IsOn)
+                                  .map((option) => (
+                                    <label
+                                      key={option.DateFrameId}
+                                      className="master-item"
+                                      style={{
+                                        cursor: "pointer",
+                                        display: "flex",
+                                        alignItems: "center",
+                                      }}
+                                    >
+                                      <Checkbox
+                                        sx={{ padding: "2px" }}
+                                        checked={
+                                          selectedDateOption ===
+                                          option.DateFrame
+                                        }
+                                        onChange={() =>
+                                          handleDateSelection(option.DateFrame)
+                                        }
+                                      />
+                                      <span>{option.DateFrame}</span>
+                                    </label>
+                                  ))
+                              ) : (
+                                <p
+                                  style={{ textAlign: "center", color: "#888" }}
+                                >
+                                  No date options available
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        )}{" "}
+                      </div>
+                    </div>
+                  </Grid>
+                )}
+                {parsedTitles?.map(({ field, title }, idx) => {
+                  const dataArray =
+                    Object.values(masterFields).find((arr) =>
+                      arr.some((item) => item.hasOwnProperty(field))
+                    ) || [];
+                  return (
+                    <Grid item key={idx}>
+                      <SelectionBox
+                        title={title}
+                        data={dataArray}
+                        selected={selectedValues[field] || []}
+                        setSelected={(val) => handleSelection(field, val)}
+                        clearAll={() => clearFieldSelections(field)}
+                        loading={loadingMaster}
+                      />
+                    </Grid>
+                  );
+                })}
+              </div>
             </div>
           ) : (
             <div ref={reportRef} className="report-container">
@@ -475,6 +887,7 @@ export default function ReportHome({
                 onSearchFilter={fetchReportData}
                 serverSideData={serverSideData}
                 isLoadingChek={isLoading}
+                reportName={reportName}
               />
             </div>
           )}
@@ -486,8 +899,14 @@ export default function ReportHome({
         autoHideDuration={5000}
         onClose={() => setOpenSnackbar(false)}
         anchorOrigin={{ vertical: "top", horizontal: "center" }}
+        style={{
+          zIndex: 999999999,
+        }}
       >
-        <Alert severity="error" onClose={() => setOpenSnackbar(false)}>
+        <Alert
+          severity={errorMessageColor}
+          onClose={() => setOpenSnackbar(false)}
+        >
           {errorMessage}
         </Alert>
       </Snackbar>

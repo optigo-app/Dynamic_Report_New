@@ -9,6 +9,7 @@ import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import "react-datepicker/dist/react-datepicker.css";
 import { RiFullscreenLine } from "react-icons/ri";
+import ReactDOM from "react-dom/client";
 import {
   Accordion,
   AccordionDetails,
@@ -86,6 +87,7 @@ import { CallApi } from "../../../../API/CallApi/CallApi";
 import { FaPrint } from "react-icons/fa";
 import dayjs from "dayjs";
 import { ReportCallApi } from "../../../../API/ReportCommonAPI/ReportCallApi";
+import Print1JewelleryBook from "./Print1JewelleryBook";
 const EXCEL_TYPE =
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8";
 
@@ -125,6 +127,11 @@ const DraggableColumn = ({
               <Checkbox
                 checked={!!checkedColumns[col.FieldName]}
                 onChange={() => handleCheckboxChange(col.FieldName)}
+                sx={{
+                  "&.Mui-checked": {
+                    color: "rgb(115, 103, 240)",
+                  },
+                }}
               />
             }
             sx={{
@@ -287,15 +294,15 @@ export default function MainReport({
   onSearchFilter,
   serverSideData,
   isLoadingChek,
+  reportName,
 }) {
-  console.log('filteredValuefilteredValue', filteredValue);
-  
   const [isLoading, setIsLoading] = useState(isLoadingChek);
   const gridContainerRef = useRef(null);
   const [showImageView, setShowImageView] = useState(false);
   const [openPopup, setOpenPopup] = useState(false);
   const [columSaveLoding, setColumSaveLoding] = useState(false);
   const [openHrefModel, setOpenHrefModel] = useState(false);
+  const [openPrintModel, setOpenPrintModel] = useState(false);
   const [columns, setColumns] = useState([]);
   const [columnsHide, setColumnsHide] = useState([]);
   const [allColumData, setAllColumData] = useState();
@@ -314,18 +321,16 @@ export default function MainReport({
   //Date Filters
   const [dateColumnOptions, setDateColumnOptions] = useState([]);
   const [selectedDateColumn, setSelectedDateColumn] = useState("");
+  const [filteredValueState, setFilteredValue] = useState();
   const [filterState, setFilterState] = useState({
     dateRange: { startDate: null, endDate: null },
   });
-  const [filteredValueState, setFilteredValue] = useState();
-
   const startDate = filterState?.dateRange?.startDate;
   const endDate = filterState?.dateRange?.endDate;
+
   const apiRef = useGridApiRef();
-  const [grupEnChekBox, setGrupEnChekBox] = useState({
-    empbarcode: true,
-    dept: true,
-  });
+  const [grupEnChekBox, setGrupEnChekBox] = useState({});
+  const [grupEnChekBoxImage, setGrupEnChekBoxImage] = useState([]);
   const [paginationModel, setPaginationModel] = useState({
     page: 0,
     pageSize: 20,
@@ -334,7 +339,10 @@ export default function MainReport({
   const pid = searchParams.get("pid");
   const firstTimeLoadedRef = useRef(false);
   const [showReportMaster, setShowReportMaster] = useState(showBackErrow);
-  const [isPageChanging, setIsPageChanging] = React.useState(false);
+  const [isPageChanging, setIsPageChanging] = useState(false);
+  const [showPrintView, setShowPrintView] = useState(false);
+  const [printData, setPrintData] = useState([]);
+  const printRef = useRef();
 
   useEffect(() => {
     setShowReportMaster(showBackErrow);
@@ -412,6 +420,15 @@ export default function MainReport({
           acc[col.FieldName] = col.DefaultGrupChekBox == "True";
           return acc;
         }, {});
+
+      const grupCheckboxArray = (rd1 || [])
+        .filter((col) => col?.GroupColumnImageView == "True")
+        .map((col) => ({
+          FieldName: col.FieldName,
+          DefaultGrupChekBox: col.DefaultGrupChekBox == "True",
+        }));
+
+      setGrupEnChekBoxImage(grupCheckboxArray);
       setGrupEnChekBox(grupCheckboxMap);
       setStatus500(false);
     } catch (error) {
@@ -440,6 +457,14 @@ export default function MainReport({
       ...prev,
       [field]: !prev[field],
     }));
+
+    setGrupEnChekBoxImage((prev) =>
+      prev.map((item) =>
+        item.FieldName === field
+          ? { ...item, DefaultGrupChekBox: !item.DefaultGrupChekBox }
+          : item
+      )
+    );
   };
 
   useEffect(() => {
@@ -459,7 +484,12 @@ export default function MainReport({
                     onClick={(e) => e.stopPropagation()}
                     onChange={() => handleGrupEnChekBoxChange(col.FieldName)}
                     size="small"
-                    sx={{ p: 0 }}
+                    sx={{
+                      p: 0,
+                      "&.Mui-checked": {
+                        color: "rgb(115, 103, 240)",
+                      },
+                    }}
                   />
                 )}
               {col.HeaderName}
@@ -500,6 +530,8 @@ export default function MainReport({
           renderCell: (params) => {
             const displayValue = params.value;
             if (col?.ImageColumn == "True") {
+              const src =
+                String(params?.row?.ImgUrl ?? "").trim() || noFoundImg;
               return (
                 <div
                   style={{
@@ -510,11 +542,11 @@ export default function MainReport({
                   }}
                 >
                   <img
-                    src={params?.row?.ImgUrl}
+                    src={src}
                     style={{
                       height: "35px",
                       width: "35px",
-                      borderRadius: "50px",
+                      borderRadius: "5px",
                     }}
                   />
                 </div>
@@ -696,6 +728,7 @@ export default function MainReport({
       sortable: false,
       DisplayOrder: "1",
       filterable: false,
+      ColumnAlign: "left",
       renderCell: (params) => {
         const isChecked = selectionModel.includes(params.id);
         return (
@@ -767,6 +800,7 @@ export default function MainReport({
     () => buildMasterValueMap(masterData),
     [masterData]
   );
+
   const originalRows =
     allColumIdWiseName &&
     allRowData?.map((row, index) => {
@@ -805,11 +839,12 @@ export default function MainReport({
 
   const [filteredRows, setFilteredRows] = useState(originalRows);
   const [filters, setFilters] = useState({});
+  const [filtersShow, setFiltersShow] = useState({});
   const firstLoad = useRef(true);
 
   useEffect(() => {
-    const filtersArray = filters
-      ? Object.entries(filters)
+    const filtersArray = filtersShow
+      ? Object.entries(filtersShow)
           .filter(
             ([_, value]) =>
               value !== "" && value !== null && value !== undefined
@@ -821,15 +856,15 @@ export default function MainReport({
       ...filtersArray,
       ...(Array.isArray(filteredValue) ? filteredValue : []),
     ];
+    console.log("filtersShowfiltersShow merged", merged);
 
     const uniqueMerged = merged.reduce((acc, current) => {
       const exists = acc.find((item) => item.name === current.name);
       if (!exists) acc.push(current);
       return acc;
     }, []);
-
     setFilteredValue(uniqueMerged);
-  }, [filters, filteredValue]);
+  }, [filters, filteredValue, filtersShow]);
 
   useEffect(() => {
     const newFilteredRows = originalRows?.filter((row) => {
@@ -887,6 +922,7 @@ export default function MainReport({
           isMatch = false;
         }
       }
+
       if (isMatch && commonSearch) {
         const searchText = commonSearch.toLowerCase();
         const hasMatch = Object.values(row).some((value) =>
@@ -915,7 +951,7 @@ export default function MainReport({
     // }
   }, [filters, commonSearch, startDate, columns, selectedDateColumn]);
 
-  const handleFilterChange = (FieldName, value, filterType) => {
+  const handleFilterChange = (FieldName, value, filterType, HeaderName) => {
     setFilters((prevFilters) => {
       if (filterType === "MultiSelection") {
         const selectedValues = prevFilters[FieldName] || [];
@@ -937,6 +973,28 @@ export default function MainReport({
         [FieldName]: value,
       };
     });
+
+    setFiltersShow((prevFilters) => {
+      if (filterType === "MultiSelection") {
+        const selectedValues = prevFilters[HeaderName] || [];
+        let newValues;
+
+        if (value.checked) {
+          newValues = [...selectedValues, value.value];
+        } else {
+          newValues = selectedValues.filter((v) => v !== value.value);
+        }
+
+        return {
+          ...prevFilters,
+          [HeaderName]: newValues,
+        };
+      }
+      return {
+        ...prevFilters,
+        [HeaderName]: value,
+      };
+    });
   };
 
   const renderFilter = (col) => {
@@ -955,7 +1013,12 @@ export default function MainReport({
                 value={filters[col.FieldName] || ""}
                 style={{ width: "100%" }}
                 onChange={(e) =>
-                  handleFilterChange(col.FieldName, e.target.value)
+                  handleFilterChange(
+                    col.FieldName,
+                    e.target.value,
+                    "",
+                    col.headerNamesingle
+                  )
                 }
                 className="customize_colum_input"
                 InputLabelProps={{
@@ -989,6 +1052,29 @@ export default function MainReport({
     });
   };
 
+  const SERVER_SEP = "###";
+  const serverFiltersRef = useRef({});
+  const currentReportFiltersRef = useRef({ FilterHeader: "", FilterValue: "" });
+
+  const buildFilterStrings = () => {
+    const { FilterHeader = "", FilterValue = "" } =
+      currentReportFiltersRef.current;
+
+    const serverKeys = Object.keys(serverFiltersRef.current || {});
+    const serverVals = serverKeys.map((k) => serverFiltersRef.current[k] || "");
+
+    return {
+      FilterHeader,
+      FilterValue,
+      ServerFilterHeader: serverKeys.length
+        ? serverKeys.join(SERVER_SEP) + SERVER_SEP
+        : "",
+      ServerFilterValue: serverVals.length
+        ? serverVals.join(SERVER_SEP) + SERVER_SEP
+        : "",
+    };
+  };
+
   const renderServerSideFilter = (col) => {
     if (!col.filterTypes || col.filterTypes.length === 0) return null;
 
@@ -1000,6 +1086,7 @@ export default function MainReport({
       );
       const value = filterItem?.value || "";
 
+      /** Handle text change */
       const handleChange = (e) => {
         const newValue = e.target.value;
         setFilteredValue((prev = []) => {
@@ -1016,45 +1103,74 @@ export default function MainReport({
         });
       };
 
+      /** Handle Enter key (apply filter) */
       const handleEnter = (e) => {
         if (e.key !== "Enter") return;
         const enteredValue = e.target.value.trim();
         if (!enteredValue) return;
-        const updatedFilters = filteredValueState?.some(
+
+        // Update UI filter state
+        const updated = filteredValueState?.some(
           (f) => f.name === col.headerNamesingle
         )
-          ? filteredValueState
-          : [{ name: col.headerNamesingle, value: enteredValue }];
+          ? filteredValueState.map((f) =>
+              f.name === col.headerNamesingle
+                ? { ...f, value: enteredValue }
+                : f
+            )
+          : [
+              ...(filteredValueState || []),
+              { name: col.headerNamesingle, value: enteredValue },
+            ];
+        setFilteredValue(updated);
 
-        updatedFilters.forEach((f) => {
-          if (f.name === col.headerNamesingle) f.value = enteredValue;
-        });
-        onSearchFilter?.(
-          updatedFilters.map((f) => ({
-            FilterHeader: f.name,
-            FilterValue: f.value,
-          })),
-          "-1"
-        );
+        // Update ref store (server filters)
+        serverFiltersRef.current = {
+          ...serverFiltersRef.current,
+          [col.FieldName]: enteredValue,
+        };
+
+        // Build combined filter payload
+        const parts = buildFilterStrings();
+
+        // ✅ Case 1: Has normal + server filters
+        // ✅ Case 2: Only server filters
+        const mergedPayload = {
+          ...(parts.FilterHeader && { FilterHeader: parts.FilterHeader }),
+          ...(parts.FilterValue && { FilterValue: parts.FilterValue }),
+          ...(parts.ServerFilterHeader && {
+            ServerFilterHeader: parts.ServerFilterHeader,
+          }),
+          ...(parts.ServerFilterValue && {
+            ServerFilterValue: parts.ServerFilterValue,
+          }),
+        };
+
+        onSearchFilter?.([mergedPayload], "-1");
       };
 
       const handleClear = () => {
         setFilteredValue((prev) =>
           prev.filter((f) => f.name !== col.headerNamesingle)
         );
-        const remainingFilters = filteredValueState?.filter(
-          (f) => f.name !== col.headerNamesingle
-        );
 
-        onSearchFilter?.(
-          remainingFilters?.length
-            ? remainingFilters.map((f) => ({
-                FilterHeader: f.name,
-                FilterValue: f.value,
-              }))
-            : [],
-          "-1"
-        );
+        const copy = { ...serverFiltersRef.current };
+        delete copy[col.FieldName];
+        serverFiltersRef.current = copy;
+
+        const parts = buildFilterStrings();
+        const mergedPayload = {
+          ...(parts.FilterHeader && { FilterHeader: parts.FilterHeader }),
+          ...(parts.FilterValue && { FilterValue: parts.FilterValue }),
+          ...(parts.ServerFilterHeader && {
+            ServerFilterHeader: parts.ServerFilterHeader,
+          }),
+          ...(parts.ServerFilterValue && {
+            ServerFilterValue: parts.ServerFilterValue,
+          }),
+        };
+
+        onSearchFilter?.([mergedPayload], "-1");
       };
 
       return (
@@ -1067,7 +1183,6 @@ export default function MainReport({
             variant="outlined"
             style={{ width: "100%" }}
             className="customize_colum_input"
-            InputLabelProps={{ style: { fontFamily: "Poppins, sans-serif" } }}
             InputProps={{
               style: { height: 36, fontSize: 16, width: "100%" },
               endAdornment: value ? (
@@ -1077,11 +1192,6 @@ export default function MainReport({
                   </IconButton>
                 </InputAdornment>
               ) : null,
-            }}
-            sx={{
-              "& .MuiInputLabel-root": { top: "-8px" },
-              "& .MuiInputLabel-root.Mui-focused": { top: "0px" },
-              "& .MuiInputLabel-root.MuiInputLabel-shrink": { top: "0px" },
             }}
             value={value}
             onChange={handleChange}
@@ -1124,6 +1234,7 @@ export default function MainReport({
     return filtersToRender.map((filterType) => {
       if (filterType !== "suggestionFilter") return null;
       const field = col.field;
+      const headerName = col.headerNameSub;
       const inputValue = filters[field]?.toLowerCase() || "";
       const suggestions =
         inputValue.length > 0
@@ -1140,13 +1251,13 @@ export default function MainReport({
           : [];
 
       const handleInputChange = (value) => {
-        handleFilterChange(field, value.trimStart());
+        handleFilterChange(field, value.trimStart(), "", headerName);
         setSuggestionVisibility((prev) => ({ ...prev, [field]: true }));
         setHighlightedIndex((prev) => ({ ...prev, [field]: 0 }));
       };
 
       const handleSelectSuggestion = (value) => {
-        handleFilterChange(field, value);
+        handleFilterChange(field, value, "", headerName);
         setSuggestionVisibility((prev) => ({ ...prev, [field]: false }));
         setHighlightedIndex((prev) => ({ ...prev, [field]: 0 }));
       };
@@ -1275,7 +1386,12 @@ export default function MainReport({
                   name={`Select ${col.headerNameSub}`}
                   value={filters[col.field] || ""}
                   onChange={(e) =>
-                    handleFilterChange(col.field, e.target.value)
+                    handleFilterChange(
+                      col.field,
+                      e.target.value,
+                      "",
+                      col.headerNameSub
+                    )
                   }
                   style={{
                     height: 40, // input height
@@ -1475,6 +1591,7 @@ export default function MainReport({
     );
     return String(columnData?.Summary).toLowerCase() === "true";
   });
+
   const renderSummary = () => {
     return (
       <div
@@ -1571,9 +1688,11 @@ export default function MainReport({
   function mapRowsToHeaders(columns, rows) {
     const isIsoDateTime = (str) =>
       typeof str === "string" && /^\d{4}-\d{2}-\d{2}T/.test(str);
+
     const fieldToHeader = {};
     columns?.forEach((col) => {
       let header = "";
+
       if (typeof col.headerName === "string") {
         header = col.headerName;
       } else if (col.headerNamesingle) {
@@ -1584,20 +1703,25 @@ export default function MainReport({
       ) {
         header = col.headerName.props.children[1];
       }
+
+      if (!header && col.field === "sr") {
+        header = "Sr#"; // fallback header
+      }
+
       fieldToHeader[col.field] = header;
     });
+
     return rows?.map((row, idx) => {
       const ordered = {};
       columns?.forEach((col) => {
         const header = fieldToHeader[col.field];
         let value = row[col.field] ?? "";
-        if (header === "Sr#") {
-          value = idx + 1;
-        }
-        if (col.field === "Venderfgage") {
-          let finalDate = 0;
+
+        if (col.field === "sr") value = idx + 1;
+        else if (col.field === "Venderfgage") {
           const fgDateStr = row.fgdate;
           const outsourceDateStr = row.outsourcedate;
+          let finalDate = 0;
           if (fgDateStr && outsourceDateStr) {
             const diff =
               new Date(fgDateStr).getTime() -
@@ -1606,9 +1730,9 @@ export default function MainReport({
           }
           value = finalDate;
         } else if (col.field === "Fgage") {
-          let finalDate = 0;
           const fgDateStr = row.fgdate;
           const orderDateStr = row.orderdate;
+          let finalDate = 0;
           if (fgDateStr && orderDateStr) {
             const diff =
               new Date(fgDateStr).getTime() - new Date(orderDateStr).getTime();
@@ -1616,6 +1740,7 @@ export default function MainReport({
           }
           value = finalDate;
         }
+
         if (isIsoDateTime(value)) {
           const dateObj = new Date(value);
           const day = String(dateObj.getDate()).padStart(2, "0");
@@ -1623,8 +1748,10 @@ export default function MainReport({
           const year = dateObj.getFullYear();
           value = `${day}-${month}-${year}`;
         }
+
         ordered[header] = value;
       });
+
       return ordered;
     });
   }
@@ -1653,13 +1780,15 @@ export default function MainReport({
       })
       .replace(/[/:]/g, "-")
       .replace(/, /g, "_");
-    const fileName = `Report_${dateString}.xlsx`;
+    const fileName = `${reportName}_${dateString}.xlsx`;
     saveAs(data, fileName);
   };
 
   const handleClearFilter = () => {
     setCommonSearch("");
+    setFiltersShow();
     setFilters({});
+    setFilteredValue();
   };
 
   const handleSendEmail = () => {
@@ -1686,26 +1815,57 @@ export default function MainReport({
   };
 
   const handlePrint = () => {
-    if (!gridRef.current) return;
-    const gridHTML = gridRef.current.innerHTML;
-    const printWindow = window.open("", "_blank", "width=1000,height=600");
-    if (printWindow) {
-      printWindow.document.write(`
-      <html>
-        <head>
-          <title>Grid Print</title>
-        </head>
-        <body>
-          <div>${gridHTML}</div>
-        </body>
-      </html>
-    `);
+    setPrintData(filteredRows);
+    setTimeout(() => {
+      if (printRef.current) {
+        const printContents = printRef.current.innerHTML;
+        const printWindow = window.open("", "_blank", "width=1000,height=800");
 
-      printWindow.document.close();
-      printWindow.focus();
-      printWindow.print();
-      printWindow.close();
-    }
+        // ✅ Copy all <link> and <style> tags from the current document
+        const styles = Array.from(
+          document.querySelectorAll('link[rel="stylesheet"], style')
+        )
+          .map((node) => node.outerHTML)
+          .join("\n");
+
+        printWindow.document.write(`
+        <html>
+          <head>
+            <title>Print Jewellery Book</title>
+            ${styles}
+            <style>
+              @page {
+                size: A4;
+                margin: 10mm;
+              }
+              body {
+                font-family: 'Roboto', Arial, sans-serif;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+                padding: 10px;
+              }
+              img {
+                max-width: 100%;
+                height: auto;
+              }
+            </style>
+          </head>
+          <body>
+            ${printContents}
+          </body>
+        </html>
+      `);
+
+        printWindow.document.close();
+        printWindow.focus();
+
+        // Wait a bit for CSS to load before triggering print
+        setTimeout(() => {
+          printWindow.print();
+          printWindow.close();
+        }, 500);
+      }
+    }, 100);
   };
 
   const handlePaginationChange = (newModel) => {
@@ -1740,31 +1900,23 @@ export default function MainReport({
   };
 
   const groupRows = (rows, groupCheckBox) => {
+    if (!Array.isArray(rows)) return [];
     const grouped = [];
-    if (!Array.isArray(rows)) {
-      return grouped;
-    }
-
-    // ✅ Check if all are true
     const allTrue = Object.values(groupCheckBox).every(Boolean);
     if (allTrue) {
-      // return rows directly with id & srNo
       return rows.map((item, index) => ({
         ...item,
         id: index,
         srNo: index + 1,
       }));
     }
-
-    // ✅ Otherwise do grouping
     const tempGrouped = {};
     rows.forEach((row) => {
       const newRow = { ...row };
       const keyParts = [];
-
       for (const [field, checked] of Object.entries(groupCheckBox)) {
         if (checked) {
-          keyParts.push(newRow[field]);
+          keyParts.push(row[field] ?? "");
         } else {
           newRow[field] = "-";
         }
@@ -1775,10 +1927,14 @@ export default function MainReport({
         tempGrouped[groupKey] = { ...newRow };
       } else {
         for (const col of allColumData) {
-          if (!col.GroupCheckBox && typeof newRow[col.field] === "number") {
-            tempGrouped[groupKey][col.field] =
-              (tempGrouped[groupKey][col.field] || 0) +
-              (newRow[col.field] || 0);
+          const fieldName = col.FieldName;
+          const isGroupCol =
+            col.GrupChekBox === "True" && groupCheckBox[fieldName];
+          const isNumeric = col.ColumnType === "Number";
+          if (!isGroupCol && isNumeric) {
+            const oldVal = Number(tempGrouped[groupKey][fieldName]) || 0;
+            const newVal = Number(row[fieldName]) || 0;
+            tempGrouped[groupKey][fieldName] = oldVal + newVal;
           }
         }
       }
@@ -1790,6 +1946,55 @@ export default function MainReport({
       srNo: index + 1,
     }));
   };
+
+  //   const groupRows = (rows, groupCheckBox) => {
+  //   const grouped = [];
+  //   if (!Array.isArray(rows)) {
+  //     return grouped;
+  //   }
+
+  //   const allTrue = Object.values(groupCheckBox).every(Boolean);
+  //   if (allTrue) {
+  //     return rows.map((item, index) => ({
+  //       ...item,
+  //       id: index,
+  //       srNo: index + 1,
+  //     }));
+  //   }
+
+  //   const tempGrouped = {};
+  //   rows.forEach((row) => {
+  //     const newRow = { ...row };
+  //     const keyParts = [];
+
+  //     for (const [field, checked] of Object.entries(groupCheckBox)) {
+  //       if (checked) {
+  //         keyParts.push(newRow[field]);
+  //       } else {
+  //         newRow[field] = "-";
+  //       }
+  //     }
+
+  //     const groupKey = keyParts.join("|");
+  //     if (!tempGrouped[groupKey]) {
+  //       tempGrouped[groupKey] = { ...newRow };
+  //     } else {
+  //       for (const col of allColumData) {
+  //         if (!col.GroupCheckBox && typeof newRow[col.field] === "number") {
+  //           tempGrouped[groupKey][col.field] =
+  //             (tempGrouped[groupKey][col.field] || 0) +
+  //             (newRow[col.field] || 0);
+  //         }
+  //       }
+  //     }
+  //   });
+
+  //   return Object.values(tempGrouped).map((item, index) => ({
+  //     ...item,
+  //     id: index,
+  //     srNo: index + 1,
+  //   }));
+  // };
 
   const allChecked = useMemo(
     () => Object.values(grupEnChekBox).every((val) => val === true),
@@ -1823,12 +2028,12 @@ export default function MainReport({
         IsVisible: col.IsVisible,
         DisplayOrder: col.DisplayOrder,
       }));
-      let AllData = JSON.parse(sessionStorage.getItem("AuthqueryParams"));
+      let AllData = JSON.parse(sessionStorage.getItem("reportVarible"));
 
       const body = {
         con: JSON.stringify({
           mode: "updateCompanyReportColumns",
-          appuserid: AllData?.uid,
+          appuserid: AllData?.LUId,
         }),
         p: JSON.stringify({
           ReportId: reportId,
@@ -1868,11 +2073,12 @@ export default function MainReport({
     }
 
     const actionIds = selectionModel.join("###");
+    let AllData = JSON.parse(sessionStorage.getItem("reportVarible"));
     const body = {
       con: JSON.stringify({
         id: "",
         mode: "SetAction",
-        appuserid: "harrine@gmail.com", // make dynamic if needed
+        appuserid: AllData?.LUId,
       }),
       p: JSON.stringify({
         ReportId: String(activeActionColumn.ReportId),
@@ -1909,225 +2115,322 @@ export default function MainReport({
   };
 
   const handleAllDataShow = () => {
-    setFilterState({
-      ...filterState,
-      dateRange: {
-        startDate: new Date("1990-01-01T18:30:00.000Z"),
-        endDate: new Date(),
-      },
-    });
+    setIsPageChanging(true);
+    setTimeout(() => {
+      setIsPageChanging(false);
+    }, 400);
+    const allStart = new Date("1990-01-01T18:30:00.000Z");
+    const allEnd = new Date();
+    setFilterState((prev) => ({
+      ...prev,
+      dateRange: { startDate: allStart, endDate: allEnd },
+    }));
+    const pickerInput = document.querySelector(
+      'input[aria-label="Date Range"]'
+    );
+    if (pickerInput) pickerInput.value = "";
     setCommonSearch("");
+    setSelectedDateColumn();
+    setFiltersShow();
     setFilters({});
     setFilteredValue();
+
     if (!showReportMaster) {
       filteredValueState != 0 && onSearchFilter?.({}, "2");
     }
   };
 
-  console.log("filteredValueState", filteredValueState);
+  // const handleAllDataShow = () => {
+  //   setFilterState({
+  //     ...filterState,
+  //     dateRange: {
+  //       startDate: new Date("1990-01-01T18:30:00.000Z"),
+  //       endDate: new Date(),
+  //     },
+  //   });
+  //   setCommonSearch("");
+  //   setFilters({});
+  //   setFilteredValue();
+  //   if (!showReportMaster) {
+  //     filteredValueState != 0 && onSearchFilter?.({}, "2");
+  //   }
+  // };
+
+  const handleOpenPrintPreview = () => {
+    setPrintData(filteredRows);
+    setShowPrintView(true);
+  };
+
+  const handlePrintNow = () => {
+    window.print();
+    setShowPrintView(false); // hide preview after print
+  };
+
+  if (showPrintView) {
+    return (
+      <div
+        ref={printRef}
+        style={{
+          padding: "20px",
+          background: "white",
+          minHeight: "100vh",
+          overflowY: "auto",
+        }}
+      >
+        <div
+          className="print-control-buttons"
+          style={{
+            textAlign: "center",
+            marginTop: "20px",
+            paddingTop: "10px",
+          }}
+        >
+          <Button
+            variant="contained"
+            color="primary"
+            onClick={handlePrintNow}
+            sx={{
+              backgroundColor: "#2e7d32",
+              "&:hover": { backgroundColor: "#1b5e20" },
+            }}
+          >
+            Print
+          </Button>
+          <Button
+            variant="outlined"
+            color="error"
+            onClick={() => setShowPrintView(false)}
+            sx={{ marginLeft: "10px" }}
+          >
+            Cancel
+          </Button>
+        </div>
+        <Print1JewelleryBook visibleItems={printData} />
+      </div>
+    );
+  }
+
+  // console.log("grupEnChekBoxImage", grupEnChekBoxImage, grupEnChekBox);
 
   return (
     <DragDropContext onDragEnd={onDragEnd}>
-      <div
-        className="dynamic_sample_report_main"
-        sx={{ width: "100vw", display: "flex", flexDirection: "column" }}
-        ref={gridContainerRef}
-      >
-        {/* {isLoading && (
+      {showPrintView ? (
+        <div ref={printRef}>
+          <Print1JewelleryBook visibleItems={printData} />
+        </div>
+      ) : (
+        <div
+          className="dynamic_sample_report_main"
+          sx={{ width: "100vw", display: "flex", flexDirection: "column" }}
+          ref={gridContainerRef}
+        >
+          {/* {isLoading && (
           <div className="loader-overlay">
             <CircularProgress className="loadingBarManage" />
           </div>
         )} */}
 
-        <Dialog open={openHrefModel} onClose={() => setOpenHrefModel(false)}>
-          <div className="ConversionMain">
-            <h1>Hello Model......</h1>
-          </div>
-        </Dialog>
+          <Dialog open={openHrefModel} onClose={() => setOpenHrefModel(false)}>
+            <div className="ConversionMain">
+              <h1>Hello Model......</h1>
+            </div>
+          </Dialog>
 
-        <Dialog open={openPopup}>
-          <div className="colum_setting_model_main">
-            <div className="filterDrawer">
-              <p className="title">Column Rearrange</p>
+          <Dialog open={openPopup} onClose={() => setOpenPopup(false)}>
+            <div className="colum_setting_model_main">
+              <div className="filterDrawer">
+                <p className="title">Column Rearrange</p>
 
-              <Droppable droppableId="columns-list" type="COLUMN">
-                {(provided) => (
-                  <div
-                    ref={provided.innerRef}
-                    {...provided.droppableProps}
-                    className="columns-list"
-                  >
-                    {allColumData.map((col, index) => (
-                      <DraggableColumn
-                        key={col.FieldName}
-                        col={col}
-                        index={index}
-                        checkedColumns={checkedColumns}
-                        handleCheckboxChange={() =>
-                          setCheckedColumns((prev) => ({
-                            ...prev,
-                            [col.FieldName]: !prev[col.FieldName],
-                          }))
-                        }
-                      />
-                    ))}
-                    {provided.placeholder}
-                  </div>
-                )}
-              </Droppable>
-
-              <div className="btn-container">
-                <Button
-                  variant="contained"
-                  color="primary"
-                  className="btn_SaveColumModel"
-                  onClick={handleSaveSettings}
-                  disabled={columSaveLoding}
-                >
-                  {columSaveLoding ? (
-                    <span className="loading-text">
-                      {"Loading...".split("").map((char, index) => (
-                        <span key={index} style={{ "--i": index }}>
-                          {char}
-                        </span>
+                <Droppable droppableId="columns-list" type="COLUMN">
+                  {(provided) => (
+                    <div
+                      ref={provided.innerRef}
+                      {...provided.droppableProps}
+                      className="columns-list"
+                    >
+                      {allColumData.map((col, index) => (
+                        <DraggableColumn
+                          key={col.FieldName}
+                          col={col}
+                          index={index}
+                          checkedColumns={checkedColumns}
+                          handleCheckboxChange={() =>
+                            setCheckedColumns((prev) => ({
+                              ...prev,
+                              [col.FieldName]: !prev[col.FieldName],
+                            }))
+                          }
+                        />
                       ))}
-                    </span>
-                  ) : (
-                    "Save"
+                      {provided.placeholder}
+                    </div>
                   )}
-                </Button>
+                </Droppable>
 
-                <Button
-                  variant="contained"
-                  color="primary"
-                  className="btn_CancelColumModel"
-                  onClick={handleClosePopup}
-                >
-                  cancel
-                </Button>
+                <div className="btn-container">
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    className="btn_SaveColumModel"
+                    onClick={handleSaveSettings}
+                    disabled={columSaveLoding}
+                  >
+                    {columSaveLoding ? (
+                      <span className="loading-text">
+                        {"Loading...".split("").map((char, index) => (
+                          <span key={index} style={{ "--i": index }}>
+                            {char}
+                          </span>
+                        ))}
+                      </span>
+                    ) : (
+                      "Save"
+                    )}
+                  </Button>
+
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    className="btn_CancelColumModel"
+                    onClick={handleClosePopup}
+                  >
+                    cancel
+                  </Button>
+                </div>
               </div>
             </div>
-          </div>
-        </Dialog>
+          </Dialog>
 
-        <Drawer
-          open={sideFilterOpen}
-          onClose={toggleDrawer(false)}
-          className="drawerMain"
-        >
-          <div
-            style={{
-              margin: "20px 10px 0px 10px",
-              fontSize: "25px",
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-            }}
+          <Drawer
+            open={sideFilterOpen}
+            onClose={toggleDrawer(false)}
+            className="drawerMain"
           >
-            <button
-              onClick={handleClearFilter}
-              className="btn_ClearFilterButton"
-            >
-              <MdOutlineFilterAltOff style={{ fontSize: "25px" }} />
-              Clear
-            </button>
-
-            <CircleX
+            <div
               style={{
-                cursor: "pointer",
-                height: "30px",
-                width: "30px",
+                margin: "20px 10px 0px 10px",
+                fontSize: "25px",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
               }}
-              onClick={() => setSideFilterOpen(false)}
-            />
-          </div>
+            >
+              <button
+                onClick={handleClearFilter}
+                className="btn_ClearFilterButton"
+              >
+                <MdOutlineFilterAltOff style={{ fontSize: "25px" }} />
+                Clear
+              </button>
 
-          {columnsHide
-            .filter((col) => col.filterable)
-            .map((col) => (
-              <div key={col.FieldName} style={{ display: "flex", gap: "10px" }}>
-                {renderServerSideFilter(col)}
-              </div>
-            ))}
+              <CircleX
+                style={{
+                  cursor: "pointer",
+                  height: "30px",
+                  width: "30px",
+                }}
+                onClick={() => setSideFilterOpen(false)}
+              />
+            </div>
 
-          {columnsHide
-            .filter((col) => col.filterable)
-            .map((col) => (
-              <div key={col.FieldName}>
-                {col.filterTypes?.includes("MultiSelection") &&
-                  renderFilterMulti(col)}
-              </div>
-            ))}
+            {columnsHide
+              .filter((col) => col.filterable)
+              .map((col) => (
+                <div
+                  key={col.FieldName}
+                  style={{ display: "flex", gap: "10px" }}
+                >
+                  {renderServerSideFilter(col)}
+                </div>
+              ))}
 
-          {columnsHide
-            .filter((col) => col.filterable)
-            .map((col) => (
-              <div key={col.FieldName}>{renderFilterRange(col)}</div>
-            ))}
+            {columnsHide
+              .filter((col) => col.filterable)
+              .map((col) => (
+                <div key={col.FieldName}>
+                  {col.filterTypes?.includes("MultiSelection") &&
+                    renderFilterMulti(col)}
+                </div>
+              ))}
 
-          {columnsHide
-            .filter((col) => col.filterable)
-            .map((col) => (
-              <div key={col.FieldName} style={{ display: "flex", gap: "10px" }}>
-                {renderFilterDropDown(col)}
-              </div>
-            ))}
+            {columnsHide
+              .filter((col) => col.filterable)
+              .map((col) => (
+                <div key={col.FieldName}>{renderFilterRange(col)}</div>
+              ))}
 
-          {columnsHide
-            .filter((col) => col.filterable)
-            .map((col) => (
-              <div key={col.FieldName} style={{ display: "flex", gap: "10px" }}>
-                {renderFilter(col)}
-              </div>
-            ))}
+            {columnsHide
+              .filter((col) => col.filterable)
+              .map((col) => (
+                <div
+                  key={col.FieldName}
+                  style={{ display: "flex", gap: "10px" }}
+                >
+                  {renderFilterDropDown(col)}
+                </div>
+              ))}
 
-          {columnsHide
-            .filter((col) => col.filterable)
-            .map((col) => (
-              <div key={col.FieldName} style={{ display: "flex", gap: "10px" }}>
-                {renderSuggestionFilter(col)}
-              </div>
-            ))}
-        </Drawer>
+            {columnsHide
+              .filter((col) => col.filterable)
+              .map((col) => (
+                <div
+                  key={col.FieldName}
+                  style={{ display: "flex", gap: "10px" }}
+                >
+                  {renderFilter(col)}
+                </div>
+              ))}
 
-        <LocalizationProvider dateAdapter={AdapterDayjs}>
-          <Dialog
-            open={Boolean(activeActionColumn)}
-            onClose={() => setActiveActionColumn(null)}
-            maxWidth="xs"
-            fullWidth
-          >
-            <div style={{ height: "400px" }}>
-              <DialogTitle>
-                {activeActionColumn
-                  ? `Update ${activeActionColumn.HeaderName}`
-                  : ""}
-              </DialogTitle>
+            {columnsHide
+              .filter((col) => col.filterable)
+              .map((col) => (
+                <div
+                  key={col.FieldName}
+                  style={{ display: "flex", gap: "10px" }}
+                >
+                  {renderSuggestionFilter(col)}
+                </div>
+              ))}
+          </Drawer>
 
-              <DialogContent dividers>
-                {activeActionColumn?.DateColumn == "True" ? (
-                  <DatePicker
-                    label="Select Date"
-                    value={tempValue ? dayjs(tempValue, "DD-MMM-YYYY") : null}
-                    onChange={(newValue) => {
-                      if (newValue) {
-                        const formatted = newValue.format("DD-MMM-YYYY");
-                        setTempValue(formatted);
-                      } else {
-                        setTempValue("");
-                      }
-                    }}
-                    slotProps={{ textField: { fullWidth: true } }}
-                  />
-                ) : activeActionColumn?.actionMasterName ? (
-                  <TextField
-                    select
-                    fullWidth
-                    label={`Select ${activeActionColumn.HeaderName}`}
-                    value={tempValue || ""}
-                    onChange={(e) => setTempValue(e.target.value)}
-                  >
-                    {/* {masterData[activeActionColumn.actionMasterName]?.map(
+          <LocalizationProvider dateAdapter={AdapterDayjs}>
+            <Dialog
+              open={Boolean(activeActionColumn)}
+              onClose={() => setActiveActionColumn(null)}
+              maxWidth="xs"
+              fullWidth
+            >
+              <div style={{ height: "400px" }}>
+                <DialogTitle>
+                  {activeActionColumn
+                    ? `Update ${activeActionColumn.HeaderName}`
+                    : ""}
+                </DialogTitle>
+
+                <DialogContent dividers>
+                  {activeActionColumn?.DateColumn == "True" ? (
+                    <DatePicker
+                      label="Select Date"
+                      value={tempValue ? dayjs(tempValue, "DD-MMM-YYYY") : null}
+                      onChange={(newValue) => {
+                        if (newValue) {
+                          const formatted = newValue.format("DD-MMM-YYYY");
+                          setTempValue(formatted);
+                        } else {
+                          setTempValue("");
+                        }
+                      }}
+                      slotProps={{ textField: { fullWidth: true } }}
+                    />
+                  ) : activeActionColumn?.actionMasterName ? (
+                    <TextField
+                      select
+                      fullWidth
+                      label={`Select ${activeActionColumn.HeaderName}`}
+                      value={tempValue || ""}
+                      onChange={(e) => setTempValue(e.target.value)}
+                    >
+                      {/* {masterData[activeActionColumn.actionMasterName]?.map(
                     (item) => (
                       <MenuItem
                         key={item.id}
@@ -2137,248 +2440,253 @@ export default function MainReport({
                       </MenuItem>
                     )
                   )} */}
-                  </TextField>
-                ) : (
-                  <TextField
-                    fullWidth
-                    label={`Enter ${activeActionColumn?.HeaderName}`}
-                    value={tempValue}
-                    onChange={(e) => setTempValue(e.target.value)}
-                  />
-                )}
-              </DialogContent>
+                    </TextField>
+                  ) : (
+                    <TextField
+                      fullWidth
+                      label={`Enter ${activeActionColumn?.HeaderName}`}
+                      value={tempValue}
+                      onChange={(e) => setTempValue(e.target.value)}
+                    />
+                  )}
+                </DialogContent>
 
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "center",
-                  alignItems: "end",
-                  height: "55%",
-                }}
-              >
-                <Button onClick={() => setActiveActionColumn(null)}>
-                  Cancel
-                </Button>
-                <Button
-                  variant="contained"
-                  onClick={handleSaveAction}
-                  style={{ backgroundColor: "#7367f0" }}
-                >
-                  Save
-                </Button>
-              </div>
-            </div>
-          </Dialog>
-        </LocalizationProvider>
-
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            padding: "5px 10px 0px 10px",
-          }}
-        >
-          <div style={{ display: "flex" }}>
-            <div style={{ display: "flex", gap: "15px" }}>
-              {showReportMaster && (
-                <Button
-                  variant="outlined"
-                  onClick={onBack}
-                  className="Btn_BackErrow"
-                >
-                  <ArrowLeft color="#7367f0b3" />
-                </Button>
-              )}
-              <div style={{ display: "flex", gap: "10px" }}>
-                {filteredValueState?.map((data, i) => (
-                  <div
-                    key={i}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "4px",
-                    }}
-                  >
-                    <p className="FilterValue_title">{data.name} : </p>
-                    <p className="FilterValue_Value">{" " + data.value}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-          <div style={{ display: "flex", gap: "10px" }}>
-            {masterKeyData?.ColumnSettingModel == "True" && (
-              <Tooltip title="Column Rearrange">
-                <IconButton
-                  onClick={handleClickOpenPoup}
-                  sx={{
-                    background: "#cdd5ff",
-                    color: "#6f53ff",
-                    height: "42px",
-                    width: "42px",
-                    borderRadius: "6px",
-                    transition: "all .2s ease",
-                    "&:hover": {
-                      backgroundColor: "#cdd5ff",
-                      transform: "translateY(-2px)",
-                    },
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "center",
+                    alignItems: "end",
+                    height: "55%",
                   }}
-                  size="medium"
                 >
-                  <AiFillSetting size={22} />
-                </IconButton>
-              </Tooltip>
-              // <div className="fullScreenButton  " onClick={handleClickOpenPoup}>
-              //   <AiFillSetting style={{ height: "25px", width: "25px" }} />
-              // </div>
-            )}
-          </div>
-        </div>
-        <div>{renderSummary()}</div>
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            padding: "5px 10px",
-          }}
-        >
-          <div style={{ display: "flex", gap: "10px", alignItems: "end" }}>
-            {masterKeyData?.MultiDateFilter == "True" ? (
-              <div
-                style={{ display: "flex", alignItems: "center", gap: "10px" }}
-              >
-                <Button
-                  onClick={toggleDrawer(true)}
-                  className="btn_FiletrBtnOpen"
-                >
-                  <MdOutlineFilterAlt
-                    style={{ height: "30px", width: "30px" }}
-                  />
-                </Button>
-                <FormControl size="small" sx={{ minWidth: 150, margin: "0px" }}>
-                  <InputLabel>Date Type</InputLabel>
-                  <Select
-                    label="Date Type"
-                    value={selectedDateColumn}
-                    onChange={(e) => setSelectedDateColumn(e.target.value)}
-                    style={{
-                      fontSize: "14px",
-                      display: "flex",
-                      alignItems: "center",
-                    }}
-                    sx={{
-                      "& .MuiSelect-select": {
-                        padding: "7px !important",
-                      },
-                    }}
-                  >
-                    {dateColumnOptions.map((col) => (
-                      <MenuItem key={col.field} value={col.field}>
-                        {col.label}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-                <DualDatePicker
-                  filterState={filterState}
-                  setFilterState={setFilterState}
-                  validDay={186}
-                  validMonth={6}
-                />
-                {masterKeyData?.AllButton == "True" && (
+                  <Button onClick={() => setActiveActionColumn(null)}>
+                    Cancel
+                  </Button>
                   <Button
-                    onClick={handleAllDataShow}
-                    className="btn_FiletrBtnAll"
+                    variant="contained"
+                    onClick={handleSaveAction}
+                    style={{ backgroundColor: "#7367f0" }}
                   >
-                    All
+                    Save
+                  </Button>
+                </div>
+              </div>
+            </Dialog>
+          </LocalizationProvider>
+
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              padding: "5px 10px 0px 10px",
+            }}
+          >
+            <div style={{ display: "flex" }}>
+              <div style={{ display: "flex", gap: "15px" }}>
+                {showReportMaster && (
+                  <Button
+                    variant="outlined"
+                    onClick={onBack}
+                    className="Btn_BackErrow"
+                  >
+                    <ArrowLeft color="#7367f0b3" />
                   </Button>
                 )}
-              </div>
-            ) : (
-              <div
-                style={{ display: "flex", alignItems: "center", gap: "10px" }}
-              >
-                <Button
-                  onClick={toggleDrawer(true)}
-                  className="btn_FiletrBtnOpen"
-                >
-                  <MdOutlineFilterAlt
-                    style={{ height: "30px", width: "30px" }}
-                  />
-                </Button>
-                <DualDatePicker
-                  filterState={filterState}
-                  setFilterState={setFilterState}
-                  validDay={186}
-                  validMonth={6}
-                />
-
-                {masterKeyData?.AllButton == "True" && (
-                  <Button
-                    onClick={handleAllDataShow}
-                    className="btn_FiletrBtnAll"
-                  >
-                    All
-                  </Button>
-                )}
-              </div>
-            )}
-
-            <TextField
-              type="text"
-              placeholder="Search..."
-              value={commonSearch}
-              onChange={(e) => setCommonSearch(e.target.value)}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <Search size={18} color="#888" />
-                  </InputAdornment>
-                ),
-                endAdornment: commonSearch ? (
-                  <InputAdornment position="end">
-                    <IconButton
-                      edge="end"
-                      size="small"
-                      onClick={() => setCommonSearch("")}
-                      aria-label="clear"
-                    >
-                      <X size={18} color="#888" />
-                    </IconButton>
-                  </InputAdornment>
-                ) : null,
-              }}
-              sx={{
-                width: "250px",
-                "& .MuiInputBase-input": {
-                  padding: "6px 8px !important",
-                },
-              }}
-              className="txt_commonSearch"
-            />
-
-            <div style={{ display: "flex", gap: "8px" }}>
-              {allColumData &&
-                Object.values(allColumData).map((col) =>
-                  col.ActionFilter == "True" ? (
-                    <Button
-                      key={col.field}
-                      variant="outlined"
-                      size="small"
-                      className="btn_Action_FiletrBtnOpen"
-                      onClick={() => {
-                        setActiveActionColumn(col);
-                        setTempValue("");
+                <div style={{ display: "flex", gap: "10px" }}>
+                  {filteredValueState?.map((data, i) => (
+                    <div
+                      key={i}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "4px",
                       }}
                     >
-                      Set {col.HeaderName}
-                    </Button>
-                  ) : null
-                )}
+                      <p className="FilterValue_title">{data.name} : </p>
+                      <p className="FilterValue_Value">{" " + data.value}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: "10px" }}>
+              {masterKeyData?.ColumnSettingModel == "True" && (
+                <Tooltip title="Column Rearrange">
+                  <IconButton
+                    onClick={handleClickOpenPoup}
+                    sx={{
+                      background: "#cdd5ff",
+                      color: "#6f53ff",
+                      height: "42px",
+                      width: "42px",
+                      borderRadius: "6px",
+                      transition: "all .2s ease",
+                      "&:hover": {
+                        backgroundColor: "#cdd5ff",
+                        transform: "translateY(-2px)",
+                      },
+                    }}
+                    size="medium"
+                  >
+                    <AiFillSetting size={22} />
+                  </IconButton>
+                </Tooltip>
+                // <div className="fullScreenButton  " onClick={handleClickOpenPoup}>
+                //   <AiFillSetting style={{ height: "25px", width: "25px" }} />
+                // </div>
+              )}
             </div>
           </div>
-          <div style={{ display: "flex", alignItems: "end", gap: "10px" }}>
-            {/* {masterKeyData?.MailButton == "True" && (
+          <div>{renderSummary()}</div>
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              padding: "5px 10px",
+            }}
+          >
+            <div style={{ display: "flex", gap: "10px", alignItems: "end" }}>
+              <div
+                style={{ display: "flex", alignItems: "center", gap: "10px" }}
+              >
+                <Button
+                  onClick={toggleDrawer(true)}
+                  className="btn_FiletrBtnOpen"
+                >
+                  <MdOutlineFilterAlt
+                    style={{ height: "30px", width: "30px" }}
+                  />
+                </Button>
+
+                {masterKeyData?.MainDateFilter == "True" &&
+                  (masterKeyData?.MultiDateFilter == "True" ? (
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "10px",
+                      }}
+                    >
+                      <FormControl
+                        size="small"
+                        sx={{ minWidth: 150, margin: "0px" }}
+                      >
+                        <InputLabel>Date Type</InputLabel>
+                        <Select
+                          label="Date Type"
+                          value={selectedDateColumn}
+                          onChange={(e) =>
+                            setSelectedDateColumn(e.target.value)
+                          }
+                          style={{
+                            fontSize: "14px",
+                            display: "flex",
+                            alignItems: "center",
+                          }}
+                          sx={{
+                            "& .MuiSelect-select": {
+                              padding: "7px !important",
+                            },
+                          }}
+                        >
+                          {dateColumnOptions.map((col) => (
+                            <MenuItem key={col.field} value={col.field}>
+                              {col.label}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                      <DualDatePicker
+                        filterState={filterState}
+                        setFilterState={setFilterState}
+                        validDay={186}
+                        validMonth={6}
+                        withountDateFilter={true}
+                        hideDisplay={
+                          filterState.dateRange.startDate?.getFullYear?.() ===
+                          1990
+                        }
+                      />
+                    </div>
+                  ) : (
+                    <DualDatePicker
+                      filterState={filterState}
+                      setFilterState={setFilterState}
+                      validDay={186}
+                      validMonth={6}
+                      withountDateFilter={true}
+                      hideDisplay={
+                        filterState.dateRange.startDate?.getFullYear?.() ===
+                        1990
+                      }
+                    />
+                  ))}
+
+                {masterKeyData?.AllDataButton == "True" && (
+                  <Button
+                    onClick={handleAllDataShow}
+                    className="btn_FiletrBtnAll"
+                  >
+                    All
+                  </Button>
+                )}
+              </div>
+
+              <TextField
+                type="text"
+                placeholder="Search..."
+                value={commonSearch}
+                onChange={(e) => setCommonSearch(e.target.value)}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Search size={18} color="#888" />
+                    </InputAdornment>
+                  ),
+                  endAdornment: commonSearch ? (
+                    <InputAdornment position="end">
+                      <IconButton
+                        edge="end"
+                        size="small"
+                        onClick={() => setCommonSearch("")}
+                        aria-label="clear"
+                      >
+                        <X size={18} color="#888" />
+                      </IconButton>
+                    </InputAdornment>
+                  ) : null,
+                }}
+                sx={{
+                  width: "250px",
+                  "& .MuiInputBase-input": {
+                    padding: "6px 8px !important",
+                  },
+                }}
+                className="txt_commonSearch"
+              />
+
+              <div style={{ display: "flex", gap: "8px" }}>
+                {allColumData &&
+                  Object.values(allColumData).map((col) =>
+                    col.ActionFilter == "True" ? (
+                      <Button
+                        key={col.field}
+                        variant="outlined"
+                        size="small"
+                        className="btn_Action_FiletrBtnOpen"
+                        onClick={() => {
+                          setActiveActionColumn(col);
+                          setTempValue("");
+                        }}
+                      >
+                        Set {col.HeaderName}
+                      </Button>
+                    ) : null
+                  )}
+              </div>
+            </div>
+            <div style={{ display: "flex", alignItems: "end", gap: "10px" }}>
+              {/* {masterKeyData?.MailButton == "True" && (
               <img
                 src={mainButton}
                 style={{ cursor: "pointer" }}
@@ -2386,32 +2694,87 @@ export default function MainReport({
               />
             )} */}
 
-            {masterKeyData?.PrintButton == "True" && (
-              <Tooltip title="Print">
-                <IconButton
-                  onClick={handlePrint}
-                  sx={{
-                    background: "#e8f5e9",
-                    color: "#2e7d32",
-                    height: "42px",
-                    width: "42px",
-                    borderRadius: "6px",
-                    transition: "all .2s ease",
-                    "&:hover": {
-                      backgroundColor: "#c8e6c9",
-                      transform: "translateY(-2px)",
-                    },
-                  }}
-                  size="medium"
-                >
-                  <FaPrint size={22} />
-                </IconButton>
-              </Tooltip>
-            )}
+              {masterKeyData?.PrintButton == "True" && (
+                <Tooltip title="Print">
+                  <IconButton
+                    onClick={handleOpenPrintPreview}
+                    sx={{
+                      background: "#e8f5e9",
+                      color: "#2e7d32",
+                      height: "42px",
+                      width: "42px",
+                      borderRadius: "6px",
+                      transition: "all .2s ease",
+                      "&:hover": {
+                        backgroundColor: "#c8e6c9",
+                        transform: "translateY(-2px)",
+                      },
+                    }}
+                    size="medium"
+                  >
+                    <FaPrint size={22} />
+                  </IconButton>
+                </Tooltip>
+              )}
 
-            {masterKeyData?.ImageView == "True" &&
-              (masterKeyData?.allGrupDataShowImageViewShow ? (
-                allChecked && (
+              {masterKeyData?.ImageView === "True" &&
+                (grupEnChekBoxImage?.length > 0 ? (
+                  grupEnChekBoxImage.every(
+                    (item) => item.DefaultGrupChekBox === true
+                  ) ? (
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      {showImageView ? (
+                        <Tooltip title="Report View">
+                          <IconButton
+                            onClick={() => setShowImageView(false)}
+                            sx={{
+                              background: "#e3f2fd",
+                              color: "#1976d2",
+                              height: "42px",
+                              width: "42px",
+                              borderRadius: "6px",
+                              transition: "all .2s ease",
+                              "&:hover": {
+                                backgroundColor: "#bbdefb",
+                                transform: "translateY(-2px)",
+                              },
+                            }}
+                            size="medium"
+                          >
+                            <LayoutGrid size={22} />
+                          </IconButton>
+                        </Tooltip>
+                      ) : (
+                        <Tooltip title="Image View">
+                          <IconButton
+                            onClick={() => setShowImageView(true)}
+                            sx={{
+                              background: "#e3f2fd",
+                              color: "#1976d2",
+                              height: "42px",
+                              width: "42px",
+                              borderRadius: "6px",
+                              transition: "all .2s ease",
+                              "&:hover": {
+                                backgroundColor: "#bbdefb",
+                                transform: "translateY(-2px)",
+                              },
+                            }}
+                            size="medium"
+                          >
+                            <Image size={22} />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                    </div>
+                  ) : null
+                ) : (
                   <div
                     style={{
                       display: "flex",
@@ -2463,289 +2826,260 @@ export default function MainReport({
                       </Tooltip>
                     )}
                   </div>
-                )
-              ) : (
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  {showImageView ? (
-                    <Tooltip title="Report View">
-                      <IconButton
-                        onClick={() => setShowImageView(false)}
-                        sx={{
-                          background: "#e3f2fd",
-                          color: "#1976d2",
-                          height: "42px",
-                          width: "42px",
-                          borderRadius: "6px",
-                          transition: "all .2s ease",
-                          "&:hover": {
-                            backgroundColor: "#bbdefb",
-                            transform: "translateY(-2px)",
-                          },
-                        }}
-                        size="medium"
-                      >
-                        <LayoutGrid size={22} />
-                      </IconButton>
-                    </Tooltip>
-                  ) : (
-                    <Tooltip title="Image View">
-                      <IconButton
-                        onClick={() => setShowImageView(true)}
-                        sx={{
-                          background: "#e3f2fd",
-                          color: "#1976d2",
-                          height: "42px",
-                          width: "42px",
-                          borderRadius: "6px",
-                          transition: "all .2s ease",
-                          "&:hover": {
-                            backgroundColor: "#bbdefb",
-                            transform: "translateY(-2px)",
-                          },
-                        }}
-                        size="medium"
-                      >
-                        <Image size={22} />
-                      </IconButton>
-                    </Tooltip>
-                  )}
-                </div>
-              ))}
+                ))}
 
-            {masterKeyData?.ExcelExport && (
-              <Tooltip title="Export to Excel">
-                <IconButton
-                  onClick={exportToExcel}
-                  sx={{
-                    background: "#e8f5e9",
-                    color: "#2e7d32",
-                    height: "42px",
-                    width: "42px",
-                    borderRadius: "6px",
-                    transition: "all .2s ease",
-                    "&:hover": {
-                      backgroundColor: "#c8e6c9",
-                      transform: "translateY(-2px)",
-                    },
-                  }}
-                  size="medium"
-                >
-                  <FileSpreadsheet size={22} />
-                </IconButton>
-              </Tooltip>
-            )}
-
-            {masterKeyData?.FullScreenGridButton == "True" && (
-              <Tooltip title="Full Screen Report">
-                <IconButton
-                  onClick={toggleFullScreen}
-                  sx={{
-                    background: "#e8f5e9",
-                    color: "#2e7d32",
-                    height: "42px",
-                    width: "42px",
-                    borderRadius: "6px",
-                    transition: "all .2s ease",
-                    "&:hover": {
-                      backgroundColor: "#c8e6c9",
-                      transform: "translateY(-2px)",
-                    },
-                  }}
-                  size="medium"
-                >
-                  <RiFullscreenLine size={22} />
-                </IconButton>
-              </Tooltip>
-
-              // <button className="fullScreenButton" onClick={toggleFullScreen}>
-              //   <RiFullscreenLine
-              //     style={{ marginInline: "5px", fontSize: "30px" }}
-              //   />
-              // </button>
-            )}
-          </div>
-        </div>
-        <div
-          ref={gridRef}
-          style={{
-            height: showImageView ? "70vh" : summaryColumns?.length == 0 ? "calc(100vh - 190px)" : "calc(100vh - 255px)",
-            margin: "5px 10px",
-            overflow: "auto",
-            transition: "opacity 0.3s",
-            opacity: isPageChanging ? 0.5 : 1,
-          }}
-          className="dataGrid_Warper"
-        >
-          {showImageView ? (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "10px" }}>
-              {filteredRows.map((item, idx) => {
-                const src = String(item["ImgUrl"] ?? "").trim() || noFoundImg;
-                return (
-                  <div
-                    style={{
-                      width: "200px",
-                      height: "230px",
+              {masterKeyData?.ExcelExport && (
+                <Tooltip title="Export to Excel">
+                  <IconButton
+                    onClick={exportToExcel}
+                    sx={{
+                      background: "#e8f5e9",
+                      color: "#2e7d32",
+                      height: "42px",
+                      width: "42px",
+                      borderRadius: "6px",
+                      transition: "all .2s ease",
+                      "&:hover": {
+                        backgroundColor: "#c8e6c9",
+                        transform: "translateY(-2px)",
+                      },
                     }}
+                    size="medium"
                   >
-                    <img
-                      key={idx}
-                      src={src}
-                      alt={`record-${idx}`}
-                      height="auto"
-                      loading="lazy"
-                      style={{
-                        width: "200px",
-                        height: "200px",
-                        border: "1px solid lightgray",
-                      }}
-                    />
+                    <FileSpreadsheet size={22} />
+                  </IconButton>
+                </Tooltip>
+              )}
+
+              {masterKeyData?.FullScreenGridButton == "True" && (
+                <Tooltip title="Full Screen Report">
+                  <IconButton
+                    onClick={toggleFullScreen}
+                    sx={{
+                      background: "#e8f5e9",
+                      color: "#2e7d32",
+                      height: "42px",
+                      width: "42px",
+                      borderRadius: "6px",
+                      transition: "all .2s ease",
+                      "&:hover": {
+                        backgroundColor: "#c8e6c9",
+                        transform: "translateY(-2px)",
+                      },
+                    }}
+                    size="medium"
+                  >
+                    <RiFullscreenLine size={22} />
+                  </IconButton>
+                </Tooltip>
+
+                // <button className="fullScreenButton" onClick={toggleFullScreen}>
+                //   <RiFullscreenLine
+                //     style={{ marginInline: "5px", fontSize: "30px" }}
+                //   />
+                // </button>
+              )}
+            </div>
+          </div>
+          <div
+            ref={gridRef}
+            style={{
+              height: showImageView
+                ? "70vh"
+                : summaryColumns?.length == 0
+                ? "calc(100vh - 190px)"
+                : "calc(100vh - 255px)",
+              margin: "5px 10px",
+              overflow: "auto",
+              transition: "opacity 0.3s",
+              opacity: isPageChanging ? 0.5 : 1,
+            }}
+            className="dataGrid_Warper"
+          >
+            {showImageView ? (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "10px" }}>
+                {filteredRows.map((item, idx) => {
+                  const defaultImg = noFoundImg;
+                  const src = String(item?.ImgUrl ?? "").trim() || defaultImg;
+
+                  return (
                     <div
+                      key={idx}
                       style={{
+                        width: 200,
+                        height: 230,
                         display: "flex",
-                        justifyContent: "space-between",
+                        flexDirection: "column",
                       }}
                     >
-                      <div style={{ display: "flex", gap: "10px" }}>
-                        <p
-                          style={{
-                            margin: "0px",
-                            fontWeight: 600,
-                            fontSize: "12px",
-                            lineHeight: "10px",
-                          }}
-                        >
-                          <span>{item?.stockbarcode}</span>
-                        </p>
-                        <p
-                          style={{
-                            margin: "0px",
-                            fontWeight: 600,
-                            fontSize: "12px",
-                            display: "flex",
-                            color: "#CF4F7D",
-                            display: "flex",
-                            flexDirection: "column",
-                          }}
-                        >
-                          <div
+                      <img
+                        src={src}
+                        alt={`record-${idx}`}
+                        loading="lazy"
+                        onError={(e) => {
+                          if (e.target.src !== defaultImg)
+                            e.target.src = defaultImg;
+                        }}
+                        style={{
+                          width: "200px",
+                          height: "200px",
+                          border: "1px solid lightgray",
+                          objectFit: "cover",
+                          borderRadius: "4px",
+                          backgroundColor: "#f9f9f9",
+                        }}
+                      />
+
+                      <div
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          marginTop: "4px",
+                        }}
+                      >
+                        <div style={{ display: "flex", gap: "10px" }}>
+                          <p
                             style={{
-                              display: "flex",
-                              gap: "3px",
+                              margin: 0,
+                              fontWeight: 600,
+                              fontSize: "12px",
                               lineHeight: "10px",
                             }}
                           >
-                            <span>{item?.metaltype}</span>
-                            <span>{item?.metalpurity}</span>
-                          </div>
-                          <span>{item?.metalcolor}</span>
+                            <span>{item?.stockbarcode}</span>
+                          </p>
+
+                          <p
+                            style={{
+                              margin: 0,
+                              fontWeight: 600,
+                              fontSize: "12px",
+                              color: "#CF4F7D",
+                              display: "flex",
+                              flexDirection: "column",
+                            }}
+                          >
+                            <div
+                              style={{
+                                display: "flex",
+                                gap: "3px",
+                                lineHeight: "10px",
+                              }}
+                            >
+                              <span>{item?.metaltype}</span>
+                              <span>{item?.metalpurity}</span>
+                            </div>
+                            <span>{item?.metalcolor}</span>
+                          </p>
+                        </div>
+
+                        <p
+                          style={{
+                            margin: 0,
+                            fontWeight: 600,
+                            fontSize: "13px",
+                            lineHeight: "10px",
+                          }}
+                        >
+                          {item?.designno}
                         </p>
                       </div>
-                      <p
-                        style={{
-                          margin: "0px",
-                          fontWeight: 600,
-                          fontSize: "13px",
-                          lineHeight: "10px",
-                        }}
-                      >
-                        {item?.designno}
-                      </p>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <Warper>
-              <DataGrid
-                loading={isLoading}
-                apiRef={apiRef}
-                rows={filteredRows ?? []}
-                columns={columns ?? []}
-                autoHeight={false}
-                columnBuffer={17}
-                rowHeight={40}
-                sortModel={sortModel}
-                onSortModelChange={(model) => setSortModel(model)}
-                localeText={{ noRowsLabel: "No Data" }}
-                initialState={{
-                  columns: {
-                    columnVisibilityModel: {
-                      status: false,
-                      traderName: false,
+                  );
+                })}
+              </div>
+            ) : (
+              <Warper>
+                <DataGrid
+                  loading={isLoading}
+                  apiRef={apiRef}
+                  rows={filteredRows ?? []}
+                  columns={columns ?? []}
+                  autoHeight={false}
+                  columnBuffer={17}
+                  rowHeight={40}
+                  sortModel={sortModel}
+                  onSortModelChange={(model) => setSortModel(model)}
+                  localeText={{ noRowsLabel: "No Data" }}
+                  initialState={{
+                    columns: {
+                      columnVisibilityModel: {
+                        status: false,
+                        traderName: false,
+                      },
                     },
-                  },
-                }}
-                slots={{
-                  pagination: CustomPagination,
-                }}
-                paginationModel={paginationModel}
-                onPaginationModelChange={handlePaginationChange} // ✅ use wrapped function
-                className="simpleGridView"
-                pagination
-                sx={{
-                  "& .MuiDataGrid-menuIcon": {
-                    display: "none",
-                  },
-                  "& .MuiDataGrid-selectedRowCount": {
-                    display: "none",
-                  },
-                }}
-              />
-            </Warper>
+                  }}
+                  slots={{
+                    pagination: CustomPagination,
+                  }}
+                  sortingOrder={["asc", "desc"]}
+                  paginationModel={paginationModel}
+                  onPaginationModelChange={handlePaginationChange} // ✅ use wrapped function
+                  className="simpleGridView"
+                  pagination
+                  sx={{
+                    "& .MuiDataGrid-menuIcon": {
+                      display: "none",
+                    },
+                    "& .MuiDataGrid-selectedRowCount": {
+                      display: "none",
+                    },
+                  }}
+                />
+              </Warper>
+            )}
+          </div>
+
+          {status500 && (
+            <div
+              style={{
+                display: "flex",
+                width: "100%",
+                justifyContent: "center",
+              }}
+            >
+              <Box
+                minHeight="70vh"
+                display="flex"
+                alignItems="center"
+                justifyContent="center"
+                p={2}
+              >
+                <Paper
+                  elevation={3}
+                  sx={{
+                    maxWidth: 500,
+                    width: "100%",
+                    p: 4,
+                    borderRadius: "20px",
+                    textAlign: "center",
+                    boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
+                  }}
+                >
+                  <Box
+                    display="flex"
+                    justifyContent="center"
+                    alignItems="center"
+                    mb={2}
+                  >
+                    <AlertTriangle size={48} color="#f44336" />
+                  </Box>
+
+                  <Typography variant="h5" fontWeight={600} gutterBottom>
+                    Something Went Wrong
+                  </Typography>
+
+                  <Typography variant="body1" color="text.secondary" mb={3}>
+                    We're sorry, but an unexpected error has occurred. Please
+                    try again later.
+                  </Typography>
+                </Paper>
+              </Box>
+            </div>
           )}
         </div>
+      )}
 
-        {status500 && (
-          <div
-            style={{ display: "flex", width: "100%", justifyContent: "center" }}
-          >
-            <Box
-              minHeight="70vh"
-              display="flex"
-              alignItems="center"
-              justifyContent="center"
-              p={2}
-            >
-              <Paper
-                elevation={3}
-                sx={{
-                  maxWidth: 500,
-                  width: "100%",
-                  p: 4,
-                  borderRadius: "20px",
-                  textAlign: "center",
-                  boxShadow: "0 4px 20px rgba(0,0,0,0.1)",
-                }}
-              >
-                <Box
-                  display="flex"
-                  justifyContent="center"
-                  alignItems="center"
-                  mb={2}
-                >
-                  <AlertTriangle size={48} color="#f44336" />
-                </Box>
-
-                <Typography variant="h5" fontWeight={600} gutterBottom>
-                  Something Went Wrong
-                </Typography>
-
-                <Typography variant="body1" color="text.secondary" mb={3}>
-                  We're sorry, but an unexpected error has occurred. Please try
-                  again later.
-                </Typography>
-              </Paper>
-            </Box>
-          </div>
-        )}
-      </div>
       <Snackbar
         open={openSnackbar}
         autoHideDuration={3000}

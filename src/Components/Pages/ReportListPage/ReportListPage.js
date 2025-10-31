@@ -14,9 +14,10 @@ const ReportListPage = () => {
   const [spList, setSpList] = useState([]);
 
   const getSpData = async () => {
+    let AllData = JSON.parse(sessionStorage.getItem("reportVarible"));
     setLoading(true);
     const body = {
-      con: '{"id": "", "mode": "getSpList", "appuserid": "testuser"}',
+      con: `{"id": "", "mode": "getSpList", "appuserid": "${AllData?.LUId}"}`,
       p: "{}",
       f: "DynamicReport ( get sp list )",
     };

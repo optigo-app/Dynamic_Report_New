@@ -246,6 +246,17 @@ const DualDatePicker = ({
                 <CalendarDays />
               </InputAdornment>
             ),
+            // endAdornment: (
+            //   <InputAdornment position="end">
+            //     <IconButton
+            //       aria-label="ClearIcon"
+            //       onClick={handleClear}
+            //       color="default"
+            //     >
+            //       <ClearIcon />
+            //     </IconButton>
+            //   </InputAdornment>
+            // ),
           }}
           style={{ width: "210px" }}
         />
@@ -263,7 +274,6 @@ const DualDatePicker = ({
               onChange={handleDateChange}
               initialDateRange={tempDateRange}
               ref={dateRef}
-              minDate={new Date("1990-01-01")}
               wrapperClassName="DatePickerMain"
               definedRanges={[
                 { label: "Today", startDate: new Date(), endDate: new Date() },
@@ -327,6 +337,12 @@ const DualDatePicker = ({
                     0
                   ),
                 },
+                // ,
+                // {
+                //   label: "ALL",
+                //    startDate: new Date("2000-01-01T18:30:00.000Z"),
+                //   endDate: new Date(),
+                // },
               ]}
             />
             <Stack

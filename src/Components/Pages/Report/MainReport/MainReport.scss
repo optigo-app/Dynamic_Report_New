@@ -65,19 +65,6 @@
   // margin: 0px;
 }
 
-.selection-box {
-  width: 320px;
-  display: flex;
-  flex-direction: column;
-  box-shadow: rgba(17, 17, 26, 0.05) 0px 1px 0px,
-    rgba(17, 17, 26, 0.1) 0px 0px 8px;
-  border-radius: 7px;
-  padding: 5px;
-  font-family: $fontFamily;
-  height: 100%;
-  min-height: 380px;
-}
-
 .copyButton {
   color: rgb(177, 175, 175);
   font-size: 16px;
@@ -104,7 +91,7 @@
         rgb(115, 103, 240) 100%
       ) !important;
       color: white !important;
-      width: 100px;
+      width: 110px;
       position: relative;
       overflow: hidden;
     }
@@ -256,10 +243,7 @@
 }
 
 /* Report container */
-.report-container {
-  min-height: 100vh;
-  background: #fff;
-}
+
 
 .master_form_sub {
   display: flex;
@@ -329,14 +313,27 @@
   }
 
   &::-webkit-scrollbar-thumb {
-    background: rgb(113, 103, 241);
+    background: #7367f0;
     border-radius: 10px;
   }
 
   &::-webkit-scrollbar-thumb:hover {
-    background: rgb(66, 54, 220);
+    background: #7367f0;
   }
 
-  scrollbar-width: thin; /* makes it thinner */
-  scrollbar-color: rgb(86, 74, 252) transparent;
+  scrollbar-width: thin;
+  scrollbar-color: #7367f0 transparent;
+}
+
+.print_model_main{
+
+  .MuiPaper-root{
+    max-width: 70% !important;
+  }
+}
+
+@media print {
+  .print-control-buttons {
+    display: none !important;
+  }
 }

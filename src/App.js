@@ -23,7 +23,10 @@ function RouterContent() {
   const [reportId, setReportId] = useState(null);
   const [spNumber, setSpNumber] = useState(null);
   const [largeData, setLargeData] = useState(false);
+  const [dateOptionsShow, setLargeDataShow] = useState(false);
+  const [dateOptions, setDateOptions] = useState();
   const [largeDataTitle, setLargeDataTitle] = useState("");
+  const [reportName, setReportName] = useState("");
   const [ready, setReady] = useState(false);
 
   const decodeBase64 = (str) => {
@@ -69,6 +72,9 @@ function RouterContent() {
           setSpNumber(data.SpNumber);
           setLargeDataTitle(data.MasterDataList || "");
           setLargeData(!!data.IsLargeDataReport);
+          setLargeDataShow(data.ServerSideDateWiseFilter);
+          setReportName(data.ReportName);
+          setDateOptions(response?.rd1);
           const key = `${pid}_${data.ReportId}`;
           sessionStorage.setItem(key, data.ReportId);
         }
@@ -112,6 +118,9 @@ function RouterContent() {
                 spNumber={spNumber}
                 largeData={largeData}
                 largeDataTitle={largeDataTitle}
+                dateOptions={dateOptions}
+                dateOptionsShow={dateOptionsShow}
+                reportName={reportName}
               />
             }
           />
