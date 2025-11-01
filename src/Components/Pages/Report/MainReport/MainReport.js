@@ -302,7 +302,6 @@ export default function MainReport({
   const [openPopup, setOpenPopup] = useState(false);
   const [columSaveLoding, setColumSaveLoding] = useState(false);
   const [openHrefModel, setOpenHrefModel] = useState(false);
-  const [openPrintModel, setOpenPrintModel] = useState(false);
   const [columns, setColumns] = useState([]);
   const [columnsHide, setColumnsHide] = useState([]);
   const [allColumData, setAllColumData] = useState();
@@ -411,7 +410,14 @@ export default function MainReport({
       setAllRowData(OtherKeyData?.rd3);
       setAllColumIdWiseName(OtherKeyData?.rd2);
       setMasterKeyData(OtherKeyData?.rd[0]);
-      let rd1 = OtherKeyData?.rd1 ? [...OtherKeyData.rd1] : [];
+      let saved = sessionStorage.getItem("savedColumns_" + reportName);
+      let rd1;
+      if (saved) {
+        rd1 = JSON.parse(saved);
+      } else {
+        rd1 = OtherKeyData?.rd1 ? [...OtherKeyData.rd1] : [];
+      }
+      // let rd1 = OtherKeyData?.rd1 ? [...OtherKeyData.rd1] : [];
       rd1.sort((a, b) => (a.DisplayOrder ?? 999) - (b.DisplayOrder ?? 999));
       setAllColumData(rd1);
       const grupCheckboxMap = (rd1 || [])
@@ -856,7 +862,6 @@ export default function MainReport({
       ...filtersArray,
       ...(Array.isArray(filteredValue) ? filteredValue : []),
     ];
-    console.log("filtersShowfiltersShow merged", merged);
 
     const uniqueMerged = merged.reduce((acc, current) => {
       const exists = acc.find((item) => item.name === current.name);
@@ -1884,13 +1889,6 @@ export default function MainReport({
     setOpenPopup(false);
   };
 
-  const moveColumn = (dragIndex, hoverIndex) => {
-    const updatedColumns = [...columns];
-    const [movedColumn] = updatedColumns.splice(dragIndex, 1);
-    updatedColumns.splice(hoverIndex, 0, movedColumn);
-    setColumns(updatedColumns);
-  };
-
   const onDragEnd = (result) => {
     if (!result.destination) return;
     const updated = Array.from(allColumData);
@@ -2044,6 +2042,10 @@ export default function MainReport({
       const response = await CallApi(body);
       if (response?.rd[0]?.stat === 1) {
         setAllColumData(updatedData);
+        sessionStorage.setItem(
+          "savedColumns_" + reportName,
+          JSON.stringify(updatedData)
+        ); // ✅ store
         setOpenSnackbar(true);
         setColumSaveLoding(false);
       } else {
@@ -2134,7 +2136,6 @@ export default function MainReport({
     setFiltersShow();
     setFilters({});
     setFilteredValue();
-
     if (!showReportMaster) {
       filteredValueState != 0 && onSearchFilter?.({}, "2");
     }
@@ -2237,6 +2238,12 @@ export default function MainReport({
           </Dialog>
 
           <Dialog open={openPopup} onClose={() => setOpenPopup(false)}>
+            <IconButton
+              style={{ position: "absolute", top: 0, right: 5 }}
+              onClick={() => setOpenPopup(false)}
+            >
+              <CircleX />
+            </IconButton>
             <div className="colum_setting_model_main">
               <div className="filterDrawer">
                 <p className="title">Column Rearrange</p>

@@ -723,6 +723,7 @@ export default function ReportHome({
   const handleBack = () => {
     setShowReportMaster(true);
   };
+  
   return (
     <DragDropContext onDragEnd={() => {}}>
       {/* {isLoading && (
