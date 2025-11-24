@@ -243,4 +243,12 @@
   .minheit {
     height: 16.2px;
   }
+
+  .pagination{
+    display: none !important;
+  }
+
+  .printHide{
+    display: none !important;
+  }
 }

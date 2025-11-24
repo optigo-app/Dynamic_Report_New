@@ -173,7 +173,8 @@ export default function ReportHome({
   largeDataTitle,
   dateOptions,
   dateOptionsShow,
-  reportName
+  reportName,
+  colorMaster
 }) {
   const [isLoading, setIsLoading] = useState(false);
   const [spData, setSpData] = useState(null);
@@ -268,17 +269,12 @@ export default function ReportHome({
           mode: "GetFullMaster",
           appuserid: AllData?.LUId,
         }),
-        p: JSON.stringify({
-          ReportId: reportId,
-        }),
+        p: JSON.stringify({ ReportId: reportId }),
         f: "DynamicReport ( get sp list )",
       };
 
       const responseMaster = await ReportCallApi(masterDataBody, spNumber);
-      if (responseMaster) {
-        setMasterData(responseMaster);
-      }
-      // Normalize
+      if (responseMaster) setMasterData(responseMaster);
       let FilterHeader = "";
       let FilterValue = "";
       let ServerFilterHeader = "";
@@ -301,16 +297,14 @@ export default function ReportHome({
         ServerFilterValue = serverFilters
           .map((f) => f.ServerFilterValue)
           .join("#");
-      }
-      // ✅ Handle object filters (from handleSave)
-      else if (filters.FilterHeader && filters.FilterValue) {
-        FilterHeader = filters.FilterHeader;
-        FilterValue = filters.FilterValue;
+      } else if (filters.FilterHeader || filters.ServerFilterHeader) {
+        FilterHeader = filters.FilterHeader || "";
+        FilterValue = filters.FilterValue || "";
         ServerFilterHeader = filters.ServerFilterHeader || "";
         ServerFilterValue = filters.ServerFilterValue || "";
       }
 
-      // Build API body
+      // ----------- Build API Body ----------
       const body = {
         con: JSON.stringify({
           mode: "GetFullReport",
@@ -335,13 +329,16 @@ export default function ReportHome({
       const response = await ReportCallApi(body, spNumber);
       if (Master === "-1") {
         const filtersArray = [];
-        if (FilterHeader && FilterValue) {
-          const headers = FilterHeader.split("#");
-          const values = FilterValue.split("#");
-          headers.forEach((header, i) =>
-            filtersArray.push({ name: header, value: values[i] || "" })
-          );
-        }
+        const mapFilters = (header, value) => {
+          if (!header || !value) return [];
+          const h = header.split("#");
+          const v = value.split("#");
+          return h.map((x, i) => ({ name: x, value: v[i] || "" }));
+        };
+        filtersArray.push(
+          ...mapFilters(FilterHeader, FilterValue),
+          ...mapFilters(ServerFilterHeader, ServerFilterValue)
+        );
         setFilteredValue(filtersArray);
         setServerSider(true);
       }
@@ -360,13 +357,120 @@ export default function ReportHome({
         setSpData(response);
         setShowReportMaster(false);
       }
-
       setIsLoading(false);
     } catch (error) {
       console.error("getReportData failed:", error);
       setIsLoading(false);
     }
   };
+
+  // const fetchReportData = async (filters = {}, Master) => {
+  //   try {
+  //     setIsLoading(true);
+  //     let AllData = JSON.parse(sessionStorage.getItem("reportVarible"));
+  //     const masterDataBody = {
+  //       con: JSON.stringify({
+  //         id: "",
+  //         mode: "GetFullMaster",
+  //         appuserid: AllData?.LUId,
+  //       }),
+  //       p: JSON.stringify({
+  //         ReportId: reportId,
+  //       }),
+  //       f: "DynamicReport ( get sp list )",
+  //     };
+
+  //     const responseMaster = await ReportCallApi(masterDataBody, spNumber);
+  //     if (responseMaster) {
+  //       setMasterData(responseMaster);
+  //     }
+
+  //     let FilterHeader = "";
+  //     let FilterValue = "";
+  //     let ServerFilterHeader = "";
+  //     let ServerFilterValue = "";
+
+  //     if (Array.isArray(filters) && filters.length > 0) {
+  //       const normalFilters = filters.filter(
+  //         (f) => f.FilterHeader && f.FilterValue
+  //       );
+  //       const serverFilters = filters.filter(
+  //         (f) => f.ServerFilterHeader && f.ServerFilterValue
+  //       );
+
+  //       FilterHeader = normalFilters.map((f) => f.FilterHeader).join("#");
+  //       FilterValue = normalFilters.map((f) => f.FilterValue).join("#");
+
+  //       ServerFilterHeader = serverFilters
+  //         .map((f) => f.ServerFilterHeader)
+  //         .join("#");
+  //       ServerFilterValue = serverFilters
+  //         .map((f) => f.ServerFilterValue)
+  //         .join("#");
+  //     }
+  //     else if (filters.FilterHeader && filters.FilterValue) {
+  //       FilterHeader = filters.FilterHeader;
+  //       FilterValue = filters.FilterValue;
+  //       ServerFilterHeader = filters.ServerFilterHeader || "";
+  //       ServerFilterValue = filters.ServerFilterValue || "";
+  //     }
+
+  //     const body = {
+  //       con: JSON.stringify({
+  //         mode: "GetFullReport",
+  //         appuserid: AllData?.LUId,
+  //       }),
+  //       p: JSON.stringify({
+  //         ReportId: reportId,
+  //         IsMaster: Master,
+  //         ...(FilterHeader && { FilterHeader }),
+  //         ...(FilterValue && { FilterValue }),
+  //         ...(ServerFilterHeader && { ServerFilterHeader }),
+  //         ...(ServerFilterValue && { ServerFilterValue }),
+  //         ...(filters.FilterStartDate && {
+  //           FilterStartDate: filters.FilterStartDate,
+  //         }),
+  //         ...(filters.FilterEndDate && {
+  //           FilterEndDate: filters.FilterEndDate,
+  //         }),
+  //       }),
+  //       f: "DynamicReport ( data )",
+  //     };
+  //     const response = await ReportCallApi(body, spNumber);
+  //     if (Master === "-1") {
+  //       const filtersArray = [];
+  //       if (FilterHeader && FilterValue) {
+  //         const headers = FilterHeader.split("#");
+  //         const values = FilterValue.split("#");
+  //         headers.forEach((header, i) =>
+  //           filtersArray.push({ name: header, value: values[i] || "" })
+  //         );
+  //       }
+  //       setFilteredValue(filtersArray);
+  //       setServerSider(true);
+  //     }
+
+  //     if (response?.rd[0]?.stat == 0) {
+  //       setErrorMessageColor("warning");
+  //       setErrorMessage(
+  //         `Found ${response?.rd[0]?.ActualCount} records, limit ${response?.rd[0]?.LargeDataCount}. Please narrow your filters.`
+  //       );
+  //       setOpenSnackbar(true);
+  //     } else if (response?.rd[0]?.stat == 2) {
+  //       setErrorMessageColor("error");
+  //       setErrorMessage("No Records Found");
+  //       setOpenSnackbar(true);
+  //     } else {
+  //       setSpData(response);
+  //       setShowReportMaster(false);
+  //     }
+
+  //     setIsLoading(false);
+  //   } catch (error) {
+  //     console.error("getReportData failed:", error);
+  //     setIsLoading(false);
+  //   }
+  // };
 
   // const fetchReportData = async (filters = {}, Master) => {
   //   try {
@@ -499,6 +603,8 @@ export default function ReportHome({
     let startDate = null;
     let endDate = null;
 
+    console.log('option', option);
+    
     switch (option) {
       case "Today":
         startDate = endDate = today;
@@ -535,7 +641,7 @@ export default function ReportHome({
         startDate = new Date(today.getFullYear(), today.getMonth() - 1, 1);
         endDate = new Date(today.getFullYear(), today.getMonth(), 0);
         break;
-      case "Last 3 Months":
+      case "Last 3 Month":
         endDate = today;
         startDate = new Date(
           today.getFullYear(),
@@ -543,7 +649,7 @@ export default function ReportHome({
           today.getDate() + 1
         );
         break;
-      case "Last 6 Months":
+      case "Last 6 Month":
         endDate = today;
         startDate = new Date(
           today.getFullYear(),
@@ -692,6 +798,8 @@ export default function ReportHome({
 
     // 🔹 Handle Date Filters
     const dateFilters = getDateRange(selectedDateOption);
+
+    
     if (
       selectedDateOption &&
       dateFilters?.FilterStartDate &&
@@ -723,6 +831,8 @@ export default function ReportHome({
   const handleBack = () => {
     setShowReportMaster(true);
   };
+
+  console.log('dateOptions',dateOptions);
   
   return (
     <DragDropContext onDragEnd={() => {}}>
@@ -889,6 +999,7 @@ export default function ReportHome({
                 serverSideData={serverSideData}
                 isLoadingChek={isLoading}
                 reportName={reportName}
+                colorMaster={colorMaster}
               />
             </div>
           )}

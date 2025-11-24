@@ -1,0 +1,121 @@
+{
+  "rd": [
+    {
+      "stat": 1,
+      "stat_msg": "Successfully Get ReportId",
+      "ReportId": 1,
+      "SpNumber": 35,
+      "ReportName": "Job Report_Testing",
+      "IsLargeDataReport": false,
+      "LargeDataCount": 2000,
+      "MasterDataList": "CustomerName{#}Customer Name",
+      "SpliterFirstPanel": "mastermanagement_collectionid",
+      "SpliterSecondPanel": "mastermanagement_categoryid",
+      "DateMonthRestriction": "1",
+      "ServerSideDateWiseFilter": true,
+      "IsSpliterReport": true,
+      "otherSpliterSideData": [
+        {
+          "firstSlideFirstData": [
+            {
+              "selectedField": "HSN_No",
+              "title": "HSN number",
+              "unit": "",
+              "formula": "",
+              "decimal": ""
+            }
+          ],
+          "firstSlideSecondData": [
+            {
+              "selectedField": "JobNo",
+              "title": "Jobs Data",
+              "unit": "",
+              "formula": "",
+              "decimal": ""
+            }
+          ],
+            "firstSlideThirdData": [
+            {
+              "selectedField": "",
+              "title": "",
+              "unit": "",
+              "formula": "",
+              "decimal": ""
+            }
+          ],
+            "firstSlideFouthData": [
+            {
+              "selectedField": "",
+              "title": "",
+              "unit": "",
+              "formula": "",
+              "decimal": ""
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "rd1": [
+    {
+      "ReportId": 1,
+      "DateFrameId": 1,
+      "IsOn": true,
+      "DateFrame": "Today"
+    },
+    {
+      "ReportId": 1,
+      "DateFrameId": 2,
+      "IsOn": true,
+      "DateFrame": "Yesterday"
+    },
+    {
+      "ReportId": 1,
+      "DateFrameId": 3,
+      "IsOn": true,
+      "DateFrame": "This Week"
+    },
+    {
+      "ReportId": 1,
+      "DateFrameId": 4,
+      "IsOn": true,
+      "DateFrame": "Last 7 Days"
+    },
+    {
+      "ReportId": 1,
+      "DateFrameId": 5,
+      "IsOn": true,
+      "DateFrame": "Last Week"
+    },
+    {
+      "ReportId": 1,
+      "DateFrameId": 6,
+      "IsOn": true,
+      "DateFrame": "This Month"
+    },
+    {
+      "ReportId": 1,
+      "DateFrameId": 7,
+      "IsOn": false,
+      "DateFrame": "Last Month"
+    },
+    {
+      "ReportId": 1,
+      "DateFrameId": 8,
+      "IsOn": false,
+      "DateFrame": "Last 3 Month"
+    },
+    {
+      "ReportId": 1,
+      "DateFrameId": 9,
+      "IsOn": false,
+      "DateFrame": "Last 6 Month"
+    },
+    {
+      "ReportId": 1,
+      "DateFrameId": 10,
+      "IsOn": true,
+      "DateFrame": "1 Year"
+    }
+  ]
+}

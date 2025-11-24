@@ -7,11 +7,19 @@ import {
   useSearchParams,
 } from "react-router-dom";
 import { DeviceStatusProvider } from "./DeviceStatusContext";
-import { lazy, Suspense, useEffect, useState } from "react";
-import { CircularProgress } from "@mui/material";
+import { lazy, Suspense, useEffect, useMemo, useState } from "react";
+import {
+  CircularProgress,
+  CssBaseline,
+  IconButton,
+  ThemeProvider,
+} from "@mui/material";
 import ReportListPage from "./Components/Pages/ReportListPage/ReportListPage";
 import { CallApi } from "./API/CallApi/CallApi";
 import { readAndDecodeCookie } from "./Utils/globalFunc";
+import testingData from "../src/Components/Pages/Report/SampleData_getPageIdAPI.json";
+import { darkTheme, lightTheme } from "./Components/Theme/theme";
+import { DarkMode, LightMode } from "@mui/icons-material";
 
 const GridMain = lazy(() => import("./GridMain"));
 function RouterContent() {
@@ -24,9 +32,16 @@ function RouterContent() {
   const [spNumber, setSpNumber] = useState(null);
   const [largeData, setLargeData] = useState(false);
   const [dateOptionsShow, setLargeDataShow] = useState(false);
+  const [spliterReportShow, setSpliterReportShow] = useState(false);
+  const [spliterReportFirstPanel, setSpliterReportFirstPanel] = useState();
+  const [spliterReportSecondPanel, setSpliterReportSecondPanel] = useState();
+  const [spliterReportMonthRestiction, setSpliterReportMonthRestiction] =
+    useState();
+  const [otherSpliterSideData, setOtherSpliterSideData] = useState();
   const [dateOptions, setDateOptions] = useState();
   const [largeDataTitle, setLargeDataTitle] = useState("");
   const [reportName, setReportName] = useState("");
+  const [colorMaster, setColorMaster] = useState();
   const [ready, setReady] = useState(false);
 
   const decodeBase64 = (str) => {
@@ -45,7 +60,6 @@ function RouterContent() {
         setTokenMissing(true);
         return;
       }
-
       try {
         const decodedCN = decodeBase64(CN);
         const cookieData = await readAndDecodeCookie(decodedCN);
@@ -54,26 +68,37 @@ function RouterContent() {
           return;
         }
         sessionStorage.setItem("reportVarible", JSON.stringify(cookieData));
+        let AllData = JSON.parse(sessionStorage.getItem("reportVarible"));
         const body = {
-          con: JSON.stringify({ mode: "getPageId" }),
+          con: JSON.stringify({
+            id: "",
+            mode: "getPageId",
+            appuserid: AllData?.LUId,
+          }),
           p: JSON.stringify({ PageId: pid }),
           f: "DynamicReport (get column data)",
         };
 
         const response = await CallApi(body);
+        // const response = testingData;
         if (response?.Status === "400") {
           setTokenMissing(true);
           return;
         }
-
         const data = response?.rd?.[0];
+        setColorMaster(response?.rd2);
         if (data?.stat === 1) {
           setReportId(data.ReportId);
           setSpNumber(data.SpNumber);
           setLargeDataTitle(data.MasterDataList || "");
           setLargeData(!!data.IsLargeDataReport);
+          setSpliterReportShow(data.IsSpliterReport);
           setLargeDataShow(data.ServerSideDateWiseFilter);
+          setSpliterReportFirstPanel(data.SpliterFirstPanel);
+          setSpliterReportSecondPanel(data.SpliterSecondPanel);
+          setSpliterReportMonthRestiction(data.DateMonthRestriction);
           setReportName(data.ReportName);
+          setOtherSpliterSideData(data.otherSpliterSideData);
           setDateOptions(response?.rd1);
           const key = `${pid}_${data.ReportId}`;
           sessionStorage.setItem(key, data.ReportId);
@@ -121,6 +146,12 @@ function RouterContent() {
                 dateOptions={dateOptions}
                 dateOptionsShow={dateOptionsShow}
                 reportName={reportName}
+                spliterReportShow={spliterReportShow}
+                spliterReportFirstPanel={spliterReportFirstPanel}
+                spliterReportSecondPanel={spliterReportSecondPanel}
+                spliterReportMonthRestiction={spliterReportMonthRestiction}
+                otherSpliterSideData={otherSpliterSideData}
+                colorMaster={colorMaster}
               />
             }
           />
@@ -131,6 +162,13 @@ function RouterContent() {
 }
 
 export default function App() {
+  const [mode, setMode] = useState("light");
+
+  const theme = useMemo(
+    () => (mode === "light" ? lightTheme : darkTheme),
+    [mode]
+  );
+
   function getBaseName() {
     const path = window.location.pathname;
     const match = path.match(/^\/([^/]+\/[^/]+)/);
@@ -139,11 +177,21 @@ export default function App() {
 
   return (
     <RecoilRoot>
-      <DeviceStatusProvider>
-        <BrowserRouter basename={getBaseName()}>
-          <RouterContent />
-        </BrowserRouter>
-      </DeviceStatusProvider>
+      {/* <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <IconButton
+          onClick={() =>
+            setMode((prev) => (prev === "light" ? "dark" : "light"))
+          }
+        >
+          {mode === "light" ? <DarkMode /> : <LightMode />}
+        </IconButton> */}
+        <DeviceStatusProvider>
+          <BrowserRouter basename={getBaseName()}>
+            <RouterContent />
+          </BrowserRouter>
+        </DeviceStatusProvider>
+      {/* </ThemeProvider> */}
     </RecoilRoot>
   );
 }

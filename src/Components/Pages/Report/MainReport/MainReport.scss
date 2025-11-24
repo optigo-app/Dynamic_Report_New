@@ -1,6 +1,5 @@
 @import "../../../sass/Variable.scss";
 
-
 .topHeader_title {
   font-family: $fontFamily !important;
   font-size: 20px;
@@ -188,8 +187,6 @@
   }
 }
 
-
-
 /* ✅ Sticky Search Bar */
 .search-bar {
   position: sticky;
@@ -217,8 +214,6 @@
   color: #999;
 }
 
-
-
 .show-more-btn {
   background: none;
   border: none;
@@ -243,7 +238,6 @@
 }
 
 /* Report container */
-
 
 .master_form_sub {
   display: flex;
@@ -303,31 +297,50 @@
   transition: all 0.3s ease;
 }
 
+.osr_mainName {
+  height: 18px;
+  display: flex;
+  margin: 0px;
+  align-items: center;
+}
+
+.osr_subname {
+  height: 18px;
+  display: flex;
+  margin: 0px;
+  align-items: center;
+  color: gray;
+}
+
+.yellow-row {
+  background-color: #fffad0 !important;
+}
+
+
 .dataGrid_Warper {
   &::-webkit-scrollbar {
     width: 3px;
   }
 
   &::-webkit-scrollbar-track {
-    background: transparent; // keep it clean
+    background: transparent;
   }
 
   &::-webkit-scrollbar-thumb {
-    background: #7367f0;
+    background: #c8c7d4;
     border-radius: 10px;
   }
 
   &::-webkit-scrollbar-thumb:hover {
-    background: #7367f0;
+    background: #c8c7d4;
   }
 
   scrollbar-width: thin;
-  scrollbar-color: #7367f0 transparent;
+  scrollbar-color: #c8c7d4 transparent;
 }
 
-.print_model_main{
-
-  .MuiPaper-root{
+.print_model_main {
+  .MuiPaper-root {
     max-width: 70% !important;
   }
 }

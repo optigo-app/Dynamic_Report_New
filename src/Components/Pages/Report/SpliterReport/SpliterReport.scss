@@ -1,0 +1,61 @@
+@import "../../../sass/Variable.scss";
+
+.spliter1_maindiv {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 5px;
+  height: 80vh;
+  overflow: auto;
+}
+.spliter1_maindiv::-webkit-scrollbar {
+  width: 5px;
+}
+.spliter1_maindiv::-webkit-scrollbar-track {
+  background: #f0f0f0;
+  border-radius: 4px;
+}
+
+.spliter1_maindiv::-webkit-scrollbar-thumb {
+  background-color: #776cf0;
+  border-radius: 8px;
+  border: 2px solid #f0f0f0;
+}
+
+.spliter1_maindiv::-webkit-scrollbar-thumb:hover {
+  background-color: #0056b3;
+}
+
+/* Firefox styling */
+.spliter1_maindiv {
+  scrollbar-color: #776cf0 #f0f0f0;
+  scrollbar-width: thin;
+  padding: 0px 5px;
+}
+
+.splitter {
+  width: 7px;
+  background-color: #ededed;
+  cursor: col-resize;
+  height: 100%;
+  z-index: 10;
+}
+
+.spliter1_showname {
+  font-family: $fontFamily;
+  cursor: pointer;
+  padding: 20px 10px;
+  margin-bottom: 4px;
+  border-radius: 5px;
+}
+
+.reportSpliter_top_headername{
+  font-family: $fontFamily;
+  font-size: 20px;
+  font-weight: 600;
+  margin: 5px 0px;
+  background-color: #7c73df;
+  color: white;
+  padding: 5px;
+  border-radius: 5px;
+}

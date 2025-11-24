@@ -295,6 +295,8 @@ export default function MainReport({
   serverSideData,
   isLoadingChek,
   reportName,
+  spliterReportShow,
+  colorMaster,
 }) {
   const [isLoading, setIsLoading] = useState(isLoadingChek);
   const gridContainerRef = useRef(null);
@@ -317,7 +319,6 @@ export default function MainReport({
   const [activeActionColumn, setActiveActionColumn] = useState(null);
   const [tempValue, setTempValue] = useState("");
   const [selectionModel, setSelectionModel] = useState([]);
-  //Date Filters
   const [dateColumnOptions, setDateColumnOptions] = useState([]);
   const [selectedDateColumn, setSelectedDateColumn] = useState("");
   const [filteredValueState, setFilteredValue] = useState();
@@ -326,7 +327,6 @@ export default function MainReport({
   });
   const startDate = filterState?.dateRange?.startDate;
   const endDate = filterState?.dateRange?.endDate;
-
   const apiRef = useGridApiRef();
   const [grupEnChekBox, setGrupEnChekBox] = useState({});
   const [grupEnChekBoxImage, setGrupEnChekBoxImage] = useState([]);
@@ -341,7 +341,35 @@ export default function MainReport({
   const [isPageChanging, setIsPageChanging] = useState(false);
   const [showPrintView, setShowPrintView] = useState(false);
   const [printData, setPrintData] = useState([]);
+  const [navigationData, setNavigationData] = useState();
+  const [iframeModelData, setIframeModelData] = useState();
   const printRef = useRef();
+  const [sideFilterOpen, setSideFilterOpen] = useState(false);
+  const [selectedColors, setSelectedColors] = useState([]);
+  const [iframeUrl, setIframeUrl] = useState("");
+
+  const toggleDrawer = (newOpen) => () => {
+    setSideFilterOpen(newOpen);
+  };
+
+  useEffect(() => {
+    const getIframeUrlParams = async () => {
+      try {
+        const body = {
+          con: '{ "mode": "getIframeUrlParams"}',
+          p: '{"IframeTypeId":1}',
+          f: "( get sp list )",
+        };
+        const response = await CallApi(body);
+        setIframeModelData(response);
+      } catch (error) {
+        console.error("Error fetching report data:", error);
+      }
+    };
+    getIframeUrlParams();
+  }, []);
+
+  console.log("iframeModelData", iframeModelData);
 
   useEffect(() => {
     setShowReportMaster(showBackErrow);
@@ -350,6 +378,45 @@ export default function MainReport({
   useEffect(() => {
     setIsLoading(isLoadingChek);
   }, [isLoadingChek]);
+
+  useEffect(() => {
+    const fetchReportData = async () => {
+      try {
+        // 🔹 Find ReportId by prefix
+        const keyPrefix = `${pid}_`;
+        const matchingKey = Object.keys(sessionStorage).find((key) =>
+          key.startsWith(keyPrefix)
+        );
+
+        if (!matchingKey) {
+          console.warn("No ReportId found in sessionStorage for pid", pid);
+          return;
+        }
+
+        const reportId = matchingKey.split("_")[1];
+
+        // 🔹 Get report variable (optional)
+        const allData = JSON.parse(sessionStorage.getItem("reportVarible"));
+
+        // 🔹 Prepare body
+        const body = {
+          con: JSON.stringify({
+            mode: "getUrlParams",
+          }),
+          p: JSON.stringify({
+            ReportId: reportId,
+          }),
+          f: "DynamicReport (get url data)",
+        };
+        const response = await ReportCallApi(body, spNumber);
+        setNavigationData(response);
+      } catch (error) {
+        console.error("Error fetching report data:", error);
+      }
+    };
+
+    fetchReportData();
+  }, [pid, spNumber]);
 
   useEffect(() => {
     const now = new Date();
@@ -474,8 +541,30 @@ export default function MainReport({
   };
 
   useEffect(() => {
+    const handleKeyPress = (e) => {
+      if (e.altKey && e.key.toLowerCase() === "f") {
+        e.preventDefault();
+        setSideFilterOpen(true);
+      }
+
+      if (e.altKey && e.key.toLowerCase() === "c") {
+        e.preventDefault();
+        setSideFilterOpen(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyPress);
+    return () => {
+      window.removeEventListener("keydown", handleKeyPress);
+    };
+  }, []);
+
+  const defaultSortApplied = useRef(false);
+  const initialSort = useRef(null);
+
+  useEffect(() => {
     if (!allColumData) return;
     const toBool = (val) => String(val).toLowerCase() === "true";
+    console.log("allColumData", allColumData);
     const columnData = Object?.values(allColumData)
       ?.filter((col) => col.IsVisible == "True")
       ?.map((col, index) => {
@@ -514,6 +603,7 @@ export default function MainReport({
           onHrefNavigate: col.OnHrefNavigate,
           Summary: col?.Summary,
           SummaryValueKey: col.SummaryValueKey,
+          DefaultSort: col.DefaultSort,
           SummaryValueFormated: col.SummaryValueFormated,
           DisplayOrder: col.DisplayOrder,
           ColumnType: col.ColumnType,
@@ -535,6 +625,7 @@ export default function MainReport({
 
           renderCell: (params) => {
             const displayValue = params.value;
+
             if (col?.ImageColumn == "True") {
               const src =
                 String(params?.row?.ImgUrl ?? "").trim() || noFoundImg;
@@ -549,6 +640,10 @@ export default function MainReport({
                 >
                   <img
                     src={src}
+                    onError={(e) => {
+                      if (e.target.src !== noFoundImg)
+                        e.target.src = noFoundImg;
+                    }}
                     style={{
                       height: "35px",
                       width: "35px",
@@ -556,6 +651,54 @@ export default function MainReport({
                     }}
                   />
                 </div>
+              );
+            }
+
+            if (
+              col?.TwoColumnData &&
+              col?.TwoColumnData.trim() !== "" &&
+              col?.TwoColumnData !== "Select"
+            ) {
+              const secondValue = params?.row?.[col.TwoColumnData];
+              const primaryValue =
+                col?.ColumnDecimal && !isNaN(params.value)
+                  ? Number(params.value).toFixed(col.ColumnDecimal)
+                  : params.value;
+
+              return (
+                <span
+                  style={{
+                    color: col.Color || "inherit",
+                    backgroundColor: col.BackgroundColor || "inherit",
+                    fontSize: col.FontSize || "inherit",
+                    textTransform: col.ColumTitleCapital ? "uppercase" : "none",
+                    padding: "0px",
+                    borderRadius: col.BorderRadius,
+                    display: "flex",
+                    flexDirection: "column",
+                  }}
+                >
+                  <p
+                    className="osr_mainName"
+                    style={{
+                      display: "flex",
+                      justifyContent:
+                        col?.ColumnType == "Number" ? "flex-end" : "flex-start",
+                    }}
+                  >
+                    {primaryValue}
+                  </p>
+                  <p
+                    className="osr_subname"
+                    style={{
+                      display: "flex",
+                      justifyContent:
+                        col?.ColumnType == "Number" ? "flex-end" : "flex-start",
+                    }}
+                  >
+                    {secondValue}
+                  </p>
+                </span>
               );
             }
 
@@ -572,6 +715,31 @@ export default function MainReport({
                   }}
                 >
                   {params.value?.toFixed(col?.ColumnDecimal)}
+                </span>
+              );
+            }
+
+            if (col?.PriorityColorColumn == "True") {
+              const priorityColumn = allColumData?.find(
+                (x) => x.IsPriorityColumn === "True"
+              );
+              if (!priorityColumn) return params.value;
+              const priorityId = params?.row?.[priorityColumn.FieldName];
+              const priorityObj = colorMaster?.find((x) => x.id == priorityId);
+              const bg = priorityObj?.colorcode ?? "inherit";
+              const font = priorityObj?.fontcolorcode ?? "inherit";
+
+              return (
+                <span
+                  style={{
+                    backgroundColor: bg,
+                    color: font,
+                    fontSize: col.FontSize || "12px",
+                    padding: "3px 6px",
+                    borderRadius: "15px",
+                  }}
+                >
+                  {params.value}
                 </span>
               );
             }
@@ -625,7 +793,7 @@ export default function MainReport({
                 >
                   <span
                     style={{
-                      color: col.Color || "inherit",
+                      color: col.FontColor || "inherit",
                       backgroundColor: col.BackgroundColor || "inherit",
                       fontSize: col.FontSize || "12px",
                       textTransform: col.ColumTitleCapital
@@ -653,7 +821,7 @@ export default function MainReport({
               );
             }
 
-            if (col.HrefLink) {
+            if (col.HrefLink == "true") {
               return (
                 <a
                   target="_blank"
@@ -761,31 +929,133 @@ export default function MainReport({
         );
       },
     };
+
     const visibleColumns = [
       srColumn,
       ...columnData.filter((col) => col.HideColumn !== "True"),
     ];
+
     setColumns(visibleColumns);
     setColumnsHide([srColumn, ...columnData]);
-  }, [allColumData, grupEnChekBox, sortModel, paginationModel, selectionModel]);
+
+    if (!defaultSortApplied.current && columnData?.length > 0) {
+      const cand = columnData.find(
+        (c) =>
+          c.DefaultSort &&
+          ["ascending", "descending"].includes(
+            String(c.DefaultSort).toLowerCase()
+          )
+      );
+
+      if (cand) {
+        const hasField = visibleColumns.some((vc) => vc.field === cand.field);
+
+        if (hasField) {
+          const sortDir =
+            String(cand.DefaultSort).toLowerCase() === "ascending"
+              ? "asc"
+              : "desc";
+
+          initialSort.current = [{ field: cand.field, sort: sortDir }];
+          setSortModel(initialSort.current);
+        }
+      }
+
+      defaultSortApplied.current = true;
+    }
+  }, [allColumData, grupEnChekBox, paginationModel, selectionModel]);
+  console.log("candcand", sortModel);
+
+  const buildIframeUrl = (params) => {
+    const baseUrl = iframeModelData?.rd?.[0]?.baseurl || "";
+
+    const queryParams = iframeModelData?.rd1
+      ?.map((item) => {
+        const { ParameterName, ParameterValue, IsStatic } = item;
+
+        if (IsStatic === true || IsStatic === "true") {
+          // static → send as it is
+          return `${ParameterName}=${encodeURIComponent(ParameterValue)}`;
+        } else {
+          // dynamic → take from row else fallback to ParameterValue
+          const dynamicValue =
+            params?.row?.[ParameterName] || ParameterValue || "";
+          return `${ParameterName}=${btoa(dynamicValue)}`;
+        }
+      })
+      .join("&");
+
+    return `${baseUrl}?${queryParams}`;
+  };
 
   const handleCellClick = (params) => {
-    let url_optigo = sessionStorage.getItem("url_optigo");
-
-    if (params?.colDef?.OnHrefNavigate) {
-      window?.parent.addTab(
-        "Material Purchase",
-        "icon-InventoryManagement_invoiceSummary",
-        url_optigo +
-          "mfg/app/InventoryManagement_invoiceList?invoiceof=supplier&invoiceno=" +
-          btoa(params?.formattedValue) +
-          "&IsOldMetal=" +
-          params?.row?.isoldmetal
-      );
-    } else if (params?.colDef?.onHrefLinkModel) {
+    if (params?.colDef?.onHrefLinkModel === "true") {
+      // create iframe URL when model opens
+      const url = buildIframeUrl(params);
+      setIframeUrl(url);
       setOpenHrefModel(true);
+    } else {
+      // your existing logic
+      const baseUrl = navigationData?.rd?.[0]?.BaseUrl || "";
+      const redirectUrl = navigationData?.rd?.[0]?.ReportRedirectUrl || "";
+      const navigateName = params?.colDef?.onHrefNavigate || "";
+
+      const queryParams = navigationData?.rd1
+        ?.map((item) => {
+          const { VariableName, VariableValue, IsStatic } = item;
+
+          if (IsStatic === "true") {
+            return `${VariableName}=${encodeURIComponent(VariableValue)}`;
+          } else {
+            const dynamicVal =
+              params?.row?.[VariableName] || VariableValue || "";
+            return `${VariableName}=${btoa(dynamicVal)}`;
+          }
+        })
+        .join("&");
+
+      const fullUrl = `${baseUrl}${redirectUrl}?${queryParams}`;
+
+      if (window?.parent?.addTab) {
+        window.parent.addTab(
+          navigateName,
+          "icon-InventoryManagement_invoiceSummary",
+          fullUrl
+        );
+      }
     }
   };
+
+  // const handleCellClick = (params) => {
+
+  //   if (params?.colDef?.onHrefLinkModel === "true") {
+  //     setOpenHrefModel(true);
+  //   } else {
+  //     const baseUrl = navigationData?.rd?.[0]?.BaseUrl || "";
+  //     const redirectUrl = navigationData?.rd?.[0]?.ReportRedirectUrl || "";
+  //     const navigateName = params?.colDef?.onHrefNavigate || "";
+  //     const queryParams = navigationData?.rd1
+  //       ?.map((item) => {
+  //         const { VariableName, VariableValue, IsStatic } = item;
+  //         if (IsStatic === "true") {
+  //           return `${VariableName}=${encodeURIComponent(VariableValue)}`;
+  //         } else {
+  //           const dynamicVal =
+  //             params?.row?.[VariableName] || VariableValue || "";
+  //           return `${VariableName}=${btoa(dynamicVal)}`;
+  //         }
+  //       })
+  //       .join("&");
+  //     const fullUrl = `${baseUrl}${redirectUrl}?${queryParams}`;
+  //     if (window?.parent?.addTab) {
+  //       window.parent.addTab(
+  //         navigateName,
+  //         "icon-InventoryManagement_invoiceSummary",
+  //         fullUrl
+  //       );
+  //     }
+  //   }
+  // };
 
   const buildMasterValueMap = (masterData) => {
     const map = {};
@@ -842,11 +1112,9 @@ export default function MainReport({
       }
     }
   }, [allColumData]);
-
   const [filteredRows, setFilteredRows] = useState(originalRows);
   const [filters, setFilters] = useState({});
   const [filtersShow, setFiltersShow] = useState({});
-  const firstLoad = useRef(true);
 
   useEffect(() => {
     const filtersArray = filtersShow
@@ -855,7 +1123,11 @@ export default function MainReport({
             ([_, value]) =>
               value !== "" && value !== null && value !== undefined
           )
-          .map(([key, value]) => ({ name: key, value }))
+          .map(([key, value]) => {
+            if (Array.isArray(value) && value.length === 0) return null;
+            return { name: key, value };
+          })
+          .filter(Boolean)
       : [];
 
     const merged = [
@@ -868,6 +1140,7 @@ export default function MainReport({
       if (!exists) acc.push(current);
       return acc;
     }, []);
+
     setFilteredValue(uniqueMerged);
   }, [filters, filteredValue, filtersShow]);
 
@@ -913,18 +1186,34 @@ export default function MainReport({
           }
         }
       }
-      // if (!firstLoad.current && isMatch && filterState && selectedDateColumn) {
-      if (isMatch && filterState && selectedDateColumn) {
-        const toDateOnly = (d) => new Date(new Date(d).toDateString());
-        const rowDate = toDateOnly(row[selectedDateColumn]);
-        const parsedStart = toDateOnly(startDate);
-        const parsedEnd = toDateOnly(endDate);
-        if (
-          isNaN(rowDate.getTime()) ||
-          rowDate < parsedStart ||
-          rowDate > parsedEnd
-        ) {
-          isMatch = false;
+
+      if (isMatch && selectedColors?.length > 0) {
+        const priorityCol = allColumData?.find(
+          (x) => x.IsPriorityColumn === "True"
+        );
+
+        if (priorityCol) {
+          const priorityValue = row[priorityCol.FieldName];
+
+          if (!selectedColors.includes(priorityValue)) {
+            isMatch = false; // ❌ row doesn't match selected priority colors
+          }
+        }
+      }
+
+      if (!spliterReportShow) {
+        if (isMatch && filterState && selectedDateColumn) {
+          const toDateOnly = (d) => new Date(new Date(d).toDateString());
+          const rowDate = toDateOnly(row[selectedDateColumn]);
+          const parsedStart = toDateOnly(startDate);
+          const parsedEnd = toDateOnly(endDate);
+          if (
+            isNaN(rowDate.getTime()) ||
+            rowDate < parsedStart ||
+            rowDate > parsedEnd
+          ) {
+            isMatch = false;
+          }
         }
       }
 
@@ -951,9 +1240,6 @@ export default function MainReport({
     } else {
       setFilteredRows(rowsWithSrNo);
     }
-    // if (firstLoad.current) {
-    //   firstLoad.current = false;
-    // }
   }, [filters, commonSearch, startDate, columns, selectedDateColumn]);
 
   const handleFilterChange = (FieldName, value, filterType, HeaderName) => {
@@ -981,20 +1267,26 @@ export default function MainReport({
 
     setFiltersShow((prevFilters) => {
       if (filterType === "MultiSelection") {
-        const selectedValues = prevFilters[HeaderName] || [];
-        let newValues;
+        const selectedValues = prevFilters?.[HeaderName] || [];
 
-        if (value.checked) {
-          newValues = [...selectedValues, value.value];
-        } else {
-          newValues = selectedValues.filter((v) => v !== value.value);
+        const checked = value?.checked ?? false;
+        const val = value?.value;
+
+        if (val === undefined) {
+          console.warn("Filter value is undefined for", HeaderName);
+          return prevFilters;
         }
+
+        const newValues = checked
+          ? [...selectedValues, val]
+          : selectedValues.filter((v) => v !== val);
 
         return {
           ...prevFilters,
           [HeaderName]: newValues,
         };
       }
+
       return {
         ...prevFilters,
         [HeaderName]: value,
@@ -1002,6 +1294,376 @@ export default function MainReport({
     });
   };
 
+  const SERVER_SEP = "###";
+  const serverFiltersRef = useRef({});
+  const currentReportFiltersRef = useRef({ FilterHeader: "", FilterValue: "" });
+  const buildFilterStrings = () => {
+    const { FilterHeader = "", FilterValue = "" } =
+      currentReportFiltersRef.current;
+
+    const serverKeys = Object.keys(serverFiltersRef.current || {});
+    const serverVals = serverKeys.map((k) => serverFiltersRef.current[k] || "");
+
+    return {
+      FilterHeader,
+      FilterValue,
+      ServerFilterHeader: serverKeys.length
+        ? serverKeys.join(SERVER_SEP) + SERVER_SEP
+        : "",
+      ServerFilterValue: serverVals.length
+        ? serverVals.join(SERVER_SEP) + SERVER_SEP
+        : "",
+    };
+  };
+  const [tempInput, setTempInput] = useState({});
+  const renderServerSideFilter = (col) => {
+    if (!col.filterTypes || col.filterTypes.length === 0) return null;
+
+    return col.filterTypes.map((filterType) => {
+      if (filterType !== "ServerSideFilter") return null;
+
+      const filterItem = filteredValueState?.find(
+        (f) => f.name === col.headerNamesingle
+      );
+      const handleChange = (e) => {
+        const newValue = e.target.value;
+        setTempInput((prev) => ({
+          ...prev,
+          [col.headerNamesingle]: newValue,
+        }));
+      };
+
+      const handleEnter = (e) => {
+        if (e.key !== "Enter") return;
+        const enteredValue = tempInput[col.headerNamesingle]?.trim();
+        if (!enteredValue) return;
+        setFilteredValue((prev = []) => {
+          const exists = prev.find((f) => f.name === col.headerNamesingle);
+          return exists
+            ? prev.map((f) =>
+                f.name === col.headerNamesingle
+                  ? { ...f, value: enteredValue }
+                  : f
+              )
+            : [...prev, { name: col.headerNamesingle, value: enteredValue }];
+        });
+
+        serverFiltersRef.current = {
+          ...serverFiltersRef.current,
+          [col.FieldName]: enteredValue,
+        };
+
+        const parts = buildFilterStrings();
+        const mergedPayload = {
+          ...(parts.FilterHeader && { FilterHeader: parts.FilterHeader }),
+          ...(parts.FilterValue && { FilterValue: parts.FilterValue }),
+          ...(parts.ServerFilterHeader && {
+            ServerFilterHeader: parts.ServerFilterHeader,
+          }),
+          ...(parts.ServerFilterValue && {
+            ServerFilterValue: parts.ServerFilterValue,
+          }),
+        };
+        toggleDrawer(false);
+        onSearchFilter?.([mergedPayload], "-1");
+      };
+
+      const handleClear = () => {
+        setTempInput((prev) => {
+          const copy = { ...prev };
+          delete copy[col.headerNamesingle];
+          return copy;
+        });
+
+        setFilteredValue((prev) =>
+          prev.filter((f) => f.name !== col.headerNamesingle)
+        );
+
+        const copy = { ...serverFiltersRef.current };
+        delete copy[col.FieldName];
+        serverFiltersRef.current = copy;
+
+        const parts = buildFilterStrings();
+        const mergedPayload = {
+          ...(parts.FilterHeader && { FilterHeader: parts.FilterHeader }),
+          ...(parts.FilterValue && { FilterValue: parts.FilterValue }),
+          ...(parts.ServerFilterHeader && {
+            ServerFilterHeader: parts.ServerFilterHeader,
+          }),
+          ...(parts.ServerFilterValue && {
+            ServerFilterValue: parts.ServerFilterValue,
+          }),
+        };
+
+        onSearchFilter?.([mergedPayload], "0");
+      };
+
+      return (
+        <div
+          style={{ width: "100%", margin: "10px 20px" }}
+          key={col.headerNamesingle}
+        >
+          <TextField
+            label={`Filter ${col.headerNamesingle}`}
+            variant="outlined"
+            style={{ width: "100%" }}
+            className="customize_colum_input"
+            InputProps={{
+              style: { height: 36, fontSize: 16, width: "100%" },
+              endAdornment: tempInput[col.headerNamesingle] ? (
+                <InputAdornment position="end">
+                  <IconButton size="small" onClick={handleClear}>
+                    <X size={16} />
+                  </IconButton>
+                </InputAdornment>
+              ) : null,
+            }}
+            sx={{
+              "& .MuiInputLabel-root": {
+                top: "-8px",
+              },
+              "& .MuiInputLabel-root.Mui-focused": {
+                top: "0px",
+              },
+              "& .MuiInputLabel-root.MuiInputLabel-shrink": {
+                top: "0px",
+              },
+            }}
+            value={tempInput[col.headerNamesingle] || ""}
+            onChange={handleChange}
+            onKeyDown={handleEnter}
+          />
+        </div>
+      );
+    });
+  };
+
+  //
+  const renderFilterMulti = (col) => {
+    if (!col.filterTypes || col.filterTypes.length === 0) return null;
+    const filtersToRender = col.filterTypes;
+    return filtersToRender?.map((filterType) => {
+      switch (filterType) {
+        case "MultiSelection":
+          const uniqueValues = [
+            ...new Set(originalRows?.map((row) => row[col.field])),
+          ];
+          const headerName = col.headerNameSub;
+          return (
+            <div key={col.field} style={{ margin: "10px 20px" }}>
+              <Accordion>
+                <AccordionSummary
+                  expandIcon={<MdExpandMore />}
+                  aria-controls={`${col.field}-content`}
+                  id={`${col.field}-header`}
+                  sx={{
+                    "& .MuiButtonBase-root": {
+                      display: "none",
+                    },
+                  }}
+                >
+                  <Typography>{col.headerNameSub}</Typography>
+                </AccordionSummary>
+                <AccordionDetails className="gridMetalComboMain">
+                  {uniqueValues.map((value) => (
+                    <label key={value}>
+                      <input
+                        type="checkbox"
+                        value={value}
+                        checked={(filters[col.field] || []).includes(value)}
+                        onChange={(e) =>
+                          handleFilterChange(
+                            col.field,
+                            { value, checked: e.target.checked },
+                            "MultiSelection",
+                            headerName
+                          )
+                        }
+                      />
+                      {value}
+                    </label>
+                  ))}
+                </AccordionDetails>
+              </Accordion>
+            </div>
+          );
+
+        default:
+          return null;
+      }
+    });
+  };
+
+  //
+  const renderFilterRange = (col) => {
+    if (!col.filterTypes || col.filterTypes.length === 0) return null;
+    const filtersToRender = col.filterTypes;
+    return filtersToRender.map((filterType) => {
+      switch (filterType) {
+        case "RangeFilter":
+          return (
+            <div
+              key={`filter-${col.FieldName}-RangeFilter`}
+              style={{ margin: "10px 20px", display: "flex", gap: "10px" }}
+            >
+              <TextField
+                type="number"
+                key={`filter-${col.headerNamesingle}-MinFilter`}
+                name={`filter-${col.headerNamesingle}-MinFilter`}
+                label={`${col.headerNamesingle} Min`}
+                variant="outlined"
+                value={filters[`${col.FieldName}_min`] || ""}
+                onChange={(e) => {
+                  const value = e.target.value
+                    ? parseFloat(e.target.value)
+                    : "";
+                  setFilters((prev) => ({
+                    ...prev,
+                    [`${col.FieldName}_min`]: value,
+                  }));
+                }}
+                style={{ width: "50%" }}
+                InputLabelProps={{
+                  style: {
+                    fontFamily: "Poppins, sans-serif",
+                  },
+                }}
+                InputProps={{
+                  style: {
+                    height: 40,
+                    fontSize: 16,
+                  },
+                }}
+                sx={{
+                  "& .MuiInputLabel-root": {
+                    top: "-5px",
+                  },
+                  "& .MuiInputLabel-root.Mui-focused": {
+                    top: "0px",
+                  },
+                  "& .MuiInputLabel-root.MuiInputLabel-shrink": {
+                    top: "0px",
+                  },
+                }}
+              />
+
+              <TextField
+                type="number"
+                key={`filter-${col.headerNamesingle}-MaxFilter`}
+                name={`filter-${col.headerNamesingle}-MaxFilter`}
+                label={`${col.headerNamesingle} Max`}
+                variant="outlined"
+                value={filters[`${col.FieldName}_max`] || ""}
+                onChange={(e) => {
+                  const value = e.target.value
+                    ? parseFloat(e.target.value)
+                    : "";
+                  setFilters((prev) => ({
+                    ...prev,
+                    [`${col.FieldName}_max`]: value,
+                  }));
+                }}
+                style={{ width: "50%" }}
+                InputLabelProps={{
+                  style: {
+                    fontFamily: "Poppins, sans-serif",
+                  },
+                }}
+                InputProps={{
+                  style: {
+                    height: 40,
+                    fontSize: 16,
+                  },
+                }}
+                sx={{
+                  "& .MuiInputLabel-root": {
+                    top: "-5px",
+                  },
+                  "& .MuiInputLabel-root.Mui-focused": {
+                    top: "0px",
+                  },
+                  "& .MuiInputLabel-root.MuiInputLabel-shrink": {
+                    top: "0px",
+                  },
+                }}
+              />
+            </div>
+          );
+        default:
+          return null;
+      }
+    });
+  };
+
+  //
+  const renderFilterDropDown = (col) => {
+    if (!col.filterTypes || col.filterTypes.length === 0) return null;
+    const filtersToRender = col.filterTypes;
+
+    return filtersToRender.map((filterType) => {
+      switch (filterType) {
+        case "selectDropdownFilter": {
+          let uniqueValues = [
+            ...new Set(originalRows?.map((row) => row[col.field])),
+          ];
+          uniqueValues = uniqueValues.filter((v) => v && v.trim() !== "");
+          uniqueValues.sort((a, b) =>
+            a.localeCompare(b, undefined, { sensitivity: "base" })
+          );
+          return (
+            <div
+              key={`filter-${col.field}-selectDropdownFilter`}
+              style={{ width: "100%", margin: "10px 20px" }}
+            >
+              <FormControl fullWidth size="small">
+                <InputLabel>{`Select ${col.headerNameSub}`}</InputLabel>
+                <Select
+                  label={`Select ${col.headerNameSub}`}
+                  name={`Select ${col.headerNameSub}`}
+                  value={filters[col.field] || ""}
+                  onChange={(e) =>
+                    handleFilterChange(
+                      col.field,
+                      e.target.value,
+                      "",
+                      col.headerNameSub
+                    )
+                  }
+                  style={{
+                    height: 40, // input height
+                    fontSize: 16, // font size
+                  }}
+                  MenuProps={{
+                    PaperProps: {
+                      style: {
+                        maxHeight: 300,
+                      },
+                    },
+                  }}
+                >
+                  <MenuItem value="">
+                    <em>{`Select ${col?.headerNameSub}`}</em>
+                  </MenuItem>
+                  {uniqueValues.map((value) => (
+                    <MenuItem
+                      key={`select-${col.field}-${value}`}
+                      value={value}
+                    >
+                      {value}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </div>
+          );
+        }
+        default:
+          return null;
+      }
+    });
+  };
+
+  //
   const renderFilter = (col) => {
     if (!col.filterTypes || col.filterTypes.length === 0) return null;
     const filtersToRender = col.filterTypes;
@@ -1057,156 +1719,7 @@ export default function MainReport({
     });
   };
 
-  const SERVER_SEP = "###";
-  const serverFiltersRef = useRef({});
-  const currentReportFiltersRef = useRef({ FilterHeader: "", FilterValue: "" });
-
-  const buildFilterStrings = () => {
-    const { FilterHeader = "", FilterValue = "" } =
-      currentReportFiltersRef.current;
-
-    const serverKeys = Object.keys(serverFiltersRef.current || {});
-    const serverVals = serverKeys.map((k) => serverFiltersRef.current[k] || "");
-
-    return {
-      FilterHeader,
-      FilterValue,
-      ServerFilterHeader: serverKeys.length
-        ? serverKeys.join(SERVER_SEP) + SERVER_SEP
-        : "",
-      ServerFilterValue: serverVals.length
-        ? serverVals.join(SERVER_SEP) + SERVER_SEP
-        : "",
-    };
-  };
-
-  const renderServerSideFilter = (col) => {
-    if (!col.filterTypes || col.filterTypes.length === 0) return null;
-
-    return col.filterTypes.map((filterType) => {
-      if (filterType !== "ServerSideFilter") return null;
-
-      const filterItem = filteredValueState?.find(
-        (f) => f.name === col.headerNamesingle
-      );
-      const value = filterItem?.value || "";
-
-      /** Handle text change */
-      const handleChange = (e) => {
-        const newValue = e.target.value;
-        setFilteredValue((prev = []) => {
-          if (!newValue.trim()) {
-            return prev.filter((f) => f.name !== col.headerNamesingle);
-          }
-          const exists = prev.find((f) => f.name === col.headerNamesingle);
-          if (exists) {
-            return prev.map((f) =>
-              f.name === col.headerNamesingle ? { ...f, value: newValue } : f
-            );
-          }
-          return [...prev, { name: col.headerNamesingle, value: newValue }];
-        });
-      };
-
-      /** Handle Enter key (apply filter) */
-      const handleEnter = (e) => {
-        if (e.key !== "Enter") return;
-        const enteredValue = e.target.value.trim();
-        if (!enteredValue) return;
-
-        // Update UI filter state
-        const updated = filteredValueState?.some(
-          (f) => f.name === col.headerNamesingle
-        )
-          ? filteredValueState.map((f) =>
-              f.name === col.headerNamesingle
-                ? { ...f, value: enteredValue }
-                : f
-            )
-          : [
-              ...(filteredValueState || []),
-              { name: col.headerNamesingle, value: enteredValue },
-            ];
-        setFilteredValue(updated);
-
-        // Update ref store (server filters)
-        serverFiltersRef.current = {
-          ...serverFiltersRef.current,
-          [col.FieldName]: enteredValue,
-        };
-
-        // Build combined filter payload
-        const parts = buildFilterStrings();
-
-        // ✅ Case 1: Has normal + server filters
-        // ✅ Case 2: Only server filters
-        const mergedPayload = {
-          ...(parts.FilterHeader && { FilterHeader: parts.FilterHeader }),
-          ...(parts.FilterValue && { FilterValue: parts.FilterValue }),
-          ...(parts.ServerFilterHeader && {
-            ServerFilterHeader: parts.ServerFilterHeader,
-          }),
-          ...(parts.ServerFilterValue && {
-            ServerFilterValue: parts.ServerFilterValue,
-          }),
-        };
-
-        onSearchFilter?.([mergedPayload], "-1");
-      };
-
-      const handleClear = () => {
-        setFilteredValue((prev) =>
-          prev.filter((f) => f.name !== col.headerNamesingle)
-        );
-
-        const copy = { ...serverFiltersRef.current };
-        delete copy[col.FieldName];
-        serverFiltersRef.current = copy;
-
-        const parts = buildFilterStrings();
-        const mergedPayload = {
-          ...(parts.FilterHeader && { FilterHeader: parts.FilterHeader }),
-          ...(parts.FilterValue && { FilterValue: parts.FilterValue }),
-          ...(parts.ServerFilterHeader && {
-            ServerFilterHeader: parts.ServerFilterHeader,
-          }),
-          ...(parts.ServerFilterValue && {
-            ServerFilterValue: parts.ServerFilterValue,
-          }),
-        };
-
-        onSearchFilter?.([mergedPayload], "-1");
-      };
-
-      return (
-        <div
-          style={{ width: "100%", margin: "10px 20px" }}
-          key={col.headerNamesingle}
-        >
-          <TextField
-            label={`Enter ${col.headerNamesingle}`}
-            variant="outlined"
-            style={{ width: "100%" }}
-            className="customize_colum_input"
-            InputProps={{
-              style: { height: 36, fontSize: 16, width: "100%" },
-              endAdornment: value ? (
-                <InputAdornment position="end">
-                  <IconButton size="small" onClick={handleClear}>
-                    <X size={16} />
-                  </IconButton>
-                </InputAdornment>
-              ) : null,
-            }}
-            value={value}
-            onChange={handleChange}
-            onKeyDown={handleEnter}
-          />
-        </div>
-      );
-    });
-  };
-
+  //
   const [highlightedIndex, setHighlightedIndex] = useState({});
   const [suggestionVisibility, setSuggestionVisibility] = useState({});
   const suggestionRefs = useRef({});
@@ -1367,227 +1880,6 @@ export default function MainReport({
         </div>
       );
     });
-  };
-
-  const renderFilterDropDown = (col) => {
-    if (!col.filterTypes || col.filterTypes.length === 0) return null;
-    const filtersToRender = col.filterTypes;
-
-    return filtersToRender.map((filterType) => {
-      switch (filterType) {
-        case "selectDropdownFilter": {
-          const uniqueValues = [
-            ...new Set(originalRows?.map((row) => row[col.field])),
-          ];
-          return (
-            <div
-              key={`filter-${col.field}-selectDropdownFilter`}
-              style={{ width: "100%", margin: "10px 20px" }}
-            >
-              <FormControl fullWidth size="small">
-                <InputLabel>{`Select ${col.headerNameSub}`}</InputLabel>
-                <Select
-                  label={`Select ${col.headerNameSub}`}
-                  name={`Select ${col.headerNameSub}`}
-                  value={filters[col.field] || ""}
-                  onChange={(e) =>
-                    handleFilterChange(
-                      col.field,
-                      e.target.value,
-                      "",
-                      col.headerNameSub
-                    )
-                  }
-                  style={{
-                    height: 40, // input height
-                    fontSize: 16, // font size
-                  }}
-                  MenuProps={{
-                    PaperProps: {
-                      style: {
-                        maxHeight: 300,
-                      },
-                    },
-                  }}
-                >
-                  <MenuItem value="">
-                    <em>{`Select ${col?.headerNameSub}`}</em>
-                  </MenuItem>
-                  {uniqueValues.map((value) => (
-                    <MenuItem
-                      key={`select-${col.field}-${value}`}
-                      value={value}
-                    >
-                      {value}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </div>
-          );
-        }
-        default:
-          return null;
-      }
-    });
-  };
-
-  const renderFilterRange = (col) => {
-    if (!col.filterTypes || col.filterTypes.length === 0) return null;
-    const filtersToRender = col.filterTypes;
-    return filtersToRender.map((filterType) => {
-      switch (filterType) {
-        case "RangeFilter":
-          return (
-            <div
-              key={`filter-${col.FieldName}-RangeFilter`}
-              style={{ margin: "10px 20px", display: "flex", gap: "10px" }}
-            >
-              <TextField
-                type="number"
-                key={`filter-${col.headerNamesingle}-MinFilter`}
-                name={`filter-${col.headerNamesingle}-MinFilter`}
-                label={`${col.headerNamesingle} Min`}
-                variant="outlined"
-                value={filters[`${col.FieldName}_min`] || ""}
-                onChange={(e) => {
-                  const value = e.target.value
-                    ? parseFloat(e.target.value)
-                    : "";
-                  setFilters((prev) => ({
-                    ...prev,
-                    [`${col.FieldName}_min`]: value,
-                  }));
-                }}
-                style={{ width: "50%" }}
-                InputLabelProps={{
-                  style: {
-                    fontFamily: "Poppins, sans-serif",
-                  },
-                }}
-                InputProps={{
-                  style: {
-                    height: 40,
-                    fontSize: 16,
-                  },
-                }}
-                sx={{
-                  "& .MuiInputLabel-root": {
-                    top: "-5px",
-                  },
-                  "& .MuiInputLabel-root.Mui-focused": {
-                    top: "0px",
-                  },
-                  "& .MuiInputLabel-root.MuiInputLabel-shrink": {
-                    top: "0px",
-                  },
-                }}
-              />
-
-              <TextField
-                type="number"
-                key={`filter-${col.headerNamesingle}-MaxFilter`}
-                name={`filter-${col.headerNamesingle}-MaxFilter`}
-                label={`${col.headerNamesingle} Max`}
-                variant="outlined"
-                value={filters[`${col.FieldName}_max`] || ""}
-                onChange={(e) => {
-                  const value = e.target.value
-                    ? parseFloat(e.target.value)
-                    : "";
-                  setFilters((prev) => ({
-                    ...prev,
-                    [`${col.FieldName}_max`]: value,
-                  }));
-                }}
-                style={{ width: "50%" }}
-                InputLabelProps={{
-                  style: {
-                    fontFamily: "Poppins, sans-serif",
-                  },
-                }}
-                InputProps={{
-                  style: {
-                    height: 40,
-                    fontSize: 16,
-                  },
-                }}
-                sx={{
-                  "& .MuiInputLabel-root": {
-                    top: "-5px",
-                  },
-                  "& .MuiInputLabel-root.Mui-focused": {
-                    top: "0px",
-                  },
-                  "& .MuiInputLabel-root.MuiInputLabel-shrink": {
-                    top: "0px",
-                  },
-                }}
-              />
-            </div>
-          );
-        default:
-          return null;
-      }
-    });
-  };
-
-  const renderFilterMulti = (col) => {
-    if (!col.filterTypes || col.filterTypes.length === 0) return null;
-    const filtersToRender = col.filterTypes;
-    return filtersToRender.map((filterType) => {
-      switch (filterType) {
-        case "MultiSelection":
-          const uniqueValues = [
-            ...new Set(originalRows.map((row) => row[col.field])),
-          ];
-          return (
-            <div key={col.field} style={{ margin: "10px 20px" }}>
-              <Accordion>
-                <AccordionSummary
-                  expandIcon={<MdExpandMore />}
-                  aria-controls={`${col.field}-content`}
-                  id={`${col.field}-header`}
-                  sx={{
-                    "& .MuiButtonBase-root": {
-                      display: "none",
-                    },
-                  }}
-                >
-                  <Typography>{col.headerNameSub}</Typography>
-                </AccordionSummary>
-                <AccordionDetails className="gridMetalComboMain">
-                  {uniqueValues.map((value) => (
-                    <label key={value}>
-                      <input
-                        type="checkbox"
-                        value={value}
-                        checked={(filters[col.field] || []).includes(value)}
-                        onChange={(e) =>
-                          handleFilterChange(
-                            col.field,
-                            { value, checked: e.target.checked },
-                            "MultiSelection"
-                          )
-                        }
-                      />
-                      {value}
-                    </label>
-                  ))}
-                </AccordionDetails>
-              </Accordion>
-            </div>
-          );
-
-        default:
-          return null;
-      }
-    });
-  };
-
-  const [sideFilterOpen, setSideFilterOpen] = useState(false);
-  const toggleDrawer = (newOpen) => () => {
-    setSideFilterOpen(newOpen);
   };
 
   const summaryColumns = columns?.filter((col) => {
@@ -1796,83 +2088,6 @@ export default function MainReport({
     setFilteredValue();
   };
 
-  const handleSendEmail = () => {
-    const templateParams = {
-      to_name: "Recipient",
-      from_name: "Sender",
-      message: "Your message content here",
-    };
-    emailjs
-      .send(
-        "YOUR_SERVICE_ID",
-        "YOUR_TEMPLATE_ID",
-        templateParams,
-        "YOUR_USER_ID"
-      )
-      .then(
-        (response) => {
-          console.log("Email sent successfully", response);
-        },
-        (error) => {
-          console.log("Error sending email", error);
-        }
-      );
-  };
-
-  const handlePrint = () => {
-    setPrintData(filteredRows);
-    setTimeout(() => {
-      if (printRef.current) {
-        const printContents = printRef.current.innerHTML;
-        const printWindow = window.open("", "_blank", "width=1000,height=800");
-
-        // ✅ Copy all <link> and <style> tags from the current document
-        const styles = Array.from(
-          document.querySelectorAll('link[rel="stylesheet"], style')
-        )
-          .map((node) => node.outerHTML)
-          .join("\n");
-
-        printWindow.document.write(`
-        <html>
-          <head>
-            <title>Print Jewellery Book</title>
-            ${styles}
-            <style>
-              @page {
-                size: A4;
-                margin: 10mm;
-              }
-              body {
-                font-family: 'Roboto', Arial, sans-serif;
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
-                padding: 10px;
-              }
-              img {
-                max-width: 100%;
-                height: auto;
-              }
-            </style>
-          </head>
-          <body>
-            ${printContents}
-          </body>
-        </html>
-      `);
-
-        printWindow.document.close();
-        printWindow.focus();
-
-        // Wait a bit for CSS to load before triggering print
-        setTimeout(() => {
-          printWindow.print();
-          printWindow.close();
-        }, 500);
-      }
-    }, 100);
-  };
-
   const handlePaginationChange = (newModel) => {
     setIsPageChanging(true);
     setPaginationModel(newModel);
@@ -1887,6 +2102,15 @@ export default function MainReport({
 
   const handleClosePopup = () => {
     setOpenPopup(false);
+  };
+
+  const handleColorClick = (id) => {
+    setSelectedColors((prev) => {
+      if (prev.includes(id)) {
+        return prev.filter((x) => x !== id);
+      }
+      return [...prev, id];
+    });
   };
 
   const onDragEnd = (result) => {
@@ -1945,60 +2169,6 @@ export default function MainReport({
     }));
   };
 
-  //   const groupRows = (rows, groupCheckBox) => {
-  //   const grouped = [];
-  //   if (!Array.isArray(rows)) {
-  //     return grouped;
-  //   }
-
-  //   const allTrue = Object.values(groupCheckBox).every(Boolean);
-  //   if (allTrue) {
-  //     return rows.map((item, index) => ({
-  //       ...item,
-  //       id: index,
-  //       srNo: index + 1,
-  //     }));
-  //   }
-
-  //   const tempGrouped = {};
-  //   rows.forEach((row) => {
-  //     const newRow = { ...row };
-  //     const keyParts = [];
-
-  //     for (const [field, checked] of Object.entries(groupCheckBox)) {
-  //       if (checked) {
-  //         keyParts.push(newRow[field]);
-  //       } else {
-  //         newRow[field] = "-";
-  //       }
-  //     }
-
-  //     const groupKey = keyParts.join("|");
-  //     if (!tempGrouped[groupKey]) {
-  //       tempGrouped[groupKey] = { ...newRow };
-  //     } else {
-  //       for (const col of allColumData) {
-  //         if (!col.GroupCheckBox && typeof newRow[col.field] === "number") {
-  //           tempGrouped[groupKey][col.field] =
-  //             (tempGrouped[groupKey][col.field] || 0) +
-  //             (newRow[col.field] || 0);
-  //         }
-  //       }
-  //     }
-  //   });
-
-  //   return Object.values(tempGrouped).map((item, index) => ({
-  //     ...item,
-  //     id: index,
-  //     srNo: index + 1,
-  //   }));
-  // };
-
-  const allChecked = useMemo(
-    () => Object.values(grupEnChekBox).every((val) => val === true),
-    [grupEnChekBox]
-  );
-
   const handleSaveSettings = async () => {
     setColumSaveLoding(true);
     let reportId = null;
@@ -2020,7 +2190,6 @@ export default function MainReport({
         IsVisible: checkedColumns[col.FieldName] ? "True" : "False",
         DisplayOrder: idx + 1,
       }));
-
       const columnsPayload = updatedData.map((col) => ({
         ColId: parseInt(col.ColId, 10),
         IsVisible: col.IsVisible,
@@ -2141,22 +2310,6 @@ export default function MainReport({
     }
   };
 
-  // const handleAllDataShow = () => {
-  //   setFilterState({
-  //     ...filterState,
-  //     dateRange: {
-  //       startDate: new Date("1990-01-01T18:30:00.000Z"),
-  //       endDate: new Date(),
-  //     },
-  //   });
-  //   setCommonSearch("");
-  //   setFilters({});
-  //   setFilteredValue();
-  //   if (!showReportMaster) {
-  //     filteredValueState != 0 && onSearchFilter?.({}, "2");
-  //   }
-  // };
-
   const handleOpenPrintPreview = () => {
     setPrintData(filteredRows);
     setShowPrintView(true);
@@ -2166,6 +2319,11 @@ export default function MainReport({
     window.print();
     setShowPrintView(false); // hide preview after print
   };
+
+  const [open, setOpen] = useState(false);
+
+  const url =
+    "http://nzen/R50B3/salescrm/app/ProductInfoRemarks?entrydate=11/19/2025%2010:02:57%20AM&jobno=288461&versionname=&QuotationNo=QT/00069621&-=ODM1MjAyNTExMTkwOTM2MjQ5NDcjIyN7e256ZW59fXt7MjB9fXt7b3JhaWwyNX19e3tvcmFpbDI1fX0=-v/gVApszMU4=";
 
   if (showPrintView) {
     return (
@@ -2206,18 +2364,16 @@ export default function MainReport({
             Cancel
           </Button>
         </div>
-        <Print1JewelleryBook visibleItems={printData} />
+        <Print1JewelleryBook visibleItemsMain={printData} />
       </div>
     );
   }
-
-  // console.log("grupEnChekBoxImage", grupEnChekBoxImage, grupEnChekBox);
 
   return (
     <DragDropContext onDragEnd={onDragEnd}>
       {showPrintView ? (
         <div ref={printRef}>
-          <Print1JewelleryBook visibleItems={printData} />
+          <Print1JewelleryBook visibleItemsMain={printData} />
         </div>
       ) : (
         <div
@@ -2232,8 +2388,15 @@ export default function MainReport({
         )} */}
 
           <Dialog open={openHrefModel} onClose={() => setOpenHrefModel(false)}>
-            <div className="ConversionMain">
-              <h1>Hello Model......</h1>
+            <div
+              className="ConversionMain"
+              style={{ width: "550px", height: "450px" }}
+            >
+              <iframe
+                src="http://nzen/R50B3/salescrm/app/JobManagement_JobList_AddRemarks?entrydate=11/18/2025%206:20:44%20PM&jobno=288457&versionname=&QuotationNo=QT/00069615&-=ODIyMjAyNTExMjQwOTUyMzM2NDMjIyN7e256ZW59fXt7MjB9fXt7b3JhaWwyNX19e3tvcmFpbDI1fX0=-EvKiX00eR98="
+                // src={iframeUrl}
+                style={{ width: "100%", height: "100%", border: "none" }}
+              ></iframe>
             </div>
           </Dialog>
 
@@ -2565,7 +2728,8 @@ export default function MainReport({
                   />
                 </Button>
 
-                {masterKeyData?.MainDateFilter == "True" &&
+                {spliterReportShow != true &&
+                  masterKeyData?.MainDateFilter == "True" &&
                   (masterKeyData?.MultiDateFilter == "True" ? (
                     <div
                       style={{
@@ -2629,14 +2793,15 @@ export default function MainReport({
                     />
                   ))}
 
-                {masterKeyData?.AllDataButton == "True" && (
-                  <Button
-                    onClick={handleAllDataShow}
-                    className="btn_FiletrBtnAll"
-                  >
-                    All
-                  </Button>
-                )}
+                {spliterReportShow != true &&
+                  masterKeyData?.AllDataButton == "True" && (
+                    <Button
+                      onClick={handleAllDataShow}
+                      className="btn_FiletrBtnAll"
+                    >
+                      All
+                    </Button>
+                  )}
               </div>
 
               <TextField
@@ -2691,6 +2856,32 @@ export default function MainReport({
                     ) : null
                   )}
               </div>
+              {masterKeyData?.PriorityMaster == "True" && (
+                <div style={{ display: "flex", gap: "10px" }}>
+                  {!isLoading &&
+                    colorMaster?.map((data, index) => {
+                      const isSelected = selectedColors.includes(data.id);
+
+                      return (
+                        <Tooltip title={data.code} key={index}>
+                          <div
+                            onClick={() => handleColorClick(data.id)}
+                            style={{
+                              backgroundColor: data.colorcode,
+                              height: isSelected ? "28px" : "30px",
+                              width: isSelected ? "28px" : "30px",
+                              cursor: "pointer",
+                              border: isSelected
+                                ? "2px solid black"
+                                : "1px solid #ccc",
+                              boxShadow: isSelected ? "0 0 5px #000" : "none",
+                            }}
+                          ></div>
+                        </Tooltip>
+                      );
+                    })}
+                </div>
+              )}
             </div>
             <div style={{ display: "flex", alignItems: "end", gap: "10px" }}>
               {/* {masterKeyData?.MailButton == "True" && (
@@ -2887,14 +3078,18 @@ export default function MainReport({
                 // </button>
               )}
             </div>
+            {/* <Button onClick={() => setOpen(true)}>Open iframe</Button> */}
           </div>
+
           <div
             ref={gridRef}
             style={{
               height: showImageView
                 ? "70vh"
                 : summaryColumns?.length == 0
-                ? "calc(100vh - 190px)"
+                ? masterKeyData?.ColumnSettingModel == "True"
+                  ? "calc(100vh - 190px)"
+                  : "calc(100vh - 130px)"
                 : "calc(100vh - 255px)",
               margin: "5px 10px",
               overflow: "auto",
@@ -2905,95 +3100,146 @@ export default function MainReport({
           >
             {showImageView ? (
               <div style={{ display: "flex", flexWrap: "wrap", gap: "10px" }}>
-                {filteredRows.map((item, idx) => {
-                  const defaultImg = noFoundImg;
-                  const src = String(item?.ImgUrl ?? "").trim() || defaultImg;
+                {[...filteredRows]
+                  .sort((a, b) => {
+                    const activeSort = sortModel?.[0];
+                    if (activeSort) {
+                      const field = activeSort.field;
+                      const order = activeSort.sort === "asc" ? 1 : -1;
 
-                  return (
-                    <div
-                      key={idx}
-                      style={{
-                        width: 200,
-                        height: 230,
-                        display: "flex",
-                        flexDirection: "column",
-                      }}
-                    >
-                      <img
-                        src={src}
-                        alt={`record-${idx}`}
-                        loading="lazy"
-                        onError={(e) => {
-                          if (e.target.src !== defaultImg)
-                            e.target.src = defaultImg;
-                        }}
-                        style={{
-                          width: "200px",
-                          height: "200px",
-                          border: "1px solid lightgray",
-                          objectFit: "cover",
-                          borderRadius: "4px",
-                          backgroundColor: "#f9f9f9",
-                        }}
-                      />
+                      const x = a[field];
+                      const y = b[field];
 
+                      if (!isNaN(x) && !isNaN(y)) {
+                        return (Number(x) - Number(y)) * order;
+                      }
+                      return String(x).localeCompare(String(y)) * order;
+                    }
+
+                    // 3) ELSE → fallback to DefaultSort from column master
+                    const col = columns.find(
+                      (c) => c.DefaultSort && c.DefaultSort !== "None"
+                    );
+                    if (!col) return 0;
+
+                    const field = col.field;
+                    const order =
+                      col.DefaultSort.toLowerCase() === "ascending" ? 1 : -1;
+
+                    const x = a[field];
+                    const y = b[field];
+
+                    if (!isNaN(x) && !isNaN(y)) {
+                      return (Number(x) - Number(y)) * order;
+                    }
+
+                    return String(x).localeCompare(String(y)) * order;
+                  })
+                  .map((item, idx) => {
+                    const defaultImg = noFoundImg;
+                    const src = String(item?.ImgUrl ?? "").trim() || defaultImg;
+                    return (
                       <div
+                        key={idx}
                         style={{
+                          width: 200,
+                          height: 230,
                           display: "flex",
-                          justifyContent: "space-between",
-                          marginTop: "4px",
+                          flexDirection: "column",
                         }}
                       >
-                        <div style={{ display: "flex", gap: "10px" }}>
-                          <p
-                            style={{
-                              margin: 0,
-                              fontWeight: 600,
-                              fontSize: "12px",
-                              lineHeight: "10px",
-                            }}
-                          >
-                            <span>{item?.stockbarcode}</span>
-                          </p>
+                        <img
+                          src={src}
+                          alt={`record-${idx}`}
+                          loading="lazy"
+                          onError={(e) => {
+                            if (e.target.src !== defaultImg)
+                              e.target.src = defaultImg;
+                          }}
+                          style={{
+                            width: "200px",
+                            height: "200px",
+                            border: "1px solid lightgray",
+                            objectFit: "cover",
+                            borderRadius: "4px",
+                            backgroundColor: "#f9f9f9",
+                          }}
+                        />
 
-                          <p
-                            style={{
-                              margin: 0,
-                              fontWeight: 600,
-                              fontSize: "12px",
-                              color: "#CF4F7D",
-                              display: "flex",
-                              flexDirection: "column",
-                            }}
-                          >
-                            <div
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            marginTop: "4px",
+                          }}
+                        >
+                          <div>
+                            <p
                               style={{
-                                display: "flex",
-                                gap: "3px",
+                                margin: 0,
+                                fontSize: "13px",
                                 lineHeight: "10px",
                               }}
                             >
-                              <span>{item?.metaltype}</span>
-                              <span>{item?.metalpurity}</span>
-                            </div>
-                            <span>{item?.metalcolor}</span>
+                              Order:{" "}
+                              <span style={{ fontWeight: 600 }}>
+                                {item?.designcount}
+                              </span>{" "}
+                              Sale:{" "}
+                              <span style={{ fontWeight: 600 }}>
+                                {item?.salescount}
+                              </span>
+                            </p>
+                          </div>
+                          <div style={{ display: "flex", gap: "10px" }}>
+                            <p
+                              style={{
+                                margin: 0,
+                                fontWeight: 600,
+                                fontSize: "12px",
+                                lineHeight: "10px",
+                              }}
+                            >
+                              <span>{item?.StockBarcode}</span>
+                            </p>
+                            <p
+                              style={{
+                                margin: 0,
+                                fontWeight: 600,
+                                fontSize: "12px",
+                                color: "#CF4F7D",
+                                display: "flex",
+                                flexDirection: "column",
+                              }}
+                            >
+                              <div
+                                style={{
+                                  display: "flex",
+                                  gap: "3px",
+                                  lineHeight: "10px",
+                                }}
+                              >
+                                <span>{item?.metaltype}</span>
+                                <span>{item?.metalpurity}</span>
+                              </div>
+                              <span>{item?.metalcolor}</span>
+                            </p>
+                          </div>
+
+                          <p
+                            style={{
+                              margin: 0,
+                              fontWeight: 600,
+                              fontSize: "13px",
+                              lineHeight: "10px",
+                            }}
+                          >
+                            {item?.designno}
                           </p>
                         </div>
-
-                        <p
-                          style={{
-                            margin: 0,
-                            fontWeight: 600,
-                            fontSize: "13px",
-                            lineHeight: "10px",
-                          }}
-                        >
-                          {item?.designno}
-                        </p>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
               </div>
             ) : (
               <Warper>
@@ -3005,8 +3251,15 @@ export default function MainReport({
                   autoHeight={false}
                   columnBuffer={17}
                   rowHeight={40}
+                  getRowClassName={(params) =>
+                    params.row.IsClub === 1 ? "yellow-row" : ""
+                  }
                   sortModel={sortModel}
-                  onSortModelChange={(model) => setSortModel(model)}
+                  // onSortModelChange={(model) => setSortModel(model)}
+                  onSortModelChange={(model) => {
+                    if (model.length === 0 && initialSort.current) return;
+                    setSortModel(model);
+                  }}
                   localeText={{ noRowsLabel: "No Data" }}
                   initialState={{
                     columns: {
@@ -3020,6 +3273,7 @@ export default function MainReport({
                     pagination: CustomPagination,
                   }}
                   sortingOrder={["asc", "desc"]}
+                  sortingMode="client"
                   paginationModel={paginationModel}
                   onPaginationModelChange={handlePaginationChange} // ✅ use wrapped function
                   className="simpleGridView"
@@ -3086,6 +3340,28 @@ export default function MainReport({
           )}
         </div>
       )}
+
+      <Modal open={open} onClose={() => setOpen(false)}>
+        <Box
+          sx={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            width: "90%",
+            height: "90%",
+            bgcolor: "white",
+            boxShadow: 24,
+            p: 0,
+          }}
+        >
+          <iframe
+            src={url}
+            style={{ width: "100%", height: "100%", border: "none" }}
+            title="Product Info"
+          ></iframe>
+        </Box>
+      </Modal>
 
       <Snackbar
         open={openSnackbar}
