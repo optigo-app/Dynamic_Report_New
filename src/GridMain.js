@@ -23,7 +23,8 @@ const GridMain = ({
   spliterReportFirstPanel,
   spliterReportSecondPanel,
   spliterReportMonthRestiction,
-  otherSpliterSideData,
+  otherSpliterSideData1,
+  otherSpliterSideData2,
   colorMaster
 }) => {
   // useEffect(() => {
@@ -79,7 +80,8 @@ const GridMain = ({
               spliterReportFirstPanel={spliterReportFirstPanel}
               spliterReportSecondPanel={spliterReportSecondPanel}
               spliterReportMonthRestiction={spliterReportMonthRestiction}
-              otherSpliterSideData={otherSpliterSideData}
+              otherSpliterSideData1={otherSpliterSideData1}
+              otherSpliterSideData2={otherSpliterSideData2}
             />
           }
         />

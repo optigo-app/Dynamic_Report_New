@@ -39,5 +39,6 @@ export const CommonAPI = async (body) => {
     return response?.data;
   } catch (error) {
     console.error("error is..", error);
+    return error;
   }
 };

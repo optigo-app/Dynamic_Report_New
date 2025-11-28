@@ -174,7 +174,7 @@ export default function ReportHome({
   dateOptions,
   dateOptionsShow,
   reportName,
-  colorMaster
+  colorMaster,
 }) {
   const [isLoading, setIsLoading] = useState(false);
   const [spData, setSpData] = useState(null);
@@ -603,8 +603,6 @@ export default function ReportHome({
     let startDate = null;
     let endDate = null;
 
-    console.log('option', option);
-    
     switch (option) {
       case "Today":
         startDate = endDate = today;
@@ -799,7 +797,6 @@ export default function ReportHome({
     // 🔹 Handle Date Filters
     const dateFilters = getDateRange(selectedDateOption);
 
-    
     if (
       selectedDateOption &&
       dateFilters?.FilterStartDate &&
@@ -831,9 +828,6 @@ export default function ReportHome({
   const handleBack = () => {
     setShowReportMaster(true);
   };
-
-  console.log('dateOptions',dateOptions);
-  
   return (
     <DragDropContext onDragEnd={() => {}}>
       {/* {isLoading && (

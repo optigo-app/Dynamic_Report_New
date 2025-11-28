@@ -37,7 +37,8 @@ function RouterContent() {
   const [spliterReportSecondPanel, setSpliterReportSecondPanel] = useState();
   const [spliterReportMonthRestiction, setSpliterReportMonthRestiction] =
     useState();
-  const [otherSpliterSideData, setOtherSpliterSideData] = useState();
+  const [otherSpliterSideData1, setOtherSpliterSideData1] = useState();
+  const [otherSpliterSideData2, setOtherSpliterSideData2] = useState();
   const [dateOptions, setDateOptions] = useState();
   const [largeDataTitle, setLargeDataTitle] = useState("");
   const [reportName, setReportName] = useState("");
@@ -98,14 +99,18 @@ function RouterContent() {
           setSpliterReportSecondPanel(data.SpliterSecondPanel);
           setSpliterReportMonthRestiction(data.DateMonthRestriction);
           setReportName(data.ReportName);
-          setOtherSpliterSideData(data.otherSpliterSideData);
+          setOtherSpliterSideData1(JSON?.parse(data.otherSpliterSideData1));
+          setOtherSpliterSideData2(JSON.parse(data.otherSpliterSideData2));
+          
+          // setOtherSpliterSideData1(data.otherSpliterSideData1);
+          // setOtherSpliterSideData2(data.otherSpliterSideData2);
           setDateOptions(response?.rd1);
           const key = `${pid}_${data.ReportId}`;
           sessionStorage.setItem(key, data.ReportId);
         }
         setReady(true);
       } catch (err) {
-        console.error(err);
+        console.log(err);
         setTokenMissing(true);
       }
     };
@@ -150,7 +155,8 @@ function RouterContent() {
                 spliterReportFirstPanel={spliterReportFirstPanel}
                 spliterReportSecondPanel={spliterReportSecondPanel}
                 spliterReportMonthRestiction={spliterReportMonthRestiction}
-                otherSpliterSideData={otherSpliterSideData}
+                otherSpliterSideData1={otherSpliterSideData1}
+                otherSpliterSideData2={otherSpliterSideData2}
                 colorMaster={colorMaster}
               />
             }

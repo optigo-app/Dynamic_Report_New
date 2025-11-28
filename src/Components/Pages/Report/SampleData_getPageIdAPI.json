@@ -9,17 +9,17 @@
       "IsLargeDataReport": false,
       "LargeDataCount": 2000,
       "MasterDataList": "CustomerName{#}Customer Name",
-      "SpliterFirstPanel": "mastermanagement_collectionid",
-      "SpliterSecondPanel": "mastermanagement_categoryid",
+      "SpliterFirstPanel": "location",
+      "SpliterSecondPanel": "deptname",
       "DateMonthRestriction": "1",
       "ServerSideDateWiseFilter": true,
       "IsSpliterReport": true,
-      "otherSpliterSideData": [
+      "otherSpliterSideData1": [
         {
           "firstSlideFirstData": [
             {
-              "selectedField": "HSN_No",
-              "title": "HSN number",
+              "selectedField": "netissuewt",
+              "title": "Net Issue Weight",
               "unit": "",
               "formula": "",
               "decimal": ""
@@ -34,7 +34,7 @@
               "decimal": ""
             }
           ],
-            "firstSlideThirdData": [
+          "firstSlideThirdData": [
             {
               "selectedField": "",
               "title": "",
@@ -43,7 +43,47 @@
               "decimal": ""
             }
           ],
-            "firstSlideFouthData": [
+          "firstSlideFouthData": [
+            {
+              "selectedField": "",
+              "title": "",
+              "unit": "",
+              "formula": "",
+              "decimal": ""
+            }
+          ]
+        }
+      ],
+      "otherSpliterSideData2": [
+        {
+          "firstSlideFirstData": [
+            {
+              "selectedField": "netissuewt",
+              "title": "NetIssue Wt.",
+              "unit": "GM",
+              "formula": "",
+              "decimal": "3"
+            }
+          ],
+          "firstSlideSecondData": [
+            {
+              "selectedField": "",
+              "title": "",
+              "unit": "",
+              "formula": "",
+              "decimal": ""
+            }
+          ],
+          "firstSlideThirdData": [
+            {
+              "selectedField": "",
+              "title": "",
+              "unit": "",
+              "formula": "",
+              "decimal": ""
+            }
+          ],
+          "firstSlideFouthData": [
             {
               "selectedField": "",
               "title": "",

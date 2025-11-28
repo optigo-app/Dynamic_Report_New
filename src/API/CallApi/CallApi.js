@@ -6,10 +6,10 @@ export const CallApi = async (body) => {
     if (response?.Data) {
       return response?.Data;
     } else {
-      return [];
+      return response ?? [];
     }
   } catch (error) {
     console.error("Error:", error);
-    return [];
+    return error;
   }
 };

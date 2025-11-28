@@ -65,6 +65,9 @@ import {
   LayoutGrid,
   Search,
   X,
+  NotebookPen,
+  Printer,
+  MessageCircle,
 } from "lucide-react";
 import { GoCopy } from "react-icons/go";
 import {
@@ -347,18 +350,36 @@ export default function MainReport({
   const [sideFilterOpen, setSideFilterOpen] = useState(false);
   const [selectedColors, setSelectedColors] = useState([]);
   const [iframeUrl, setIframeUrl] = useState("");
+  const [navigationPageMaster, setNavigationPageMaster] = useState();
 
   const toggleDrawer = (newOpen) => () => {
     setSideFilterOpen(newOpen);
   };
 
   useEffect(() => {
+    const keyPrefix = `${pid}_`;
+    const matchingKey = Object.keys(sessionStorage).find((key) =>
+      key.startsWith(keyPrefix)
+    );
+    if (!matchingKey) {
+      console.warn("No ReportId found in sessionStorage for pid", pid);
+      return;
+    }
+    const reportId = matchingKey.split("_")[1];
+
     const getIframeUrlParams = async () => {
       try {
+        let AllData = JSON.parse(sessionStorage.getItem("reportVarible"));
+
         const body = {
-          con: '{ "mode": "getIframeUrlParams"}',
-          p: '{"IframeTypeId":1}',
-          f: "( get sp list )",
+          con: JSON.stringify({
+            mode: "getIframeUrlParams",
+            appuserid: AllData?.LUId,
+          }),
+          p: JSON.stringify({
+            ReportId: reportId,
+          }),
+          f: "get iframe list (get url data)",
         };
         const response = await CallApi(body);
         setIframeModelData(response);
@@ -366,10 +387,29 @@ export default function MainReport({
         console.error("Error fetching report data:", error);
       }
     };
-    getIframeUrlParams();
-  }, []);
+    let AllData = JSON.parse(sessionStorage.getItem("reportVarible"));
 
-  console.log("iframeModelData", iframeModelData);
+    const getNavigationPageName = async () => {
+      const body = {
+        con: JSON.stringify({
+          mode: "getRedirectMaster",
+          appuserid: AllData?.LUId,
+        }),
+        p: JSON.stringify({ ReportId: reportId }),
+        f: "DynamicReport (get Largedata data)",
+      };
+      try {
+        const response = await CallApi(body);
+        if (response) {
+          setNavigationPageMaster(response);
+        }
+      } catch (err) {
+        console.error("Failed fetching report settings", err);
+      }
+    };
+    getIframeUrlParams();
+    getNavigationPageName();
+  }, []);
 
   useEffect(() => {
     setShowReportMaster(showBackErrow);
@@ -382,7 +422,6 @@ export default function MainReport({
   useEffect(() => {
     const fetchReportData = async () => {
       try {
-        // 🔹 Find ReportId by prefix
         const keyPrefix = `${pid}_`;
         const matchingKey = Object.keys(sessionStorage).find((key) =>
           key.startsWith(keyPrefix)
@@ -394,21 +433,18 @@ export default function MainReport({
         }
 
         const reportId = matchingKey.split("_")[1];
-
-        // 🔹 Get report variable (optional)
-        const allData = JSON.parse(sessionStorage.getItem("reportVarible"));
-
-        // 🔹 Prepare body
+        let AllData = JSON.parse(sessionStorage.getItem("reportVarible"));
         const body = {
           con: JSON.stringify({
             mode: "getUrlParams",
+            appuserid: AllData?.LUId,
           }),
           p: JSON.stringify({
             ReportId: reportId,
           }),
           f: "DynamicReport (get url data)",
         };
-        const response = await ReportCallApi(body, spNumber);
+        const response = await CallApi(body);
         setNavigationData(response);
       } catch (error) {
         console.error("Error fetching report data:", error);
@@ -564,7 +600,6 @@ export default function MainReport({
   useEffect(() => {
     if (!allColumData) return;
     const toBool = (val) => String(val).toLowerCase() === "true";
-    console.log("allColumData", allColumData);
     const columnData = Object?.values(allColumData)
       ?.filter((col) => col.IsVisible == "True")
       ?.map((col, index) => {
@@ -614,6 +649,9 @@ export default function MainReport({
           ColumnDecimal: col.ColumnDecimal,
           HideColumn: col.HideColumn,
           CopyButton: col.CopyButton,
+          ColId: col.ColId,
+          RedirectId: col?.RedirectId,
+          IframeTypeId: col.IframeTypeId,
           filterTypes: [
             toBool(col.NormalFilter) && "NormalFilter",
             toBool(col.MultiSelection) && "MultiSelection",
@@ -625,7 +663,6 @@ export default function MainReport({
 
           renderCell: (params) => {
             const displayValue = params.value;
-
             if (col?.ImageColumn == "True") {
               const src =
                 String(params?.row?.ImgUrl ?? "").trim() || noFoundImg;
@@ -650,6 +687,45 @@ export default function MainReport({
                       borderRadius: "5px",
                     }}
                   />
+                </div>
+              );
+            }
+
+            if (col?.IframeTypeId) {
+              return (
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "center",
+                    alignItems: "center",
+                    height: "100%",
+                  }}
+                >
+                  <Button
+                    onClick={() =>
+                      openIframe(
+                        params,
+                        params?.colDef?.ColId,
+                        params?.colDef?.IframeTypeId
+                      )
+                    }
+                    style={{
+                      padding: "0px",
+                      fontSize: "12px",
+                      color: "black",
+                      textDecoration: "underline",
+                    }}
+                  >
+                    {col?.IconName == "NotebookPen" ? (
+                      <NotebookPen style={{ color: "gray" }} />
+                    ) : col?.IconName == "Printer" ? (
+                      <Printer style={{ color: "gray" }} />
+                    ) : col?.IconName == "MessageCircle" ? (
+                      <MessageCircle style={{ color: "gray" }} />
+                    ) : (
+                      "OPEN"
+                    )}
+                  </Button>
                 </div>
               );
             }
@@ -751,7 +827,7 @@ export default function MainReport({
                     month: "short",
                     year: "numeric",
                   })
-                : ""; // return blank if value is null
+                : "";
 
               return (
                 <span
@@ -837,7 +913,7 @@ export default function MainReport({
                     textOverflow: "ellipsis",
                     overflow: "hidden",
                   }}
-                  onClick={() => handleCellClick(params)}
+                  onClick={() => handleCellClick(params, params?.colDef?.ColId)}
                 >
                   {params.value}
                 </a>
@@ -934,10 +1010,8 @@ export default function MainReport({
       srColumn,
       ...columnData.filter((col) => col.HideColumn !== "True"),
     ];
-
     setColumns(visibleColumns);
     setColumnsHide([srColumn, ...columnData]);
-
     if (!defaultSortApplied.current && columnData?.length > 0) {
       const cand = columnData.find(
         (c) =>
@@ -964,98 +1038,87 @@ export default function MainReport({
       defaultSortApplied.current = true;
     }
   }, [allColumData, grupEnChekBox, paginationModel, selectionModel]);
-  console.log("candcand", sortModel);
 
-  const buildIframeUrl = (params) => {
-    const baseUrl = iframeModelData?.rd?.[0]?.baseurl || "";
-
-    const queryParams = iframeModelData?.rd1
-      ?.map((item) => {
-        const { ParameterName, ParameterValue, IsStatic } = item;
-
-        if (IsStatic === true || IsStatic === "true") {
-          // static → send as it is
-          return `${ParameterName}=${encodeURIComponent(ParameterValue)}`;
+  const buildIframeUrl = (params, colId, iframeTypeId) => {
+    const row = params?.row || {};
+    const rd1Item = iframeModelData?.rd1?.find(
+      (x) => x.ColId == colId && x.IframeTypeId == iframeTypeId
+    );
+    const rdParams = iframeModelData?.rd?.filter(
+      (x) => x.ColId == colId && x.IframeTypeId == iframeTypeId
+    );
+    if (!rd1Item || !rdParams) return "";
+    const getRowValue = (paramName) => {
+      const key = Object.keys(row).find(
+        (k) => k.toLowerCase() === paramName.toLowerCase()
+      );
+      return key ? row[key] : "";
+    };
+    const queryString = rdParams
+      .map((p) => {
+        if (p.IsStatic === true || p.IsStatic === "true") {
+          return `${p.ParameterName}=${encodeURIComponent(p.ParameterValue)}`;
         } else {
-          // dynamic → take from row else fallback to ParameterValue
-          const dynamicValue =
-            params?.row?.[ParameterName] || ParameterValue || "";
-          return `${ParameterName}=${btoa(dynamicValue)}`;
+          return `${p.ParameterName}=${encodeURIComponent(
+            getRowValue(p.ParameterName) || ""
+          )}`;
         }
       })
       .join("&");
-
-    return `${baseUrl}?${queryParams}`;
+    return `${rd1Item.BaseUrl}${rd1Item.ReportRedirectUrl}&${queryString}`;
   };
 
-  const handleCellClick = (params) => {
-    if (params?.colDef?.onHrefLinkModel === "true") {
-      // create iframe URL when model opens
-      const url = buildIframeUrl(params);
-      setIframeUrl(url);
-      setOpenHrefModel(true);
-    } else {
-      // your existing logic
-      const baseUrl = navigationData?.rd?.[0]?.BaseUrl || "";
-      const redirectUrl = navigationData?.rd?.[0]?.ReportRedirectUrl || "";
-      const navigateName = params?.colDef?.onHrefNavigate || "";
+  const openIframe = (params, columId, iframeTypeId) => {
+    const url = buildIframeUrl(params, columId, iframeTypeId);
+    setIframeUrl(url);
+    setOpenHrefModel(true);
+  };
 
-      const queryParams = navigationData?.rd1
-        ?.map((item) => {
-          const { VariableName, VariableValue, IsStatic } = item;
+  const handleCellClick = (params, colId) => {
+    if (!navigationData) return;
+    const rd1Item = navigationData.rd1.find((item) => item.ColId == colId);
+    if (!rd1Item) {
+      console.warn("No rd1 found for ColId:", colId);
+      return;
+    }
 
-          if (IsStatic === "true") {
-            return `${VariableName}=${encodeURIComponent(VariableValue)}`;
-          } else {
-            const dynamicVal =
-              params?.row?.[VariableName] || VariableValue || "";
-            return `${VariableName}=${btoa(dynamicVal)}`;
-          }
-        })
-        .join("&");
+    const baseUrl = rd1Item.BaseUrl || "";
+    const redirectUrl = rd1Item.ReportRedirectUrl || "";
+    const rdParams = navigationData.rd.filter((item) => item.ColId == colId);
+    const getRowValue = (paramName) => {
+      const row = params?.row || {};
+      const key = Object.keys(row).find(
+        (k) => k.toLowerCase() === paramName.toLowerCase()
+      );
+      return key ? row[key] : "";
+    };
+    const queryParams = rdParams
+      .map((item) => {
+        const { VariableName, VariableValue, IsStatic } = item;
 
-      const fullUrl = `${baseUrl}${redirectUrl}?${queryParams}`;
+        if (IsStatic === "true") {
+          return `${VariableName}=${encodeURIComponent(VariableValue)}`;
+        } else {
+          const dynamicVal = getRowValue(VariableName) || VariableValue || "";
+          return `${VariableName}=${btoa(dynamicVal)}`;
+        }
+      })
+      .join("&");
+    const fullUrl = `${baseUrl}${redirectUrl}&${queryParams}`;
+    const navigatePageId = params?.colDef?.RedirectId || "";
+    const navigateObj = navigationPageMaster?.rd1?.find(
+      (x) => x.RedirectId === Number(navigatePageId)
+    );
+    const navigateName = navigateObj?.RedirectPage || "";
 
-      if (window?.parent?.addTab) {
-        window.parent.addTab(
-          navigateName,
-          "icon-InventoryManagement_invoiceSummary",
-          fullUrl
-        );
-      }
+    if (window?.parent?.addTab) {
+      window.parent.addTab(
+        navigateName,
+        "icon-InventoryManagement_invoiceSummary",
+        fullUrl
+      );
     }
   };
-
-  // const handleCellClick = (params) => {
-
-  //   if (params?.colDef?.onHrefLinkModel === "true") {
-  //     setOpenHrefModel(true);
-  //   } else {
-  //     const baseUrl = navigationData?.rd?.[0]?.BaseUrl || "";
-  //     const redirectUrl = navigationData?.rd?.[0]?.ReportRedirectUrl || "";
-  //     const navigateName = params?.colDef?.onHrefNavigate || "";
-  //     const queryParams = navigationData?.rd1
-  //       ?.map((item) => {
-  //         const { VariableName, VariableValue, IsStatic } = item;
-  //         if (IsStatic === "true") {
-  //           return `${VariableName}=${encodeURIComponent(VariableValue)}`;
-  //         } else {
-  //           const dynamicVal =
-  //             params?.row?.[VariableName] || VariableValue || "";
-  //           return `${VariableName}=${btoa(dynamicVal)}`;
-  //         }
-  //       })
-  //       .join("&");
-  //     const fullUrl = `${baseUrl}${redirectUrl}?${queryParams}`;
-  //     if (window?.parent?.addTab) {
-  //       window.parent.addTab(
-  //         navigateName,
-  //         "icon-InventoryManagement_invoiceSummary",
-  //         fullUrl
-  //       );
-  //     }
-  //   }
-  // };
 
   const buildMasterValueMap = (masterData) => {
     const map = {};
@@ -2310,8 +2373,43 @@ export default function MainReport({
     }
   };
 
+  const getSortedRows = () => {
+    return [...filteredRows]?.sort((a, b) => {
+      const activeSort = sortModel?.[0];
+      if (activeSort) {
+        const field = activeSort.field;
+        const order = activeSort.sort === "asc" ? 1 : -1;
+        const x = a[field];
+        const y = b[field];
+
+        if (!isNaN(x) && !isNaN(y)) {
+          return (Number(x) - Number(y)) * order;
+        }
+        return String(x).localeCompare(String(y)) * order;
+      }
+
+      // DefaultSort column
+      const col = columns.find(
+        (c) => c.DefaultSort && c.DefaultSort !== "None"
+      );
+
+      if (!col) return 0;
+
+      const field = col.field;
+      const order = col.DefaultSort.toLowerCase() === "ascending" ? 1 : -1;
+      const x = a[field];
+      const y = b[field];
+
+      if (!isNaN(x) && !isNaN(y)) {
+        return (Number(x) - Number(y)) * order;
+      }
+
+      return String(x).localeCompare(String(y)) * order;
+    });
+  };
   const handleOpenPrintPreview = () => {
-    setPrintData(filteredRows);
+    const sorted = getSortedRows(); // now sorted same as image view
+    setPrintData(sorted);
     setShowPrintView(true);
   };
 
@@ -2381,22 +2479,34 @@ export default function MainReport({
           sx={{ width: "100vw", display: "flex", flexDirection: "column" }}
           ref={gridContainerRef}
         >
-          {/* {isLoading && (
-          <div className="loader-overlay">
-            <CircularProgress className="loadingBarManage" />
-          </div>
-        )} */}
-
-          <Dialog open={openHrefModel} onClose={() => setOpenHrefModel(false)}>
+          <Dialog
+            open={openHrefModel}
+            onClose={() => setOpenHrefModel(false)}
+            PaperProps={{
+              sx: {
+                height: "40vh",
+                borderRadius: 2,
+                overflow: "hidden",
+                width: "600px",
+              },
+            }}
+          >
             <div
-              className="ConversionMain"
-              style={{ width: "550px", height: "450px" }}
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                padding: "20px",
+                height: "100%",
+              }}
             >
               <iframe
-                src="http://nzen/R50B3/salescrm/app/JobManagement_JobList_AddRemarks?entrydate=11/18/2025%206:20:44%20PM&jobno=288457&versionname=&QuotationNo=QT/00069615&-=ODIyMjAyNTExMjQwOTUyMzM2NDMjIyN7e256ZW59fXt7MjB9fXt7b3JhaWwyNX19e3tvcmFpbDI1fX0=-EvKiX00eR98="
-                // src={iframeUrl}
-                style={{ width: "100%", height: "100%", border: "none" }}
-              ></iframe>
+                src={iframeUrl}
+                title="iframe-preview"
+                style={{
+                  border: "none",
+                  height: "100%",
+                }}
+              />
             </div>
           </Dialog>
 
@@ -3106,33 +3216,26 @@ export default function MainReport({
                     if (activeSort) {
                       const field = activeSort.field;
                       const order = activeSort.sort === "asc" ? 1 : -1;
-
                       const x = a[field];
                       const y = b[field];
-
                       if (!isNaN(x) && !isNaN(y)) {
                         return (Number(x) - Number(y)) * order;
                       }
                       return String(x).localeCompare(String(y)) * order;
                     }
-
-                    // 3) ELSE → fallback to DefaultSort from column master
                     const col = columns.find(
                       (c) => c.DefaultSort && c.DefaultSort !== "None"
                     );
                     if (!col) return 0;
-
                     const field = col.field;
                     const order =
                       col.DefaultSort.toLowerCase() === "ascending" ? 1 : -1;
-
                     const x = a[field];
                     const y = b[field];
 
                     if (!isNaN(x) && !isNaN(y)) {
                       return (Number(x) - Number(y)) * order;
                     }
-
                     return String(x).localeCompare(String(y)) * order;
                   })
                   .map((item, idx) => {
@@ -3178,17 +3281,22 @@ export default function MainReport({
                               style={{
                                 margin: 0,
                                 fontSize: "13px",
-                                lineHeight: "10px",
+                                lineHeight: "16px",
                               }}
                             >
-                              Order:{" "}
-                              <span style={{ fontWeight: 600 }}>
-                                {item?.designcount}
-                              </span>{" "}
-                              Sale:{" "}
-                              <span style={{ fontWeight: 600 }}>
-                                {item?.salescount}
-                              </span>
+                              {item?.designcount !== undefined && (
+                                <span>
+                                  Order: <strong>{item.designcount}</strong>
+                                </span>
+                              )}
+                              {item?.designcount !== undefined &&
+                                item?.salescount !== undefined &&
+                                ", "}
+                              {item?.salescount !== undefined && (
+                                <span>
+                                  Sale: <strong>{item.salescount}</strong>
+                                </span>
+                              )}
                             </p>
                           </div>
                           <div style={{ display: "flex", gap: "10px" }}>

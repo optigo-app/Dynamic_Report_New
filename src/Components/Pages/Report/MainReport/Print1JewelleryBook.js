@@ -10,6 +10,7 @@ export default function Print1JewelleryBook({ visibleItemsMain }) {
   const itemsPerPage = 1000; // how many items per page to show
   const [currentPage, setCurrentPage] = useState(1);
 
+  
   const visibleItems = useMemo(() => {
     const startIdx = (currentPage - 1) * itemsPerPage;
     const endIdx = startIdx + itemsPerPage;
@@ -71,13 +72,12 @@ export default function Print1JewelleryBook({ visibleItemsMain }) {
     setWithImage(!withImage);
   }, [withImage]);
 
-  const sortedItems = [...visibleItems]?.sort((a, b) => {
-    const numA = Number(String(a?.Sr_JobNo || "").split("/")[1] || 0);
-    const numB = Number(String(b?.Sr_JobNo || "").split("/")[1] || 0);
+  // const sortedItems = [...visibleItems]?.sort((a, b) => {
+  //   const numA = Number(String(a?.Sr_JobNo || "").split("/")[1] || 0);
+  //   const numB = Number(String(b?.Sr_JobNo || "").split("/")[1] || 0);
 
-    return numB - numA; // DESCENDING
-  });
-
+  //   return numB - numA; // DESCENDING
+  // });
   return loader ? (
     <p>Loading...</p>
   ) : msg !== "" ? (
@@ -145,7 +145,7 @@ export default function Print1JewelleryBook({ visibleItemsMain }) {
           Page <strong>{currentPage}</strong> of <strong>{totalPages}</strong>
         </p>
         <div className="container disflx">
-          {sortedItems?.map((e, i) => (
+          {visibleItems?.map((e, i) => (
             <div key={i} className="col1 brbxAll spfntbH pagBrkIns">
               {e?.Customer ? (
                 <div className="w-100 brBtom spaclftTpm spacBtom spfntHead">
