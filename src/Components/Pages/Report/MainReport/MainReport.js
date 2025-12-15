@@ -300,9 +300,11 @@ export default function MainReport({
   reportName,
   spliterReportShow,
   colorMaster,
+  currencyMaster,
 }) {
   const [isLoading, setIsLoading] = useState(isLoadingChek);
   const gridContainerRef = useRef(null);
+  const fullscreenContainer = gridContainerRef.current || document.body;
   const [showImageView, setShowImageView] = useState(false);
   const [openPopup, setOpenPopup] = useState(false);
   const [columSaveLoding, setColumSaveLoding] = useState(false);
@@ -351,6 +353,9 @@ export default function MainReport({
   const [selectedColors, setSelectedColors] = useState([]);
   const [iframeUrl, setIframeUrl] = useState("");
   const [navigationPageMaster, setNavigationPageMaster] = useState();
+  const [selectedCurrency, setSelectedCurrency] = useState("INR");
+  const pageSize = 250;
+  const [currentPage, setCurrentPage] = useState(1);
 
   const toggleDrawer = (newOpen) => () => {
     setSideFilterOpen(newOpen);
@@ -370,7 +375,6 @@ export default function MainReport({
     const getIframeUrlParams = async () => {
       try {
         let AllData = JSON.parse(sessionStorage.getItem("reportVarible"));
-
         const body = {
           con: JSON.stringify({
             mode: "getIframeUrlParams",
@@ -387,8 +391,8 @@ export default function MainReport({
         console.error("Error fetching report data:", error);
       }
     };
-    let AllData = JSON.parse(sessionStorage.getItem("reportVarible"));
 
+    let AllData = JSON.parse(sessionStorage.getItem("reportVarible"));
     const getNavigationPageName = async () => {
       const body = {
         con: JSON.stringify({
@@ -644,12 +648,15 @@ export default function MainReport({
           ColumnType: col.ColumnType,
           flex: col?.Width == null || (col?.Width == 0 && 1),
           SummaryTitle: col.SummaryTitle,
+          IsCurrency: col?.IsCurrency,
           IconName: col.IconName,
           SummaryUnit: col.SummaryUnit,
           ColumnDecimal: col.ColumnDecimal,
           HideColumn: col.HideColumn,
           CopyButton: col.CopyButton,
           ColId: col.ColId,
+          SummeryOrder: col?.SummeryOrder,
+          IsUniqueCount: col?.IsUniqueCount,
           RedirectId: col?.RedirectId,
           IframeTypeId: col.IframeTypeId,
           filterTypes: [
@@ -779,6 +786,7 @@ export default function MainReport({
             }
 
             if (col?.ColumnDecimal && col?.ColumnDecimal != 0) {
+              const value = params.value != null ? Number(params.value) : null;
               return (
                 <span
                   style={{
@@ -790,7 +798,9 @@ export default function MainReport({
                     borderRadius: col.BorderRadius,
                   }}
                 >
-                  {params.value?.toFixed(col?.ColumnDecimal)}
+                  {value != null && !isNaN(value)
+                    ? value.toFixed(col.ColumnDecimal)
+                    : ""}
                 </span>
               );
             }
@@ -820,14 +830,23 @@ export default function MainReport({
               );
             }
 
-            if (col.ColumnType == "Date") {
-              const formattedDate = params.value
-                ? new Date(params.value).toLocaleDateString("en-GB", {
+            if (col.ColumnType === "Date") {
+              let formattedDate = "-";
+
+              if (
+                params.value &&
+                params.value !== "-" &&
+                !isNaN(new Date(params.value).getTime())
+              ) {
+                formattedDate = new Date(params.value).toLocaleDateString(
+                  "en-GB",
+                  {
                     day: "2-digit",
                     month: "short",
                     year: "numeric",
-                  })
-                : "";
+                  }
+                );
+              }
 
               return (
                 <span
@@ -1041,6 +1060,7 @@ export default function MainReport({
 
   const buildIframeUrl = (params, colId, iframeTypeId) => {
     const row = params?.row || {};
+    console.log("iframeModelData: ", iframeModelData);
     const rd1Item = iframeModelData?.rd1?.find(
       (x) => x.ColId == colId && x.IframeTypeId == iframeTypeId
     );
@@ -1068,8 +1088,28 @@ export default function MainReport({
     return `${rd1Item.BaseUrl}${rd1Item.ReportRedirectUrl}&${queryString}`;
   };
 
-  const openIframe = (params, columId, iframeTypeId) => {
+  const waitForIframeData = async () => {
+    let retries = 10; // retry max 10 times
+    let delay = 300; // 300ms interval
+    while (retries > 0) {
+      if (iframeModelData && iframeModelData.rd1 && iframeModelData.rd) {
+        return iframeModelData; // data ready
+      }
+      await new Promise((res) => setTimeout(res, delay)); // wait
+      retries--;
+    }
+
+    return null; // still no data
+  };
+
+  const openIframe = async (params, columId, iframeTypeId) => {
+    const data = await waitForIframeData();
+    if (!data) {
+      console.warn("iframeModelData not loaded even after waiting");
+      return;
+    }
     const url = buildIframeUrl(params, columId, iframeTypeId);
+    console.log("iframe url", url);
     setIframeUrl(url);
     setOpenHrefModel(true);
   };
@@ -1081,7 +1121,6 @@ export default function MainReport({
       console.warn("No rd1 found for ColId:", colId);
       return;
     }
-
     const baseUrl = rd1Item.BaseUrl || "";
     const redirectUrl = rd1Item.ReportRedirectUrl || "";
     const rdParams = navigationData.rd.filter((item) => item.ColId == colId);
@@ -1095,7 +1134,6 @@ export default function MainReport({
     const queryParams = rdParams
       .map((item) => {
         const { VariableName, VariableValue, IsStatic } = item;
-
         if (IsStatic === "true") {
           return `${VariableName}=${encodeURIComponent(VariableValue)}`;
         } else {
@@ -1110,15 +1148,121 @@ export default function MainReport({
       (x) => x.RedirectId === Number(navigatePageId)
     );
     const navigateName = navigateObj?.RedirectPage || "";
-
-    if (window?.parent?.addTab) {
-      window.parent.addTab(
-        navigateName,
-        "icon-InventoryManagement_invoiceSummary",
-        fullUrl
+    if (window?.parent?.postMessage) {
+      window.parent.postMessage(
+        {
+          type: "ADD_TAB",
+          evt: "DynamicReport",
+          payload: {
+            TabName: navigateName,
+            TabUrl: fullUrl,
+          },
+        },
+        "*"
       );
     }
   };
+
+  // const handleCellClick = (params, colId) => {
+  //   if (!navigationData) return;
+  //   console.log("navigationData", navigationData, colId);
+  //   const rd1Item = navigationData.rd1.find((item) => item.ColId == colId);
+  //   console.log("navigationData rd1Item", rd1Item);
+  //   if (!rd1Item) {
+  //     console.warn("No rd1 found for ColId:", colId);
+  //     return;
+  //   }
+
+  //   const baseUrl = rd1Item.BaseUrl || "";
+  //   const redirectUrl = rd1Item.ReportRedirectUrl || "";
+  //   const rdParams = navigationData.rd.filter((item) => item.ColId == colId);
+  //   const getRowValue = (paramName) => {
+  //     const row = params?.row || {};
+  //     const key = Object.keys(row).find(
+  //       (k) => k.toLowerCase() === paramName.toLowerCase()
+  //     );
+  //     return key ? row[key] : "";
+  //   };
+  //   const queryParams = rdParams
+  //     .map((item) => {
+  //       const { VariableName, VariableValue, IsStatic } = item;
+  //       if (IsStatic === "true") {
+  //         return `${VariableName}=${encodeURIComponent(VariableValue)}`;
+  //       } else {
+  //         const dynamicVal = getRowValue(VariableName) || VariableValue || "";
+  //         return `${VariableName}=${btoa(dynamicVal)}`;
+  //       }
+  //     })
+  //     .join("&");
+
+  //   console.log("fullUrl", baseUrl, redirectUrl, queryParams);
+  //   const fullUrl = `${baseUrl}${redirectUrl}&${queryParams}`;
+  //   const navigatePageId = params?.colDef?.RedirectId || "";
+  //   const navigateObj = navigationPageMaster?.rd1?.find(
+  //     (x) => x.RedirectId === Number(navigatePageId)
+  //   );
+  //   const navigateName = navigateObj?.RedirectPage || "";
+  //   console.log("navigateObj", navigateObj);
+  //   console.log("fullUrl", fullUrl);
+
+  //   if (window?.parent?.parent?.addTab) {
+  //     window.parent.addTab(
+  //       navigateName,
+  //       "icon-InventoryManagement_invoiceSummary",
+  //       fullUrl
+  //     );
+  //   }
+  // };
+
+  // const handleCellClick = (params, colId) => {
+  //   if (!navigationData) return;
+  //   const rd1Item = navigationData.rd1.find((item) => item.ColId == colId);
+  //   console.log("navigationData rd1Item", rd1Item);
+
+  //   if (!rd1Item) {
+  //     console.warn("No rd1 found for ColId:", colId);
+  //     return;
+  //   }
+
+  //   const baseUrl = rd1Item.BaseUrl || "";
+  //   const redirectUrl = rd1Item.ReportRedirectUrl || "";
+  //   const rdParams = navigationData.rd.filter((item) => item.ColId == colId);
+
+  //   const getRowValue = (paramName) => {
+  //     const row = params?.row || {};
+  //     const key = Object.keys(row).find(
+  //       (k) => k.toLowerCase() === paramName.toLowerCase()
+  //     );
+  //     return key ? row[key] : "";
+  //   };
+
+  //   const queryParams = rdParams
+  //     .map((item) => {
+  //       const { VariableName, VariableValue, IsStatic } = item;
+  //       if (IsStatic === "true") {
+  //         return `${VariableName}=${encodeURIComponent(VariableValue)}`;
+  //       } else {
+  //         const dynamicVal = getRowValue(VariableName) || VariableValue || "";
+  //         return `${VariableName}=${btoa(dynamicVal)}`;
+  //       }
+  //     })
+  //     .join("&");
+
+  //   const fullUrl = `${baseUrl}${redirectUrl}&${queryParams}`;
+  //   const navigatePageId = params?.colDef?.RedirectId || "";
+  //   const navigateObj = navigationPageMaster?.rd1?.find(
+  //     (x) => x.RedirectId === Number(navigatePageId)
+  //   );
+  //   const navigateName = navigateObj?.RedirectPage || "";
+
+  //   console.log("navigateObj", navigateObj);
+  //   console.log("fullUrl", fullUrl);
+  //   try {
+  //     window.location.href = fullUrl;
+  //   } catch (error) {
+  //     console.error("Failed to send message to parent:", error);
+  //   }
+  // };
 
   const buildMasterValueMap = (masterData) => {
     const map = {};
@@ -1175,6 +1319,7 @@ export default function MainReport({
       }
     }
   }, [allColumData]);
+
   const [filteredRows, setFilteredRows] = useState(originalRows);
   const [filters, setFilters] = useState({});
   const [filtersShow, setFiltersShow] = useState({});
@@ -1210,17 +1355,22 @@ export default function MainReport({
   useEffect(() => {
     const newFilteredRows = originalRows?.filter((row) => {
       let isMatch = true;
+
       for (const filterField of Object.keys(filters)) {
         const filterValue = filters[filterField];
         if (!filterValue || filterValue.length === 0) continue;
+
         const rawRowValue = row[filterField];
+
         if (filterField.includes("_min") || filterField.includes("_max")) {
           const baseField = filterField.replace("_min", "").replace("_max", "");
           const rowValue = parseFloat(row[baseField]);
+
           if (isNaN(rowValue)) {
             isMatch = false;
             break;
           }
+
           if (
             filterField.includes("_min") &&
             parseFloat(filterValue) > rowValue
@@ -1228,6 +1378,7 @@ export default function MainReport({
             isMatch = false;
             break;
           }
+
           if (
             filterField.includes("_max") &&
             parseFloat(filterValue) < rowValue
@@ -1250,36 +1401,36 @@ export default function MainReport({
         }
       }
 
+      // Priority color filter
       if (isMatch && selectedColors?.length > 0) {
         const priorityCol = allColumData?.find(
           (x) => x.IsPriorityColumn === "True"
         );
-
         if (priorityCol) {
           const priorityValue = row[priorityCol.FieldName];
-
           if (!selectedColors.includes(priorityValue)) {
-            isMatch = false; // ❌ row doesn't match selected priority colors
-          }
-        }
-      }
-
-      if (!spliterReportShow) {
-        if (isMatch && filterState && selectedDateColumn) {
-          const toDateOnly = (d) => new Date(new Date(d).toDateString());
-          const rowDate = toDateOnly(row[selectedDateColumn]);
-          const parsedStart = toDateOnly(startDate);
-          const parsedEnd = toDateOnly(endDate);
-          if (
-            isNaN(rowDate.getTime()) ||
-            rowDate < parsedStart ||
-            rowDate > parsedEnd
-          ) {
             isMatch = false;
           }
         }
       }
 
+      // Date filter
+      if (isMatch && !spliterReportShow && filterState && selectedDateColumn) {
+        const toDateOnly = (d) => new Date(new Date(d).toDateString());
+        const rowDate = toDateOnly(row[selectedDateColumn]);
+        const parsedStart = toDateOnly(startDate);
+        const parsedEnd = toDateOnly(endDate);
+
+        if (
+          isNaN(rowDate.getTime()) ||
+          rowDate < parsedStart ||
+          rowDate > parsedEnd
+        ) {
+          isMatch = false;
+        }
+      }
+
+      // Common search
       if (isMatch && commonSearch) {
         const searchText = commonSearch.toLowerCase();
         const hasMatch = Object.values(row).some((value) =>
@@ -1289,21 +1440,49 @@ export default function MainReport({
           isMatch = false;
         }
       }
+
       return isMatch;
     });
 
-    const rowsWithSrNo = newFilteredRows?.map((row, index) => ({
+    let rowsWithSrNo = newFilteredRows?.map((row, index) => ({
       ...row,
       srNo: index + 1,
     }));
 
+    const selectedCurrencyObj = currencyMaster?.find(
+      (c) => c.Currencycode === selectedCurrency
+    );
+    const rate = selectedCurrencyObj?.CurrencyRate || 1;
+
+    const currencyColumns = allColumData?.filter(
+      (col) => col.IsCurrency === "True"
+    );
+
+    rowsWithSrNo = rowsWithSrNo?.map((row) => {
+      let updatedRow = { ...row };
+      currencyColumns?.forEach((col) => {
+        const field = col.FieldName;
+        if (updatedRow[field]) {
+          updatedRow[field] = parseFloat((updatedRow[field] / rate).toFixed(2));
+        }
+      });
+
+      return updatedRow;
+    });
     if (masterKeyData?.GroupCheckBox == "True") {
-      const groupedRows = groupRows(rowsWithSrNo, grupEnChekBox);
-      setFilteredRows(groupedRows);
+      setFilteredRows(groupRows(rowsWithSrNo, grupEnChekBox));
     } else {
       setFilteredRows(rowsWithSrNo);
     }
-  }, [filters, commonSearch, startDate, columns, selectedDateColumn]);
+  }, [
+    filters,
+    commonSearch,
+    startDate,
+    columns,
+    selectedDateColumn,
+    selectedColors,
+    selectedCurrency,
+  ]);
 
   const handleFilterChange = (FieldName, value, filterType, HeaderName) => {
     setFilters((prevFilters) => {
@@ -1679,8 +1858,10 @@ export default function MainReport({
               style={{ width: "100%", margin: "10px 20px" }}
             >
               <FormControl fullWidth size="small">
-                <InputLabel>{`Select ${col.headerNameSub}`}</InputLabel>
+                <InputLabel id="demo-simple-select-label">{`Select ${col.headerNameSub}`}</InputLabel>
                 <Select
+                  labelId="demo-simple-select-label"
+                  id="demo-simple-select"
                   label={`Select ${col.headerNameSub}`}
                   name={`Select ${col.headerNameSub}`}
                   value={filters[col.field] || ""}
@@ -1693,10 +1874,11 @@ export default function MainReport({
                     )
                   }
                   style={{
-                    height: 40, // input height
-                    fontSize: 16, // font size
+                    height: 40,
+                    fontSize: 16,
                   }}
                   MenuProps={{
+                    container: fullscreenContainer,
                     PaperProps: {
                       style: {
                         maxHeight: 300,
@@ -1945,81 +2127,168 @@ export default function MainReport({
     });
   };
 
-  const summaryColumns = columns?.filter((col) => {
+  const summaryColumns = columnsHide?.filter((col) => {
     const columnData = Object?.values(allColumData)?.find(
       (data) => data?.FieldName === col?.field
     );
     return String(columnData?.Summary).toLowerCase() === "true";
   });
 
+  const unicSummaryColumns = columnsHide?.filter((col) => {
+    const columnData = Object?.values(allColumData)?.find(
+      (data) => data?.FieldName === col?.field
+    );
+    return String(columnData?.IsUniqueCount).toLowerCase() === "true";
+  });
+
+  const finalSummaryColumns = [...summaryColumns, ...unicSummaryColumns];
+
+  // const renderSummary = () => {
+  //   return (
+  //     <div
+  //       className="summaryBox"
+  //       style={{
+  //         display: finalSummaryColumns.length >= 3 ? "grid" : "flex",
+  //         gridTemplateColumns:
+  //           finalSummaryColumns.length >= 3
+  //             ? `repeat(${finalSummaryColumns.length}, 1fr)`
+  //             : "none",
+  //         justifyContent:
+  //           finalSummaryColumns.length < 3 ? "flex-start" : "unset",
+  //       }}
+  //     >
+  //       {finalSummaryColumns.map((col) => {
+  //         const columnMeta = Object.values(allColumData)?.find(
+  //           (data) => data.FieldName === col.field
+  //         );
+
+  //         const isUniq =
+  //           String(columnMeta?.IsUniqueCount).toLowerCase() === "true";
+
+  //         let calculatedValue = 0;
+
+  //         if (isUniq) {
+  //           // 🔥 UNIQUE COUNT MODE
+  //           const allValues = filteredRows?.map((row) => row[col.field]) || [];
+  //           const uniqueValues = [...new Set(allValues)];
+  //           calculatedValue = uniqueValues.length;
+  //         } else {
+  //           // 🔥 NORMAL SUM MODE
+  //           calculatedValue =
+  //             filteredRows?.reduce(
+  //               (sum, row) => sum + (parseFloat(row[col.field]) || 0),
+  //               0
+  //             ) || 0;
+  //         }
+
+  //         return (
+  //           <div
+  //             key={col.field}
+  //             className={
+  //               finalSummaryColumns.length >= 3
+  //                 ? "AllEmploe_boxViewTotal_big"
+  //                 : "AllEmploe_boxViewTotal"
+  //             }
+  //           >
+  //             <div>
+  //               <p className="AllEmplo_boxViewTotalValue">
+  //                 {isUniq
+  //                   ? calculatedValue // no formatting for unique count
+  //                   : col?.SummaryValueFormated == 1
+  //                   ? Number(calculatedValue).toLocaleString("en-IN", {
+  //                       minimumFractionDigits: col?.SummaryValueKey,
+  //                       maximumFractionDigits: col?.SummaryValueKey,
+  //                     })
+  //                   : calculatedValue.toFixed(Number(col?.SummaryValueKey))}
+  //                 <span style={{ fontSize: "17px" }}>{col?.SummaryUnit}</span>
+  //               </p>
+
+  //               <p className="boxViewTotalTitle">
+  //                 {columnMeta?.SummaryTitle == null
+  //                   ? col?.headerNameSub
+  //                   : columnMeta?.SummaryTitle}
+  //               </p>
+  //             </div>
+  //           </div>
+  //         );
+  //       })}
+  //     </div>
+  //   );
+  // };
+
   const renderSummary = () => {
+    const sortedSummaryColumns = [...finalSummaryColumns].sort((a, b) => {
+      const aOrder = a.SummeryOrder;
+      const bOrder = b.SummeryOrder;
+      if (!aOrder && !bOrder) return 0;
+      if (aOrder && !bOrder) return -1;
+      if (!aOrder && bOrder) return 1;
+      return Number(aOrder) - Number(bOrder);
+    });
+
     return (
       <div
         className="summaryBox"
         style={{
-          display: summaryColumns.length >= 3 ? "grid" : "flex",
+          display: sortedSummaryColumns.length >= 3 ? "grid" : "flex",
           gridTemplateColumns:
-            summaryColumns.length >= 3
-              ? `repeat(${summaryColumns.length}, 1fr)`
+            sortedSummaryColumns.length >= 3
+              ? `repeat(${sortedSummaryColumns.length}, 1fr)`
               : "none",
-          justifyContent: summaryColumns.length < 3 ? "flex-start" : "unset",
+          justifyContent:
+            sortedSummaryColumns.length < 3 ? "flex-start" : "unset",
         }}
       >
-        {summaryColumns.map((col) => {
-          let calculatedValue =
-            filteredRows?.reduce(
-              (sum, row) => sum + (parseFloat(row[col.field]) || 0),
-              0
-            ) || 0;
+        {sortedSummaryColumns.map((col) => {
+          const columnMeta = Object.values(allColumData)?.find(
+            (data) => data.FieldName === col.field
+          );
+
+          const isUniq =
+            String(columnMeta?.IsUniqueCount).toLowerCase() === "true";
+
+          let calculatedValue = 0;
+
+          if (isUniq) {
+            const allValues = filteredRows?.map((row) => row[col.field]) || [];
+            const uniqueValues = [...new Set(allValues)];
+            calculatedValue = uniqueValues.length;
+          } else {
+            calculatedValue =
+              filteredRows?.reduce(
+                (sum, row) => sum + (parseFloat(row[col.field]) || 0),
+                0
+              ) || 0;
+          }
 
           return (
             <div
               key={col.field}
               className={
-                summaryColumns.length >= 3
+                sortedSummaryColumns.length >= 3
                   ? "AllEmploe_boxViewTotal_big"
                   : "AllEmploe_boxViewTotal"
               }
             >
               <div>
                 <p className="AllEmplo_boxViewTotalValue">
-                  {col?.SummaryValueFormated == 1
+                  {isUniq
+                    ? calculatedValue
+                    : col?.SummaryValueFormated == 1
                     ? Number(calculatedValue).toLocaleString("en-IN", {
                         minimumFractionDigits: col?.SummaryValueKey,
                         maximumFractionDigits: col?.SummaryValueKey,
                       })
-                    : calculatedValue.toFixed(
-                        Number(col?.SummaryValueKey)
-                      )}{" "}
+                    : calculatedValue.toFixed(Number(col?.SummaryValueKey))}
                   <span style={{ fontSize: "17px" }}>{col?.SummaryUnit}</span>
                 </p>
+
                 <p className="boxViewTotalTitle">
-                  {col.SummaryTitle == null
+                  {columnMeta?.SummaryTitle == null
                     ? col?.headerNameSub
-                    : col.SummaryTitle}
+                    : columnMeta?.SummaryTitle}
                 </p>
               </div>
-              {/* <div style={{ display: "flex" }}>
-                {col?.IconName && (
-                  <IconButton
-                    sx={{
-                      background: "#e8f5e9",
-                      color: "#2e7d32",
-                      height: "42px",
-                      width: "42px",
-                      transition: "all .2s ease",
-                      "&:hover": {
-                        backgroundColor: "#c8e6c9",
-                        transform: "translateY(-2px)",
-                      },
-                      cursor: "text",
-                    }}
-                    size="medium"
-                  >
-                    <DynamicIcon name={col?.IconName} size={32} color="green" />
-                  </IconButton>
-                )}
-              </div> */}
             </div>
           );
         })}
@@ -2045,12 +2314,16 @@ export default function MainReport({
     }
   };
 
-  function mapRowsToHeaders(columns, rows) {
+  function mapRowsToHeaders(columns = [], rows = []) {
+    const safeRows = Array.isArray(rows) ? rows : [];
+
     const isIsoDateTime = (str) =>
       typeof str === "string" && /^\d{4}-\d{2}-\d{2}T/.test(str);
 
     const fieldToHeader = {};
-    columns?.forEach((col) => {
+    const numericFields = [];
+
+    columns.forEach((col) => {
       let header = "";
 
       if (typeof col.headerName === "string") {
@@ -2064,49 +2337,36 @@ export default function MainReport({
         header = col.headerName.props.children[1];
       }
 
-      if (!header && col.field === "sr") {
-        header = "Sr#"; // fallback header
-      }
+      if (!header && col.field === "sr") header = "Sr#";
 
       fieldToHeader[col.field] = header;
+
+      if (col.ColumnType === "Number") {
+        numericFields.push(col.field);
+      }
     });
 
-    return rows?.map((row, idx) => {
+    const totals = {};
+    numericFields.forEach((f) => (totals[f] = 0));
+
+    const mappedRows = safeRows.map((row, idx) => {
       const ordered = {};
-      columns?.forEach((col) => {
+
+      columns.forEach((col) => {
         const header = fieldToHeader[col.field];
         let value = row[col.field] ?? "";
 
         if (col.field === "sr") value = idx + 1;
-        else if (col.field === "Venderfgage") {
-          const fgDateStr = row.fgdate;
-          const outsourceDateStr = row.outsourcedate;
-          let finalDate = 0;
-          if (fgDateStr && outsourceDateStr) {
-            const diff =
-              new Date(fgDateStr).getTime() -
-              new Date(outsourceDateStr).getTime();
-            finalDate = Math.floor(diff / (1000 * 60 * 60 * 24));
-          }
-          value = finalDate;
-        } else if (col.field === "Fgage") {
-          const fgDateStr = row.fgdate;
-          const orderDateStr = row.orderdate;
-          let finalDate = 0;
-          if (fgDateStr && orderDateStr) {
-            const diff =
-              new Date(fgDateStr).getTime() - new Date(orderDateStr).getTime();
-            finalDate = Math.floor(diff / (1000 * 60 * 60 * 24));
-          }
-          value = finalDate;
-        }
 
         if (isIsoDateTime(value)) {
-          const dateObj = new Date(value);
-          const day = String(dateObj.getDate()).padStart(2, "0");
-          const month = String(dateObj.getMonth() + 1).padStart(2, "0");
-          const year = dateObj.getFullYear();
-          value = `${day}-${month}-${year}`;
+          const d = new Date(value);
+          value = `${String(d.getDate()).padStart(2, "0")}-${String(
+            d.getMonth() + 1
+          ).padStart(2, "0")}-${d.getFullYear()}`;
+        }
+
+        if (col.ColumnType === "Number" && !isNaN(value)) {
+          totals[col.field] += Number(value);
         }
 
         ordered[header] = value;
@@ -2114,6 +2374,24 @@ export default function MainReport({
 
       return ordered;
     });
+
+    // 🔹 Summary row
+    const summaryRow = {};
+    columns.forEach((col, index) => {
+      const header = fieldToHeader[col.field];
+
+      if (index === 0) {
+        summaryRow[header] = "TOTAL";
+      } else if (col.ColumnType === "Number") {
+        summaryRow[header] = Number(
+          totals[col.field].toFixed(col.ColumnDecimal ?? 3)
+        );
+      } else {
+        summaryRow[header] = "";
+      }
+    });
+
+    return [...mappedRows, summaryRow];
   }
 
   const converted = mapRowsToHeaders(columns, filteredRows);
@@ -2225,6 +2503,7 @@ export default function MainReport({
       }
     });
 
+    console.log("rows tempGrouped", tempGrouped);
     return Object.values(tempGrouped).map((item, index) => ({
       ...item,
       id: index,
@@ -2407,19 +2686,72 @@ export default function MainReport({
       return String(x).localeCompare(String(y)) * order;
     });
   };
-  const handleOpenPrintPreview = () => {
-    const sorted = getSortedRows(); // now sorted same as image view
-    setPrintData(sorted);
+
+  const [preparingPrint, setPreparingPrint] = useState(false);
+  const [currentPrintPage, setCurrentPrintPage] = useState(1);
+
+  const handleOpenPrintPreview = async () => {
+    const sorted = getSortedRows();
     setShowPrintView(true);
+    setPrintData(sorted);
   };
 
-  const handlePrintNow = () => {
-    window.print();
-    setShowPrintView(false); // hide preview after print
+  const handlePrintNow = (currentPageItems, currentPage) => {
+    setPreparingPrint(true);
+    setCurrentPrintPage(currentPage);
+
+    // Wait for images to load
+    requestAnimationFrame(() => {
+      waitForPrintReady(currentPageItems);
+    });
+  };
+
+  const waitForPrintReady = (itemsToPrint) => {
+    const container = printRef.current;
+    if (!container) return;
+
+    const images = container.querySelectorAll(".print-content img");
+
+    const imagePromises = Array.from(images).map(
+      (img) =>
+        new Promise((resolve) => {
+          if (img.complete) {
+            resolve();
+          } else {
+            img.onload = () => resolve();
+            img.onerror = () => resolve();
+          }
+        })
+    );
+
+    Promise.all(imagePromises).then(() => {
+      let attempts = 0;
+      const maxAttempts = 100;
+
+      const checkLayout = () => {
+        requestAnimationFrame(() => {
+          attempts++;
+
+          const items = container.querySelectorAll(".print-content .col1");
+
+          if (items.length >= itemsToPrint.length || attempts >= maxAttempts) {
+            setPreparingPrint(false);
+
+            // Small delay to ensure layout is stable
+            setTimeout(() => {
+              window.print();
+            }, 300);
+          } else {
+            checkLayout();
+          }
+        });
+      };
+
+      checkLayout();
+    });
   };
 
   const [open, setOpen] = useState(false);
-
   const url =
     "http://nzen/R50B3/salescrm/app/ProductInfoRemarks?entrydate=11/19/2025%2010:02:57%20AM&jobno=288461&versionname=&QuotationNo=QT/00069621&-=ODM1MjAyNTExMTkwOTM2MjQ5NDcjIyN7e256ZW59fXt7MjB9fXt7b3JhaWwyNX19e3tvcmFpbDI1fX0=-v/gVApszMU4=";
 
@@ -2438,14 +2770,18 @@ export default function MainReport({
           className="print-control-buttons"
           style={{
             textAlign: "center",
-            marginTop: "20px",
-            paddingTop: "10px",
+            paddingBlock: "30px",
+            position: "fixed",
+            top: "0px",
+            width: "100%",
+            backgroundColor: "white",
           }}
         >
           <Button
             variant="contained"
             color="primary"
             onClick={handlePrintNow}
+            disabled={preparingPrint}
             sx={{
               backgroundColor: "#2e7d32",
               "&:hover": { backgroundColor: "#1b5e20" },
@@ -2462,10 +2798,32 @@ export default function MainReport({
             Cancel
           </Button>
         </div>
-        <Print1JewelleryBook visibleItemsMain={printData} />
+        <Print1JewelleryBook
+          visibleItemsMain={printData}
+          onPrintClick={handlePrintNow}
+          preparingPrint={preparingPrint}
+          currentPrintPage={currentPrintPage}
+        />
       </div>
     );
   }
+
+  const totalPages = Math.ceil(filteredRows?.length / pageSize);
+  const getPageNumbers = () => {
+    const pages = [];
+    const totalPageCount = totalPages;
+    const maxVisible = 5;
+
+    let start = Math.max(currentPage - 2, 1);
+    let end = Math.min(start + maxVisible - 1, totalPageCount);
+    if (end - start < maxVisible - 1) {
+      start = Math.max(end - maxVisible + 1, 1);
+    }
+    for (let i = start; i <= end; i++) {
+      pages.push(i);
+    }
+    return pages;
+  };
 
   return (
     <DragDropContext onDragEnd={onDragEnd}>
@@ -2493,6 +2851,23 @@ export default function MainReport({
           >
             <div
               style={{
+                position: "absolute",
+                right: "10px",
+                top: "10px",
+              }}
+            >
+              <IconButton
+                edge="end"
+                size="small"
+                onClick={() => setOpenHrefModel(false)}
+                aria-label="clear"
+                style={{ border: "1px solid #b3c6ff" }}
+              >
+                <X size={18} color="black" />
+              </IconButton>
+            </div>
+            <div
+              style={{
                 display: "flex",
                 flexDirection: "column",
                 padding: "20px",
@@ -2510,7 +2885,11 @@ export default function MainReport({
             </div>
           </Dialog>
 
-          <Dialog open={openPopup} onClose={() => setOpenPopup(false)}>
+          <Dialog
+            open={openPopup}
+            onClose={() => setOpenPopup(false)}
+            container={gridContainerRef.current}
+          >
             <IconButton
               style={{ position: "absolute", top: 0, right: 5 }}
               onClick={() => setOpenPopup(false)}
@@ -2585,6 +2964,10 @@ export default function MainReport({
             open={sideFilterOpen}
             onClose={toggleDrawer(false)}
             className="drawerMain"
+            ModalProps={{
+              container: gridContainerRef.current,
+              disablePortal: true,
+            }}
           >
             <div
               style={{
@@ -2887,6 +3270,7 @@ export default function MainReport({
                           filterState.dateRange.startDate?.getFullYear?.() ===
                           1990
                         }
+                        fullscreenContainer={gridContainerRef.current} // <-- ADD THIS
                       />
                     </div>
                   ) : (
@@ -2900,6 +3284,7 @@ export default function MainReport({
                         filterState.dateRange.startDate?.getFullYear?.() ===
                         1990
                       }
+                      fullscreenContainer={gridContainerRef.current} // <-- ADD THIS
                     />
                   ))}
 
@@ -3001,6 +3386,51 @@ export default function MainReport({
                 onClick={handleSendEmail}
               />
             )} */}
+
+              {masterKeyData?.CurrencyMaster == "True" && (
+                <FormControl
+                  size="small"
+                  sx={{ width: 150, margin: "0px" }}
+                  className="dropDownMainClass"
+                >
+                  <Select
+                    value={selectedCurrency}
+                    onChange={(e) => setSelectedCurrency(e.target.value)}
+                    MenuProps={{
+                      PaperProps: {
+                        style: {
+                          maxHeight: 300,
+                          overflowY: "auto",
+                        },
+                      },
+                    }}
+                    style={{
+                      fontSize: "14px",
+                      display: "flex",
+                      alignItems: "center",
+                    }}
+                    sx={{
+                      "& .MuiSelect-select": {
+                        padding: "7px !important",
+                      },
+                    }}
+                    className="dropDownListFont"
+                  >
+                    {currencyMaster?.map((col) => (
+                      <MenuItem
+                        key={col?.id}
+                        value={col?.Currencycode}
+                        style={{
+                          fontSize: "14px",
+                        }}
+                        className="dropDownListFont"
+                      >
+                        {col?.Currencycode}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              )}
 
               {masterKeyData?.PrintButton == "True" && (
                 <Tooltip title="Print">
@@ -3195,7 +3625,9 @@ export default function MainReport({
             ref={gridRef}
             style={{
               height: showImageView
-                ? "70vh"
+                ? summaryColumns?.length == 0
+                  ? "77vh"
+                  : "70vh"
                 : summaryColumns?.length == 0
                 ? masterKeyData?.ColumnSettingModel == "True"
                   ? "calc(100vh - 190px)"
@@ -3209,145 +3641,222 @@ export default function MainReport({
             className="dataGrid_Warper"
           >
             {showImageView ? (
-              <div style={{ display: "flex", flexWrap: "wrap", gap: "10px" }}>
-                {[...filteredRows]
-                  .sort((a, b) => {
-                    const activeSort = sortModel?.[0];
-                    if (activeSort) {
-                      const field = activeSort.field;
-                      const order = activeSort.sort === "asc" ? 1 : -1;
+              <div>
+                <div
+                  style={{
+                    position: "fixed",
+                    width: "100%",
+                    backgroundColor: "white",
+                  }}
+                >
+                  <div className="pagination" style={{ marginBottom: 10 }}>
+                    <IconButton
+                      onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
+                      disabled={currentPage === 1}
+                      sx={{
+                        background: "#e8f5e9",
+                        color: "#2e7d32",
+                        height: "42px",
+                        width: "42px",
+                        borderRadius: "6px",
+                        transition: "all .2s ease",
+                        "&:hover": {
+                          backgroundColor: "#c8e6c9",
+                        },
+                      }}
+                      size="medium"
+                    >
+                      Prev
+                    </IconButton>
+
+                    {getPageNumbers().map((num) => (
+                      <button
+                        key={num}
+                        onClick={() => setCurrentPage(num)}
+                        className={num === currentPage ? "active" : ""}
+                      >
+                        {num}
+                      </button>
+                    ))}
+
+                    <IconButton
+                      onClick={() =>
+                        setCurrentPage((p) => Math.min(p + 1, totalPages))
+                      }
+                      disabled={currentPage === totalPages}
+                      sx={{
+                        background: "#e8f5e9",
+                        color: "#2e7d32",
+                        height: "42px",
+                        width: "42px",
+                        borderRadius: "6px",
+                        transition: "all .2s ease",
+                        "&:hover": {
+                          backgroundColor: "#c8e6c9",
+                        },
+                      }}
+                      size="medium"
+                    >
+                      Next
+                    </IconButton>
+                  </div>
+
+                  <p style={{ textAlign: "center" }}>
+                    Page <strong>{currentPage}</strong> of{" "}
+                    <strong>{totalPages}</strong>
+                  </p>
+                </div>
+                <div
+                  style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: "10px",
+                    paddingTop: "120px",
+                  }}
+                >
+                  {[...filteredRows]
+                    .sort((a, b) => {
+                      const activeSort = sortModel?.[0];
+                      if (activeSort) {
+                        const field = activeSort.field;
+                        const order = activeSort.sort === "asc" ? 1 : -1;
+                        const x = a[field];
+                        const y = b[field];
+                        if (!isNaN(x) && !isNaN(y)) {
+                          return (Number(x) - Number(y)) * order;
+                        }
+                        return String(x).localeCompare(String(y)) * order;
+                      }
+
+                      const col = columns.find(
+                        (c) => c.DefaultSort && c.DefaultSort !== "None"
+                      );
+                      if (!col) return 0;
+                      const field = col.field;
+                      const order =
+                        col.DefaultSort.toLowerCase() === "ascending" ? 1 : -1;
+
                       const x = a[field];
                       const y = b[field];
+
                       if (!isNaN(x) && !isNaN(y)) {
                         return (Number(x) - Number(y)) * order;
                       }
                       return String(x).localeCompare(String(y)) * order;
-                    }
-                    const col = columns.find(
-                      (c) => c.DefaultSort && c.DefaultSort !== "None"
-                    );
-                    if (!col) return 0;
-                    const field = col.field;
-                    const order =
-                      col.DefaultSort.toLowerCase() === "ascending" ? 1 : -1;
-                    const x = a[field];
-                    const y = b[field];
-
-                    if (!isNaN(x) && !isNaN(y)) {
-                      return (Number(x) - Number(y)) * order;
-                    }
-                    return String(x).localeCompare(String(y)) * order;
-                  })
-                  .map((item, idx) => {
-                    const defaultImg = noFoundImg;
-                    const src = String(item?.ImgUrl ?? "").trim() || defaultImg;
-                    return (
-                      <div
-                        key={idx}
-                        style={{
-                          width: 200,
-                          height: 230,
-                          display: "flex",
-                          flexDirection: "column",
-                        }}
-                      >
-                        <img
-                          src={src}
-                          alt={`record-${idx}`}
-                          loading="lazy"
-                          onError={(e) => {
-                            if (e.target.src !== defaultImg)
-                              e.target.src = defaultImg;
-                          }}
-                          style={{
-                            width: "200px",
-                            height: "200px",
-                            border: "1px solid lightgray",
-                            objectFit: "cover",
-                            borderRadius: "4px",
-                            backgroundColor: "#f9f9f9",
-                          }}
-                        />
-
+                    })
+                    .slice((currentPage - 1) * pageSize, currentPage * pageSize) // ✅ PAGINATION APPLIED
+                    .map((item, idx) => {
+                      const defaultImg = noFoundImg;
+                      const src =
+                        String(item?.ImgUrl ?? "").trim() || defaultImg;
+                      return (
                         <div
+                          key={idx}
                           style={{
+                            width: 200,
+                            height: 230,
                             display: "flex",
-                            justifyContent: "space-between",
-                            marginTop: "4px",
+                            flexDirection: "column",
                           }}
                         >
-                          <div>
-                            <p
-                              style={{
-                                margin: 0,
-                                fontSize: "13px",
-                                lineHeight: "16px",
-                              }}
-                            >
-                              {item?.designcount !== undefined && (
-                                <span>
-                                  Order: <strong>{item.designcount}</strong>
-                                </span>
-                              )}
-                              {item?.designcount !== undefined &&
-                                item?.salescount !== undefined &&
-                                ", "}
-                              {item?.salescount !== undefined && (
-                                <span>
-                                  Sale: <strong>{item.salescount}</strong>
-                                </span>
-                              )}
-                            </p>
-                          </div>
-                          <div style={{ display: "flex", gap: "10px" }}>
-                            <p
-                              style={{
-                                margin: 0,
-                                fontWeight: 600,
-                                fontSize: "12px",
-                                lineHeight: "10px",
-                              }}
-                            >
-                              <span>{item?.StockBarcode}</span>
-                            </p>
-                            <p
-                              style={{
-                                margin: 0,
-                                fontWeight: 600,
-                                fontSize: "12px",
-                                color: "#CF4F7D",
-                                display: "flex",
-                                flexDirection: "column",
-                              }}
-                            >
-                              <div
+                          <img
+                            src={src}
+                            alt={`record-${idx}`}
+                            loading="lazy"
+                            onError={(e) => {
+                              if (e.target.src !== defaultImg)
+                                e.target.src = defaultImg;
+                            }}
+                            style={{
+                              width: "200px",
+                              height: "200px",
+                              border: "1px solid lightgray",
+                              objectFit: "cover",
+                              borderRadius: "4px",
+                              backgroundColor: "#f9f9f9",
+                            }}
+                          />
+
+                          <div
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              marginTop: "4px",
+                            }}
+                          >
+                            <div>
+                              <p
                                 style={{
-                                  display: "flex",
-                                  gap: "3px",
+                                  margin: 0,
+                                  fontSize: "13px",
+                                  lineHeight: "16px",
+                                }}
+                              >
+                                {item?.designcount !== undefined && (
+                                  <span>
+                                    Order: <strong>{item.designcount}</strong>
+                                  </span>
+                                )}
+                                {item?.designcount !== undefined &&
+                                  item?.salescount !== undefined &&
+                                  ", "}
+                                {item?.salescount !== undefined && (
+                                  <span>
+                                    Sale: <strong>{item.salescount}</strong>
+                                  </span>
+                                )}
+                              </p>
+                            </div>
+                            <div style={{ display: "flex", gap: "10px" }}>
+                              <p
+                                style={{
+                                  margin: 0,
+                                  fontWeight: 600,
+                                  fontSize: "12px",
                                   lineHeight: "10px",
                                 }}
                               >
-                                <span>{item?.metaltype}</span>
-                                <span>{item?.metalpurity}</span>
-                              </div>
-                              <span>{item?.metalcolor}</span>
+                                <span>{item?.StockBarcode}</span>
+                              </p>
+                              <p
+                                style={{
+                                  margin: 0,
+                                  fontWeight: 600,
+                                  fontSize: "12px",
+                                  color: "#CF4F7D",
+                                  display: "flex",
+                                  flexDirection: "column",
+                                }}
+                              >
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    gap: "3px",
+                                    lineHeight: "10px",
+                                  }}
+                                >
+                                  <span>{item?.metaltype}</span>
+                                  <span>{item?.metalpurity}</span>
+                                </div>
+                                <span>{item?.metalcolor}</span>
+                              </p>
+                            </div>
+
+                            <p
+                              style={{
+                                margin: 0,
+                                fontWeight: 600,
+                                fontSize: "13px",
+                                lineHeight: "10px",
+                              }}
+                            >
+                              {item?.designno}
                             </p>
                           </div>
-
-                          <p
-                            style={{
-                              margin: 0,
-                              fontWeight: 600,
-                              fontSize: "13px",
-                              lineHeight: "10px",
-                            }}
-                          >
-                            {item?.designno}
-                          </p>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
+                </div>
               </div>
             ) : (
               <Warper>

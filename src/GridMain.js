@@ -25,8 +25,10 @@ const GridMain = ({
   spliterReportMonthRestiction,
   otherSpliterSideData1,
   otherSpliterSideData2,
-  colorMaster
+  colorMaster,
+  currencyMaster
 }) => {
+  
   // useEffect(() => {
   //   Cookies.set(
   //     "RDSD_20251007040824_ddaf7208d8364814bfb417092784a7b1",
@@ -82,6 +84,7 @@ const GridMain = ({
               spliterReportMonthRestiction={spliterReportMonthRestiction}
               otherSpliterSideData1={otherSpliterSideData1}
               otherSpliterSideData2={otherSpliterSideData2}
+              currencyMaster={currencyMaster}
             />
           }
         />
@@ -98,6 +101,7 @@ const GridMain = ({
               dateOptionsShow={dateOptionsShow}
               reportName={reportName}
               colorMaster={colorMaster}
+              currencyMaster={currencyMaster}
             />
           }
         />

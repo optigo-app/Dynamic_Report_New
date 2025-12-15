@@ -18,6 +18,7 @@ import "./ReportHome.scss";
 import { ArrowRight } from "lucide-react";
 import MainReport from "./MainReport/MainReport";
 import { ReportCallApi } from "../../../API/ReportCommonAPI/ReportCallApi";
+import sampleData from './SampleData_getFullReport.json';
 
 const SelectionBox = ({
   title,
@@ -175,6 +176,7 @@ export default function ReportHome({
   dateOptionsShow,
   reportName,
   colorMaster,
+  currencyMaster
 }) {
   const [isLoading, setIsLoading] = useState(false);
   const [spData, setSpData] = useState(null);
@@ -354,6 +356,7 @@ export default function ReportHome({
         setErrorMessage("No Records Found");
         setOpenSnackbar(true);
       } else {
+        // setSpData(sampleData);
         setSpData(response);
         setShowReportMaster(false);
       }
@@ -363,212 +366,6 @@ export default function ReportHome({
       setIsLoading(false);
     }
   };
-
-  // const fetchReportData = async (filters = {}, Master) => {
-  //   try {
-  //     setIsLoading(true);
-  //     let AllData = JSON.parse(sessionStorage.getItem("reportVarible"));
-  //     const masterDataBody = {
-  //       con: JSON.stringify({
-  //         id: "",
-  //         mode: "GetFullMaster",
-  //         appuserid: AllData?.LUId,
-  //       }),
-  //       p: JSON.stringify({
-  //         ReportId: reportId,
-  //       }),
-  //       f: "DynamicReport ( get sp list )",
-  //     };
-
-  //     const responseMaster = await ReportCallApi(masterDataBody, spNumber);
-  //     if (responseMaster) {
-  //       setMasterData(responseMaster);
-  //     }
-
-  //     let FilterHeader = "";
-  //     let FilterValue = "";
-  //     let ServerFilterHeader = "";
-  //     let ServerFilterValue = "";
-
-  //     if (Array.isArray(filters) && filters.length > 0) {
-  //       const normalFilters = filters.filter(
-  //         (f) => f.FilterHeader && f.FilterValue
-  //       );
-  //       const serverFilters = filters.filter(
-  //         (f) => f.ServerFilterHeader && f.ServerFilterValue
-  //       );
-
-  //       FilterHeader = normalFilters.map((f) => f.FilterHeader).join("#");
-  //       FilterValue = normalFilters.map((f) => f.FilterValue).join("#");
-
-  //       ServerFilterHeader = serverFilters
-  //         .map((f) => f.ServerFilterHeader)
-  //         .join("#");
-  //       ServerFilterValue = serverFilters
-  //         .map((f) => f.ServerFilterValue)
-  //         .join("#");
-  //     }
-  //     else if (filters.FilterHeader && filters.FilterValue) {
-  //       FilterHeader = filters.FilterHeader;
-  //       FilterValue = filters.FilterValue;
-  //       ServerFilterHeader = filters.ServerFilterHeader || "";
-  //       ServerFilterValue = filters.ServerFilterValue || "";
-  //     }
-
-  //     const body = {
-  //       con: JSON.stringify({
-  //         mode: "GetFullReport",
-  //         appuserid: AllData?.LUId,
-  //       }),
-  //       p: JSON.stringify({
-  //         ReportId: reportId,
-  //         IsMaster: Master,
-  //         ...(FilterHeader && { FilterHeader }),
-  //         ...(FilterValue && { FilterValue }),
-  //         ...(ServerFilterHeader && { ServerFilterHeader }),
-  //         ...(ServerFilterValue && { ServerFilterValue }),
-  //         ...(filters.FilterStartDate && {
-  //           FilterStartDate: filters.FilterStartDate,
-  //         }),
-  //         ...(filters.FilterEndDate && {
-  //           FilterEndDate: filters.FilterEndDate,
-  //         }),
-  //       }),
-  //       f: "DynamicReport ( data )",
-  //     };
-  //     const response = await ReportCallApi(body, spNumber);
-  //     if (Master === "-1") {
-  //       const filtersArray = [];
-  //       if (FilterHeader && FilterValue) {
-  //         const headers = FilterHeader.split("#");
-  //         const values = FilterValue.split("#");
-  //         headers.forEach((header, i) =>
-  //           filtersArray.push({ name: header, value: values[i] || "" })
-  //         );
-  //       }
-  //       setFilteredValue(filtersArray);
-  //       setServerSider(true);
-  //     }
-
-  //     if (response?.rd[0]?.stat == 0) {
-  //       setErrorMessageColor("warning");
-  //       setErrorMessage(
-  //         `Found ${response?.rd[0]?.ActualCount} records, limit ${response?.rd[0]?.LargeDataCount}. Please narrow your filters.`
-  //       );
-  //       setOpenSnackbar(true);
-  //     } else if (response?.rd[0]?.stat == 2) {
-  //       setErrorMessageColor("error");
-  //       setErrorMessage("No Records Found");
-  //       setOpenSnackbar(true);
-  //     } else {
-  //       setSpData(response);
-  //       setShowReportMaster(false);
-  //     }
-
-  //     setIsLoading(false);
-  //   } catch (error) {
-  //     console.error("getReportData failed:", error);
-  //     setIsLoading(false);
-  //   }
-  // };
-
-  // const fetchReportData = async (filters = {}, Master) => {
-  //   try {
-  //     setIsLoading(true);
-  //     let AllData = JSON.parse(sessionStorage.getItem("reportVarible"));
-  //     const masterDataBody = {
-  //       con: JSON.stringify({
-  //         id: "",
-  //         mode: "GetFullMaster",
-  //         appuserid: AllData?.LUId,
-  //       }),
-  //       p: JSON.stringify({
-  //         ReportId: reportId,
-  //       }),
-  //       f: "DynamicReport ( get sp list )",
-  //     };
-
-  //     const responseMaster = await ReportCallApi(masterDataBody, spNumber);
-  //     if (responseMaster) {
-  //       setMasterData(responseMaster);
-  //     }
-
-  //     const body = {
-  //       con: JSON.stringify({
-  //         mode: "GetFullReport",
-  //         appuserid: AllData?.LUId,
-  //       }),
-  //       p: JSON.stringify({
-  //         ReportId: reportId,
-  //         IsMaster: Master,
-  //         ...(filters.FilterHeader && { FilterHeader: filters.FilterHeader }),
-  //         ...(filters.FilterValue && { FilterValue: filters.FilterValue }),
-  //         ...(filters.FilterStartDate && {
-  //           FilterStartDate: filters.FilterStartDate,
-  //         }),
-  //         ...(filters.FilterEndDate && {
-  //           FilterEndDate: filters.FilterEndDate,
-  //         }),
-  //       }),
-  //       f: "DynamicReport ( data )",
-  //     };
-
-  //     const response = await ReportCallApi(body, spNumber);
-  //     if (Master === "-1") {
-  //       const filtersArray = [];
-  //       if (filters.FilterHeader && filters.FilterValue) {
-  //         const headers = filters.FilterHeader.split("#");
-  //         const values = filters.FilterValue.split("#");
-  //         headers.forEach((header, index) => {
-  //           filtersArray.push({ name: header, value: values[index] || "" });
-  //         });
-  //       }
-  //       const merged = [...filtersArray];
-  //       const uniqueMerged = merged.reduce((acc, cur) => {
-  //         const exists = acc.find((item) => item.name === cur.name);
-  //         if (exists) {
-  //           acc = acc.map((item) => (item.name === cur.name ? cur : item));
-  //         } else {
-  //           acc.push(cur);
-  //         }
-  //         return acc;
-  //       }, []);
-  //       setFilteredValue(uniqueMerged);
-  //       setServerSider(true);
-  //       setIsLoading(false);
-  //     } else if (Master === "2") {
-  //       setFilteredValue();
-  //     }
-
-  //     if (response?.rd[0]?.stat == 0) {
-  //       if (response?.rd[0]?.stat_msg == '"Contact yours Admin"') {
-  //         setErrorMessageColor("error");
-  //         setErrorMessage("Contact yours Admin");
-  //         setOpenSnackbar(true);
-  //         setIsLoading(false);
-  //       } else {
-  //         setErrorMessageColor("warning");
-  //         setErrorMessage(
-  //           `Found ${response?.rd[0]?.ActualCount} records, limit is ${response?.rd[0]?.LargeDataCount}. Please narrow your filters.`
-  //         );
-  //         setOpenSnackbar(true);
-  //         setIsLoading(false);
-  //       }
-  //     } else if (response?.rd[0]?.stat == 2) {
-  //       setErrorMessageColor("error");
-  //       setErrorMessage("No Records Found");
-  //       setOpenSnackbar(true);
-  //       setIsLoading(false);
-  //     } else {
-  //       setSpData(response);
-  //       setIsLoading(false);
-  //       setShowReportMaster(false);
-  //       setIsLoading(false);
-  //     }
-  //   } catch (error) {
-  //     console.error("getReportData failed:", error);
-  //   }
-  // };
 
   const handleDateSelection = (option) => {
     setSelectedDateOption((prev) => (prev === option ? "" : option));
@@ -612,7 +409,7 @@ export default function ReportHome({
         startDate.setDate(today.getDate() - 1);
         break;
       case "This Week": {
-        const day = today.getDay(); // 0 (Sun) to 6 (Sat)
+        const day = today.getDay();
         startDate = new Date(today);
         startDate.setDate(today.getDate() - day);
         endDate = today;
@@ -793,10 +590,7 @@ export default function ReportHome({
         value: displayValues.join(","),
       });
     });
-
-    // 🔹 Handle Date Filters
     const dateFilters = getDateRange(selectedDateOption);
-
     if (
       selectedDateOption &&
       dateFilters?.FilterStartDate &&
@@ -994,6 +788,7 @@ export default function ReportHome({
                 isLoadingChek={isLoading}
                 reportName={reportName}
                 colorMaster={colorMaster}
+                currencyMaster={currencyMaster}
               />
             </div>
           )}

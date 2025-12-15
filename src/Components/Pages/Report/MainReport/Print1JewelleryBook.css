@@ -1,10 +1,9 @@
 .container {
-  height: -webkit-fill-available;
   width: 100% !important;
   width: 61.083vw !important;
   box-sizing: border-box;
   padding: 10px;
-  margin: 1rem auto;
+  margin: 150px 1rem 100px 1rem;
   letter-spacing: 0.2px;
   font-family: Calibri, sans-serif !important;
   flex-wrap: wrap;
@@ -187,6 +186,9 @@
     margin: 0 auto !important;
     box-sizing: border-box;
     gap: 10px 10px;
+    height: auto !important;
+    min-height: auto !important;
+    overflow: visible !important;
   }
 
   .col1 {
@@ -244,11 +246,15 @@
     height: 16.2px;
   }
 
-  .pagination{
+  .pagination {
     display: none !important;
   }
 
-  .printHide{
+  .printHide {
+    display: none !important;
+  }
+
+  .hideData {
     display: none !important;
   }
 }

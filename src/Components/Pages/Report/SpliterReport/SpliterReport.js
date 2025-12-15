@@ -1,12 +1,19 @@
-import React, { useState, useRef, useEffect, useMemo } from "react";
+import React, {
+  useState,
+  useRef,
+  useEffect,
+  useMemo,
+  useCallback,
+} from "react";
 import { useSearchParams } from "react-router-dom";
 import { DragDropContext } from "@hello-pangea/dnd";
-import { Box } from "@mui/material";
+import { Box, IconButton } from "@mui/material";
 import "./SpliterReport.scss";
 import { ReportCallApi } from "../../../../API/ReportCommonAPI/ReportCallApi";
 import MainReport from "../MainReport/MainReport";
 import DualDatePicker from "../../../../Utils/DatePicker/DualDatePicker";
 import FullReportDataSample from "../SampleData_getFullReport.json";
+import { CircleX } from "lucide-react";
 
 const formatToYYYYMMDD = (date) => {
   if (!date) return null;
@@ -56,6 +63,8 @@ export default function SpliterReport({
   const firstTimeLoadedRef = useRef(false);
   const [startDate, setStartDate] = useState();
   const [endDate, setEndDate] = useState();
+  const [firstPanelSearch, setFirstPanelSearch] = useState("");
+  const [secondPanelSearch, setSecondPanelSearch] = useState("");
 
   useEffect(() => {
     const now = new Date();
@@ -195,16 +204,41 @@ export default function SpliterReport({
   }, [spData, spliterReportFirstPanel]);
 
   const uniqueValuesForSecondPanel = useMemo(() => {
-    if (!spliterReportSecondPanel || !spData?.rd2 || !spData?.rd3) return [];
+    if (
+      !spliterReportSecondPanel ||
+      !spData?.rd2 ||
+      !spData?.rd3 ||
+      !selectedFirstPanelKey
+    )
+      return [];
 
     const map = spData.rd2[0];
-    const key = Object.keys(map).find(
+
+    const firstKey = Object.keys(map).find(
+      (k) => map[k] === spliterReportFirstPanel
+    );
+
+    const secondKey = Object.keys(map).find(
       (k) => map[k] === spliterReportSecondPanel
     );
-    if (!key) return [];
 
-    return [...new Set(spData.rd3.map((x) => x[key]))];
-  }, [spData, spliterReportSecondPanel]);
+    if (!firstKey || !secondKey) return [];
+
+    // 🔥 Filter rows by FIRST PANEL selection
+    const filteredRows = spData.rd3.filter(
+      (row) => row[firstKey] === selectedFirstPanelKey
+    );
+
+    // 🔥 Extract only second-panel values for that filtered set
+    return [...new Set(filteredRows.map((r) => r[secondKey]))];
+  }, [
+    spData,
+    spliterReportSecondPanel,
+    selectedFirstPanelKey,
+    spliterReportFirstPanel,
+  ]);
+
+  console.log("spData", spData);
 
   useEffect(() => {
     if (
@@ -214,19 +248,21 @@ export default function SpliterReport({
     ) {
       handleFirstPanelSelection(uniqueValuesForFirstPanel[0]);
     }
-  }, [spData, uniqueValuesForFirstPanel]);
+  }, [spData, uniqueValuesForFirstPanel, selectedFirstPanelKey]);
 
   useEffect(() => {
     if (
       spliterReportSecondPanel &&
-      spData &&
-      selectedFirstPanelKey !== null &&
       uniqueValuesForSecondPanel.length > 0 &&
       selectedSecondPanelKey == null
     ) {
       handleSecondPanelSelection(uniqueValuesForSecondPanel[0]);
     }
-  }, [spData, selectedFirstPanelKey, uniqueValuesForSecondPanel]);
+  }, [
+    uniqueValuesForSecondPanel,
+    spliterReportSecondPanel,
+    selectedSecondPanelKey,
+  ]);
 
   const getColumnKeyByFieldName = (fieldName) => {
     const rd2 = spData?.rd2?.[0] || {};
@@ -409,6 +445,66 @@ export default function SpliterReport({
     (k) => map[k] === spliterReportSecondPanel
   );
 
+  const filteredFirstPanelValues = useMemo(() => {
+    if (!firstPanelSearch) return uniqueValuesForFirstPanel;
+    return uniqueValuesForFirstPanel.filter((v) =>
+      String(getDisplayValue(v, spliterReportFirstPanel))
+        .toLowerCase()
+        .includes(firstPanelSearch.toLowerCase())
+    );
+  }, [uniqueValuesForFirstPanel, firstPanelSearch]);
+
+  const filteredSecondPanelValues = useMemo(() => {
+    if (!secondPanelSearch) return uniqueValuesForSecondPanel;
+
+    return uniqueValuesForSecondPanel.filter((v) =>
+      String(getDisplayValue(v, spliterReportSecondPanel))
+        .toLowerCase()
+        .includes(secondPanelSearch.toLowerCase())
+    );
+  }, [uniqueValuesForSecondPanel, secondPanelSearch]);
+
+  const SearchBox = useCallback(
+    React.memo(({ value, onChange, onClear, placeholder }) => (
+      <div
+        className="splitter-search"
+        style={{ position: "relative", display: "inline-block", width: "100%" }}
+      >
+        <input
+          type="text"
+          value={value}
+          placeholder={placeholder}
+          onChange={(e) => onChange(e.target.value)}
+          style={{
+            borderRadius: "5px",
+            height: "30px",
+            outline: "none",
+            border: "1px solid lightgray",
+            width: "100%",
+            paddingRight: "25px", // space for clear icon
+            boxSizing: "border-box",
+          }}
+        />
+        {value && (
+          <IconButton
+            onClick={onClear}
+            style={{
+              position: "absolute",
+              right: "5px",
+              top: "50%",
+              transform: "translateY(-50%)",
+              cursor: "pointer",
+              userSelect: "none",
+            }}
+          >
+            <CircleX style={{ height: "20px", width: "20px" }} />
+          </IconButton>
+        )}
+      </div>
+    )),
+    []
+  );
+
   return (
     <DragDropContext onDragEnd={() => {}}>
       <Box
@@ -420,7 +516,7 @@ export default function SpliterReport({
             <div
               style={{
                 margin: "5px 0px 5px 5px",
-                height: "8vh",
+                height: "12vh",
               }}
             >
               <DualDatePicker
@@ -438,9 +534,15 @@ export default function SpliterReport({
                   filteredColumns.length > 0 &&
                   filteredColumns[0]?.HeaderName}
               </p>
+              <SearchBox
+                value={firstPanelSearch}
+                onChange={setFirstPanelSearch}
+                onClear={() => setFirstPanelSearch("")}
+                placeholder="Search..."
+              />
             </div>
             <div className="spliter1_maindiv">
-              {uniqueValuesForFirstPanel.map((v) => (
+              {filteredFirstPanelValues?.map((v) => (
                 <div
                   key={v}
                   onClick={() => handleFirstPanelSelection(v)}
@@ -484,57 +586,75 @@ export default function SpliterReport({
         {spliterReportSecondPanel && (
           <>
             <div className="pane" style={{ width: paneWidths[1], padding: 8 }}>
-              <div className="spliter1_maindiv">
-                <p className="reportSpliter_top_headername">
-                  {Array.isArray(filteredColumns2) &&
-                    filteredColumns2.length > 0 &&
-                    filteredColumns2[0]?.HeaderName}
-                </p>
-                {uniqueValuesForSecondPanel.map((v) => {
-                  const rows = spData.rd3.filter(
-                    (r) =>
-                      r[firstKey] === selectedFirstPanelKey &&
-                      r[secondKey] === v
-                  );
-                  const summary = calculateSummaryForSecondPanel(rows);
+              <div>
+                <div
+                  style={{
+                    margin: "5px 0px 5px 5px",
+                    height: "8vh",
+                  }}
+                >
+                  <p className="reportSpliter_top_headername">
+                    {Array.isArray(filteredColumns2) &&
+                      filteredColumns2.length > 0 &&
+                      filteredColumns2[0]?.HeaderName}
+                  </p>
+                  <SearchBox
+                    value={secondPanelSearch}
+                    onChange={setSecondPanelSearch}
+                    onClear={() => setSecondPanelSearch("")}
+                    placeholder="Search..."
+                  />
+                </div>
+                <div className="spliter2_maindiv">
+                  {filteredSecondPanelValues?.map((v) => {
+                    const rows = spData.rd3.filter(
+                      (r) =>
+                        r[firstKey] === selectedFirstPanelKey &&
+                        r[secondKey] === v
+                    );
+                    const summary = calculateSummaryForSecondPanel(rows);
 
-                  return (
-                    <div
-                      key={v}
-                      onClick={() => handleSecondPanelSelection(v)}
-                      style={{
-                        background:
-                          selectedSecondPanelKey === v
-                            ? "linear-gradient(270deg,#7367f0b3,#7367f0)"
-                            : "#f5f5f5",
-                        color: selectedSecondPanelKey === v ? "white" : "black",
-                        fontWeight:
-                          selectedSecondPanelKey === v ? "600" : "400",
-                      }}
-                      className="spliter1_showname"
-                    >
-                      <div>{getDisplayValue(v, spliterReportSecondPanel)}</div>
+                    return (
                       <div
+                        key={v}
+                        onClick={() => handleSecondPanelSelection(v)}
                         style={{
-                          marginTop:
-                            Object.keys(getSummaryForValue(v)).length > 0
-                              ? "10px"
-                              : "0px",
-                          display: "grid",
-                          gridTemplateColumns: "1fr 1fr", // 🔥 two columns
-                          columnGap: "10px",
-                          rowGap: "4px",
+                          background:
+                            selectedSecondPanelKey === v
+                              ? "linear-gradient(270deg,#7367f0b3,#7367f0)"
+                              : "#f5f5f5",
+                          color:
+                            selectedSecondPanelKey === v ? "white" : "black",
+                          fontWeight:
+                            selectedSecondPanelKey === v ? "600" : "400",
                         }}
+                        className="spliter1_showname"
                       >
-                        {Object.entries(summary).map(([label, val]) => (
-                          <div key={label} style={{ fontSize: "11px" }}>
-                            {label}: {val}
-                          </div>
-                        ))}
+                        <div>
+                          {getDisplayValue(v, spliterReportSecondPanel)}
+                        </div>
+                        <div
+                          style={{
+                            marginTop:
+                              Object.keys(getSummaryForValue(v)).length > 0
+                                ? "10px"
+                                : "0px",
+                            display: "grid",
+                            gridTemplateColumns: "1fr 1fr", // 🔥 two columns
+                            columnGap: "10px",
+                            rowGap: "4px",
+                          }}
+                        >
+                          {Object.entries(summary).map(([label, val]) => (
+                            <div key={label} style={{ fontSize: "11px" }}>
+                              {label}: {val}
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
             </div>
             <div className="splitter" onMouseDown={(e) => handleDrag(1, e)} />

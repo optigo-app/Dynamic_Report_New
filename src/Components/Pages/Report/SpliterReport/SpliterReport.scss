@@ -4,25 +4,57 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+  margin-top: 10px;
+  height: 78vh;
+  overflow: auto;
+  .spliter1_maindiv::-webkit-scrollbar {
+    width: 5px;
+  }
+  .spliter1_maindiv::-webkit-scrollbar-track {
+    background: #f0f0f0;
+    border-radius: 4px;
+  }
+
+  .spliter1_maindiv::-webkit-scrollbar-thumb {
+    background-color: #776cf0;
+    border-radius: 8px;
+    border: 2px solid #f0f0f0;
+  }
+
+  .spliter1_maindiv::-webkit-scrollbar-thumb:hover {
+    background-color: #0056b3;
+  }
+}
+
+.spliter2_maindiv {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
   margin-top: 5px;
-  height: 80vh;
+  height: 82vh;
   overflow: auto;
 }
-.spliter1_maindiv::-webkit-scrollbar {
+
+.spliter2_maindiv {
+  scrollbar-color: #776cf0 #f0f0f0;
+  scrollbar-width: thin;
+  padding: 0px 5px;
+}
+.spliter2_maindiv::-webkit-scrollbar {
   width: 5px;
 }
-.spliter1_maindiv::-webkit-scrollbar-track {
+.spliter2_maindiv::-webkit-scrollbar-track {
   background: #f0f0f0;
   border-radius: 4px;
 }
 
-.spliter1_maindiv::-webkit-scrollbar-thumb {
+.spliter2_maindiv::-webkit-scrollbar-thumb {
   background-color: #776cf0;
   border-radius: 8px;
   border: 2px solid #f0f0f0;
 }
 
-.spliter1_maindiv::-webkit-scrollbar-thumb:hover {
+.spliter2_maindiv::-webkit-scrollbar-thumb:hover {
   background-color: #0056b3;
 }
 
@@ -49,7 +81,7 @@
   border-radius: 10px;
 }
 
-.reportSpliter_top_headername{
+.reportSpliter_top_headername {
   font-family: $fontFamily;
   font-size: 20px;
   font-weight: 600;

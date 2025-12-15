@@ -105,6 +105,7 @@ const DualDatePicker = ({
   validMonth,
   withountDateFilter = false,
   hideDisplay = false, // new prop
+  fullscreenContainer,
 }) => {
   const [anchorEl, setAnchorEl] = useState(null);
   const [error, setError] = useState("");
@@ -255,6 +256,8 @@ const DualDatePicker = ({
           onClose={handleClose}
           anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
           transformOrigin={{ vertical: "top", horizontal: "left" }}
+          container={fullscreenContainer}
+          disablePortal={true} 
         >
           <Box p={2}>
             <DateRangePicker

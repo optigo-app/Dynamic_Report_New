@@ -57,27 +57,19 @@ function RouterContent() {
   };
 
   useEffect(() => {
-    const decodedCN = decodeBase64(CN);
-    const getData = sessionStorage.getItem(decodedCN);
     const initializeAndFetchReport = async () => {
-      if (!CN && !getData) {
+      if (!CN) {
         setTokenMissing(true);
         return;
       }
       try {
+        const decodedCN = decodeBase64(CN);
         const cookieData = await readAndDecodeCookie(decodedCN);
-        if(!getData){
-          sessionStorage.setItem(decodedCN, JSON.stringify(cookieData));
-        }
-        if (!cookieData && !getData) {
+        if (!cookieData) {
           setTokenMissing(true);
           return;
         }
-        if (cookieData) {
-          sessionStorage.setItem("reportVarible", JSON.stringify(cookieData));
-        } else {
-          sessionStorage.setItem("reportVarible", getData);
-        }
+        sessionStorage.setItem("reportVarible", JSON.stringify(cookieData));
         let AllData = JSON.parse(sessionStorage.getItem("reportVarible"));
         const body = {
           con: JSON.stringify({
@@ -111,7 +103,7 @@ function RouterContent() {
           setReportName(data.ReportName);
           setOtherSpliterSideData1(JSON?.parse(data.otherSpliterSideData1));
           setOtherSpliterSideData2(JSON.parse(data.otherSpliterSideData2));
-
+          
           // setOtherSpliterSideData1(data.otherSpliterSideData1);
           // setOtherSpliterSideData2(data.otherSpliterSideData2);
           setDateOptions(response?.rd1);
@@ -203,11 +195,11 @@ export default function App() {
         >
           {mode === "light" ? <DarkMode /> : <LightMode />}
         </IconButton> */}
-      <DeviceStatusProvider>
-        <BrowserRouter basename={getBaseName()}>
-          <RouterContent />
-        </BrowserRouter>
-      </DeviceStatusProvider>
+        <DeviceStatusProvider>
+          <BrowserRouter basename={getBaseName()}>
+            <RouterContent />
+          </BrowserRouter>
+        </DeviceStatusProvider>
       {/* </ThemeProvider> */}
     </RecoilRoot>
   );
