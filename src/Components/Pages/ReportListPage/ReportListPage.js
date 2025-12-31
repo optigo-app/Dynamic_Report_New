@@ -12,12 +12,13 @@ const ReportListPage = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [spList, setSpList] = useState([]);
+  const clientIpAddress = sessionStorage.getItem("clientIpAddress");
 
   const getSpData = async () => {
     let AllData = JSON.parse(sessionStorage.getItem("reportVarible"));
     setLoading(true);
     const body = {
-      con: `{"id": "", "mode": "getSpList", "appuserid": "${AllData?.LUId}"}`,
+      con: `{"id": "", "mode": "getSpList", "appuserid": "${AllData?.LUId}","IPAddress": ${clientIpAddress}"}`,
       p: "{}",
       f: "DynamicReport ( get sp list )",
     };

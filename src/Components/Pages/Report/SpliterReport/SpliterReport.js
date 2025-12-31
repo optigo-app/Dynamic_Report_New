@@ -65,6 +65,7 @@ export default function SpliterReport({
   const [endDate, setEndDate] = useState();
   const [firstPanelSearch, setFirstPanelSearch] = useState("");
   const [secondPanelSearch, setSecondPanelSearch] = useState("");
+  const clientIpAddress = sessionStorage.getItem("clientIpAddress");
 
   useEffect(() => {
     const now = new Date();
@@ -108,6 +109,7 @@ export default function SpliterReport({
               id: "",
               mode: "GetFullReport",
               appuserid: AllData?.LUId,
+              IPAddress: clientIpAddress,
             }),
             p: JSON.stringify({ ReportId: reportId, IsMaster: "1" }),
             f: "DynamicReport ( get master )",
@@ -144,6 +146,7 @@ export default function SpliterReport({
           id: "",
           mode: "GetFullMaster",
           appuserid: AllData?.LUId,
+          IPAddress: clientIpAddress,
         }),
         p: JSON.stringify({ ReportId: reportId }),
         f: "DynamicReport ( get sp list )",
@@ -156,6 +159,7 @@ export default function SpliterReport({
         con: JSON.stringify({
           mode: "GetFullReport",
           appuserid: AllData?.LUId,
+          IPAddress: clientIpAddress,
         }),
         p: JSON.stringify({
           ReportId: reportId,
@@ -223,13 +227,9 @@ export default function SpliterReport({
     );
 
     if (!firstKey || !secondKey) return [];
-
-    // 🔥 Filter rows by FIRST PANEL selection
     const filteredRows = spData.rd3.filter(
       (row) => row[firstKey] === selectedFirstPanelKey
     );
-
-    // 🔥 Extract only second-panel values for that filtered set
     return [...new Set(filteredRows.map((r) => r[secondKey]))];
   }, [
     spData,
@@ -445,16 +445,52 @@ export default function SpliterReport({
     (k) => map[k] === spliterReportSecondPanel
   );
 
+  const hasFirstPanelData = useMemo(() => {
+    return (
+      Array.isArray(uniqueValuesForFirstPanel) &&
+      uniqueValuesForFirstPanel.length > 0
+    );
+  }, [uniqueValuesForFirstPanel]);
+
+  const hasSecondPanelData = useMemo(() => {
+    return (
+      spliterReportSecondPanel &&
+      Array.isArray(uniqueValuesForSecondPanel) &&
+      uniqueValuesForSecondPanel.length > 0
+    );
+  }, [spliterReportSecondPanel, uniqueValuesForSecondPanel]);
+  useEffect(() => {
+    if (!hasSecondPanelData) {
+      setSecondPanelSearch("");
+      setSelectedSecondPanelKey(null);
+    }
+  }, [hasSecondPanelData]);
+
+  useEffect(() => {
+    if (!hasFirstPanelData) {
+      setFirstPanelSearch("");
+      setSelectedFirstPanelKey(null);
+      setSelectedSecondPanelKey(null);
+      setFilteredReportData(null);
+      setFirstPanelSummary({});
+    }
+  }, [hasFirstPanelData]);
+
   const filteredFirstPanelValues = useMemo(() => {
+    if (!hasFirstPanelData) return [];
+
     if (!firstPanelSearch) return uniqueValuesForFirstPanel;
+
     return uniqueValuesForFirstPanel.filter((v) =>
       String(getDisplayValue(v, spliterReportFirstPanel))
         .toLowerCase()
         .includes(firstPanelSearch.toLowerCase())
     );
-  }, [uniqueValuesForFirstPanel, firstPanelSearch]);
+  }, [uniqueValuesForFirstPanel, firstPanelSearch, hasFirstPanelData]);
 
   const filteredSecondPanelValues = useMemo(() => {
+    if (!hasSecondPanelData) return [];
+
     if (!secondPanelSearch) return uniqueValuesForSecondPanel;
 
     return uniqueValuesForSecondPanel.filter((v) =>
@@ -462,7 +498,7 @@ export default function SpliterReport({
         .toLowerCase()
         .includes(secondPanelSearch.toLowerCase())
     );
-  }, [uniqueValuesForSecondPanel, secondPanelSearch]);
+  }, [uniqueValuesForSecondPanel, secondPanelSearch, hasSecondPanelData]);
 
   const SearchBox = useCallback(
     React.memo(({ value, onChange, onClear, placeholder }) => (
@@ -516,7 +552,6 @@ export default function SpliterReport({
             <div
               style={{
                 margin: "5px 0px 5px 5px",
-                height: "12vh",
               }}
             >
               <DualDatePicker
@@ -529,56 +564,75 @@ export default function SpliterReport({
                   filterState.dateRange.startDate?.getFullYear?.() === 1990
                 }
               />
-              <p className="reportSpliter_top_headername">
-                {Array.isArray(filteredColumns) &&
-                  filteredColumns.length > 0 &&
-                  filteredColumns[0]?.HeaderName}
-              </p>
-              <SearchBox
-                value={firstPanelSearch}
-                onChange={setFirstPanelSearch}
-                onClear={() => setFirstPanelSearch("")}
-                placeholder="Search..."
-              />
+              {hasFirstPanelData && (
+                <p className="reportSpliter_top_headername">
+                  {Array.isArray(filteredColumns) &&
+                    filteredColumns.length > 0 &&
+                    filteredColumns[0]?.HeaderName}
+                </p>
+              )}
+              {hasFirstPanelData && (
+                <SearchBox
+                  value={firstPanelSearch}
+                  onChange={setFirstPanelSearch}
+                  onClear={() => setFirstPanelSearch("")}
+                  placeholder="Search..."
+                />
+              )}
             </div>
             <div className="spliter1_maindiv">
-              {filteredFirstPanelValues?.map((v) => (
-                <div
-                  key={v}
-                  onClick={() => handleFirstPanelSelection(v)}
-                  style={{
-                    background:
-                      selectedFirstPanelKey === v
-                        ? "linear-gradient(270deg,#7367f0b3,#7367f0)"
-                        : "#f5f5f5",
-                    fontWeight: selectedFirstPanelKey === v ? "600" : "400",
-                    color: selectedFirstPanelKey === v ? "white" : "black",
-                  }}
-                  className="spliter1_showname"
-                >
-                  <div>{getDisplayValue(v, spliterReportFirstPanel)}</div>
+              {hasFirstPanelData ? (
+                filteredFirstPanelValues?.map((v) => (
                   <div
+                    key={v}
+                    onClick={() => handleFirstPanelSelection(v)}
                     style={{
-                      marginTop:
-                        Object.keys(getSummaryForValue(v)).length > 0
-                          ? "10px"
-                          : "0px",
-                      display: "grid",
-                      gridTemplateColumns: "1fr 1fr", // 🔥 two columns
-                      columnGap: "10px",
-                      rowGap: "4px",
+                      background:
+                        selectedFirstPanelKey === v
+                          ? "linear-gradient(270deg,#7367f0b3,#7367f0)"
+                          : "rgb(244 241 241 / 36%)",
+                      fontWeight: selectedFirstPanelKey === v ? "600" : "400",
+                      color: selectedFirstPanelKey === v ? "white" : "black",
                     }}
+                    className="spliter1_showname"
                   >
-                    {Object.entries(getSummaryForValue(v)).map(
-                      ([label, val]) => (
-                        <div key={label} style={{ fontSize: "11px" }}>
-                          {label}: {val}
-                        </div>
-                      )
-                    )}
+                    <div className="spliter1_deatil_title">
+                      {getDisplayValue(v, spliterReportFirstPanel)}
+                    </div>
+                    <div
+                      style={{
+                        marginTop:
+                          Object.keys(getSummaryForValue(v)).length > 0
+                            ? "10px"
+                            : "0px",
+                        display: "grid",
+                        gridTemplateColumns: "1fr 1fr", // 🔥 two columns
+                        columnGap: "10px",
+                        rowGap: "4px",
+                      }}
+                    >
+                      {Object.entries(getSummaryForValue(v)).map(
+                        ([label, val]) => (
+                          <div key={label} style={{ fontSize: "11px" }}>
+                            {label}: {val}
+                          </div>
+                        )
+                      )}
+                    </div>
                   </div>
+                ))
+              ) : (
+                <div
+                  style={{
+                    height: "75%",
+                    display: "flex",
+                    justifyContent: "center",
+                    alignItems: "center",
+                  }}
+                >
+                  <p>No Data</p>
                 </div>
-              ))}
+              )}
             </div>
           </div>
         </div>
@@ -587,73 +641,86 @@ export default function SpliterReport({
           <>
             <div className="pane" style={{ width: paneWidths[1], padding: 8 }}>
               <div>
-                <div
-                  style={{
-                    margin: "5px 0px 5px 5px",
-                    height: "8vh",
-                  }}
-                >
-                  <p className="reportSpliter_top_headername">
-                    {Array.isArray(filteredColumns2) &&
-                      filteredColumns2.length > 0 &&
-                      filteredColumns2[0]?.HeaderName}
-                  </p>
-                  <SearchBox
-                    value={secondPanelSearch}
-                    onChange={setSecondPanelSearch}
-                    onClear={() => setSecondPanelSearch("")}
-                    placeholder="Search..."
-                  />
-                </div>
+                {hasSecondPanelData && (
+                  <div
+                    style={{
+                      margin: "5px 0px 5px 5px",
+                    }}
+                  >
+                    <p className="reportSpliter_top_headername">
+                      {Array.isArray(filteredColumns2) &&
+                        filteredColumns2.length > 0 &&
+                        filteredColumns2[0]?.HeaderName}
+                    </p>
+                    <SearchBox
+                      value={secondPanelSearch}
+                      onChange={setSecondPanelSearch}
+                      onClear={() => setSecondPanelSearch("")}
+                      placeholder="Search..."
+                    />
+                  </div>
+                )}
                 <div className="spliter2_maindiv">
-                  {filteredSecondPanelValues?.map((v) => {
-                    const rows = spData.rd3.filter(
-                      (r) =>
-                        r[firstKey] === selectedFirstPanelKey &&
-                        r[secondKey] === v
-                    );
-                    const summary = calculateSummaryForSecondPanel(rows);
-
-                    return (
-                      <div
-                        key={v}
-                        onClick={() => handleSecondPanelSelection(v)}
-                        style={{
-                          background:
-                            selectedSecondPanelKey === v
-                              ? "linear-gradient(270deg,#7367f0b3,#7367f0)"
-                              : "#f5f5f5",
-                          color:
-                            selectedSecondPanelKey === v ? "white" : "black",
-                          fontWeight:
-                            selectedSecondPanelKey === v ? "600" : "400",
-                        }}
-                        className="spliter1_showname"
-                      >
-                        <div>
-                          {getDisplayValue(v, spliterReportSecondPanel)}
-                        </div>
+                  {hasSecondPanelData ? (
+                    filteredSecondPanelValues?.map((v) => {
+                      const rows = spData.rd3.filter(
+                        (r) =>
+                          r[firstKey] === selectedFirstPanelKey &&
+                          r[secondKey] === v
+                      );
+                      const summary = calculateSummaryForSecondPanel(rows);
+                      return (
                         <div
+                          key={v}
+                          onClick={() => handleSecondPanelSelection(v)}
                           style={{
-                            marginTop:
-                              Object.keys(getSummaryForValue(v)).length > 0
-                                ? "10px"
-                                : "0px",
-                            display: "grid",
-                            gridTemplateColumns: "1fr 1fr", // 🔥 two columns
-                            columnGap: "10px",
-                            rowGap: "4px",
+                            background:
+                              selectedSecondPanelKey === v
+                                ? "linear-gradient(270deg,#7367f0b3,#7367f0)"
+                                : "rgb(244 241 241 / 36%)",
+                            color:
+                              selectedSecondPanelKey === v ? "white" : "black",
+                            fontWeight:
+                              selectedSecondPanelKey === v ? "600" : "400",
                           }}
+                          className="spliter1_showname"
                         >
-                          {Object.entries(summary).map(([label, val]) => (
-                            <div key={label} style={{ fontSize: "11px" }}>
-                              {label}: {val}
-                            </div>
-                          ))}
+                          <div className="spliter1_deatil_title">
+                            {getDisplayValue(v, spliterReportSecondPanel)}
+                          </div>
+                          <div
+                            style={{
+                              marginTop:
+                                Object.entries(summary).length > 0
+                                  ? "10px"
+                                  : "0px",
+                              display: "grid",
+                              gridTemplateColumns: "1fr 1fr",
+                              columnGap: "10px",
+                              rowGap: "4px",
+                            }}
+                          >
+                            {Object.entries(summary).map(([label, val]) => (
+                              <div key={label} style={{ fontSize: "11px" }}>
+                                {label}: {val}
+                              </div>
+                            ))}
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })
+                  ) : (
+                    <div
+                      style={{
+                        height: "100%",
+                        display: "flex",
+                        justifyContent: "center",
+                        alignItems: "center",
+                      }}
+                    >
+                      <p>No Data</p>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

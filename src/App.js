@@ -16,7 +16,7 @@ import {
 } from "@mui/material";
 import ReportListPage from "./Components/Pages/ReportListPage/ReportListPage";
 import { CallApi } from "./API/CallApi/CallApi";
-import { readAndDecodeCookie } from "./Utils/globalFunc";
+import { getClientIpAddress, readAndDecodeCookie } from "./Utils/globalFunc";
 import testingData from "../src/Components/Pages/Report/SampleData_getPageIdAPI.json";
 import { darkTheme, lightTheme } from "./Components/Theme/theme";
 import { DarkMode, LightMode } from "@mui/icons-material";
@@ -66,7 +66,7 @@ function RouterContent() {
       }
       try {
         const cookieData = await readAndDecodeCookie(decodedCN);
-        if(!getData){
+        if (!getData) {
           sessionStorage.setItem(decodedCN, JSON.stringify(cookieData));
         }
         if (!cookieData && !getData) {
@@ -79,11 +79,14 @@ function RouterContent() {
           sessionStorage.setItem("reportVarible", getData);
         }
         let AllData = JSON.parse(sessionStorage.getItem("reportVarible"));
+        const clientIpAddress = sessionStorage.getItem("clientIpAddress");
+
         const body = {
           con: JSON.stringify({
             id: "",
             mode: "getPageId",
             appuserid: AllData?.LUId,
+            IPAddress: clientIpAddress,
           }),
           p: JSON.stringify({ PageId: pid }),
           f: "DynamicReport (get column data)",
@@ -111,9 +114,6 @@ function RouterContent() {
           setReportName(data.ReportName);
           setOtherSpliterSideData1(JSON?.parse(data.otherSpliterSideData1));
           setOtherSpliterSideData2(JSON.parse(data.otherSpliterSideData2));
-
-          // setOtherSpliterSideData1(data.otherSpliterSideData1);
-          // setOtherSpliterSideData2(data.otherSpliterSideData2);
           setDateOptions(response?.rd1);
           const key = `${pid}_${data.ReportId}`;
           sessionStorage.setItem(key, data.ReportId);
@@ -191,6 +191,10 @@ export default function App() {
     const match = path.match(/^\/([^/]+\/[^/]+)/);
     return match ? `/${match[1]}` : "/";
   }
+
+  useEffect(() => {
+    getClientIpAddress();
+  }, []);
 
   return (
     <RecoilRoot>

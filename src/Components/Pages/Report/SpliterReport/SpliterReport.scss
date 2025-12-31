@@ -79,6 +79,7 @@
   padding: 15px;
   margin-bottom: 4px;
   border-radius: 10px;
+  box-shadow: rgba(9, 30, 66, 0.25) 0px 4px 8px -2px, rgba(9, 30, 66, 0.08) 0px 0px 0px 1px;
 }
 
 .reportSpliter_top_headername {
@@ -90,4 +91,21 @@
   color: white;
   padding: 5px;
   border-radius: 5px;
+}
+
+
+@media only screen and (max-width: 1500px) {
+
+  .reportSpliter_top_headername{
+    font-size: 15px;
+  }
+
+  .spliter1_deatil_title{
+    font-size: 15px;
+  }
+  
+  .spliter1_showname{
+    padding: 7px;
+  }
+
 }

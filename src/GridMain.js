@@ -26,9 +26,8 @@ const GridMain = ({
   otherSpliterSideData1,
   otherSpliterSideData2,
   colorMaster,
-  currencyMaster
+  currencyMaster,
 }) => {
-  
   // useEffect(() => {
   //   Cookies.set(
   //     "RDSD_20251007040824_ddaf7208d8364814bfb417092784a7b1",

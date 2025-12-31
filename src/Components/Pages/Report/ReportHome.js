@@ -18,7 +18,7 @@ import "./ReportHome.scss";
 import { ArrowRight } from "lucide-react";
 import MainReport from "./MainReport/MainReport";
 import { ReportCallApi } from "../../../API/ReportCommonAPI/ReportCallApi";
-import sampleData from './SampleData_getFullReport.json';
+import sampleData from "./SampleData_getFullReport.json";
 
 const SelectionBox = ({
   title,
@@ -176,7 +176,7 @@ export default function ReportHome({
   dateOptionsShow,
   reportName,
   colorMaster,
-  currencyMaster
+  currencyMaster,
 }) {
   const [isLoading, setIsLoading] = useState(false);
   const [spData, setSpData] = useState(null);
@@ -195,7 +195,7 @@ export default function ReportHome({
   const [errorMessageColor, setErrorMessageColor] = useState("error");
   const [filteredValue, setFilteredValue] = useState();
   const [selectedDateOption, setSelectedDateOption] = useState("");
-
+  const clientIpAddress = sessionStorage.getItem("clientIpAddress");
   useEffect(() => {
     setShowReportMaster(largeData);
   }, [largeData]);
@@ -234,6 +234,7 @@ export default function ReportHome({
               id: "",
               mode: "GetFullReport",
               appuserid: AllData?.LUId,
+              IPAddress: clientIpAddress,
             }),
             p: JSON.stringify({ ReportId: reportId, IsMaster: "1" }),
             f: "DynamicReport ( get master )",
@@ -270,6 +271,7 @@ export default function ReportHome({
           id: "",
           mode: "GetFullMaster",
           appuserid: AllData?.LUId,
+          IPAddress: clientIpAddress,
         }),
         p: JSON.stringify({ ReportId: reportId }),
         f: "DynamicReport ( get sp list )",
@@ -311,6 +313,7 @@ export default function ReportHome({
         con: JSON.stringify({
           mode: "GetFullReport",
           appuserid: AllData?.LUId,
+          IPAddress: clientIpAddress,
         }),
         p: JSON.stringify({
           ReportId: reportId,

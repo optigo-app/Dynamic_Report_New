@@ -27,6 +27,7 @@ export default function Print1JewelleryBook({
     const endIdx = startIdx + itemsPerPage;
     return visibleItemsMain?.slice(startIdx, endIdx) || [];
   }, [visibleItemsMain, currentPage, itemsPerPage]);
+  console.log("visibleItems: ", visibleItems);
 
   // Items to print (only current page)
   const itemsToPrint = useMemo(() => {
@@ -127,8 +128,27 @@ export default function Print1JewelleryBook({
           />
         </div>
       )}
-      <div className="w-100 spaclftTpm">
-        <div className="w-100 spfntBld spbrWord spfntHead">{e?.designno}</div>
+      <div className="w-100 spaclftTpm d-flex" style={{display: 'flex', justifyContent: 'space-between', marginInline :'5px'}}>
+        <div className=" spfntBld spbrWord spfntHead">{e?.designno}</div>
+        <p
+          style={{
+            margin: 0,
+            fontSize: "13px",
+            lineHeight: "16px",
+          }}
+        >
+          {e?.designcount !== undefined && (
+            <span>
+              Order: <strong>{e.designcount}</strong>
+            </span>
+          )}
+          {e?.designcount !== undefined && e?.salescount !== undefined && ", "}
+          {e?.salescount !== undefined && (
+            <span>
+              Sale: <strong>{e.salescount}</strong>
+            </span>
+          )}
+        </p>
       </div>
 
       <div className="w-100 disflxCen spaclftTpm">
@@ -251,6 +271,7 @@ export default function Print1JewelleryBook({
             zIndex: 999,
             paddingBottom: "10px",
           }}
+          className="hideData"
         >
           <div style={{ display: "flex", justifyContent: "center" }}>
             <label

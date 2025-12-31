@@ -87,7 +87,7 @@ import {
 import DualDatePicker from "../../../../Utils/DatePicker/DualDatePicker";
 import Warper from "../../warper";
 import { CallApi } from "../../../../API/CallApi/CallApi";
-import { FaPrint } from "react-icons/fa";
+import { FaFilter, FaPrint } from "react-icons/fa";
 import dayjs from "dayjs";
 import { ReportCallApi } from "../../../../API/ReportCommonAPI/ReportCallApi";
 import Print1JewelleryBook from "./Print1JewelleryBook";
@@ -341,6 +341,7 @@ export default function MainReport({
   });
   const [openSnackbar, setOpenSnackbar] = useState(false);
   const pid = searchParams.get("pid");
+
   const firstTimeLoadedRef = useRef(false);
   const [showReportMaster, setShowReportMaster] = useState(showBackErrow);
   const [isPageChanging, setIsPageChanging] = useState(false);
@@ -356,6 +357,8 @@ export default function MainReport({
   const [selectedCurrency, setSelectedCurrency] = useState("INR");
   const pageSize = 250;
   const [currentPage, setCurrentPage] = useState(1);
+  const [draftFilters, setDraftFilters] = useState({});
+  const clientIpAddress = sessionStorage.getItem("clientIpAddress");
 
   const toggleDrawer = (newOpen) => () => {
     setSideFilterOpen(newOpen);
@@ -371,7 +374,6 @@ export default function MainReport({
       return;
     }
     const reportId = matchingKey.split("_")[1];
-
     const getIframeUrlParams = async () => {
       try {
         let AllData = JSON.parse(sessionStorage.getItem("reportVarible"));
@@ -379,6 +381,7 @@ export default function MainReport({
           con: JSON.stringify({
             mode: "getIframeUrlParams",
             appuserid: AllData?.LUId,
+            IPAddress: clientIpAddress,
           }),
           p: JSON.stringify({
             ReportId: reportId,
@@ -398,6 +401,7 @@ export default function MainReport({
         con: JSON.stringify({
           mode: "getRedirectMaster",
           appuserid: AllData?.LUId,
+          IPAddress: clientIpAddress,
         }),
         p: JSON.stringify({ ReportId: reportId }),
         f: "DynamicReport (get Largedata data)",
@@ -413,6 +417,73 @@ export default function MainReport({
     };
     getIframeUrlParams();
     getNavigationPageName();
+  }, []);
+
+  const saveReportActivity = (reportId, activity) => {
+    const key = `reportActivity_${reportId}`;
+
+    const existing = JSON.parse(sessionStorage.getItem(key)) || {
+      ReportId: reportId,
+      ReportName: reportName,
+      activityDetails: [],
+    };
+
+    let newActivities = [];
+
+    if (Array.isArray(activity)) {
+      newActivities = activity;
+    } else if (activity) {
+      newActivities = [activity];
+    }
+
+    const updatedActivityDetails = [
+      ...existing.activityDetails,
+      ...newActivities,
+    ];
+
+    sessionStorage.setItem(
+      key,
+      JSON.stringify({
+        ...existing,
+        activityDetails: updatedActivityDetails,
+      })
+    );
+  };
+
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      const keyPrefix = `${pid}_`;
+      const matchingKey = Object.keys(sessionStorage).find((key) =>
+        key.startsWith(keyPrefix)
+      );
+      if (!matchingKey) {
+        console.warn("No ReportId found in sessionStorage for pid", pid);
+        return;
+      }
+      const reportId = matchingKey.split("_")[1];
+      let AllData = JSON.parse(sessionStorage.getItem("reportVarible"));
+      const key = `reportActivity_${reportId}`;
+      const data = JSON.parse(sessionStorage.getItem(key));
+      if (!data || !data.activityDetails.length) return;
+      const body = {
+        con: JSON.stringify({
+          mode: "SaveUserActivityLog",
+          appuserid: AllData?.LUId,
+          IPAddress: clientIpAddress,
+        }),
+        p: JSON.stringify(data),
+        f: "DynamicReport ( Save User Activity Log )",
+      };
+
+      try {
+        await CallApi(body);
+        sessionStorage.removeItem(key); // ✅ clear after save
+      } catch (err) {
+        console.error("Activity log save failed", err);
+      }
+    }, 30000);
+
+    return () => clearInterval(interval);
   }, []);
 
   useEffect(() => {
@@ -442,6 +513,7 @@ export default function MainReport({
           con: JSON.stringify({
             mode: "getUrlParams",
             appuserid: AllData?.LUId,
+            IPAddress: clientIpAddress,
           }),
           p: JSON.stringify({
             ReportId: reportId,
@@ -566,10 +638,40 @@ export default function MainReport({
   }, [allColumData]);
 
   const handleGrupEnChekBoxChange = (field) => {
-    setGrupEnChekBox((prev) => ({
-      ...prev,
-      [field]: !prev[field],
-    }));
+    setGrupEnChekBox((prev) => {
+      const newValue = !prev[field];
+
+      if (!newValue) {
+        // 1️⃣ Remove from draft filters (UI)
+        setDraftFilters((prevDraft) => {
+          const updated = { ...prevDraft };
+          delete updated[field];
+          return updated;
+        });
+
+        // 2️⃣ Remove from applied filters (GRID / API)
+        setFilters((prevFilters) => {
+          const updated = { ...prevFilters };
+          delete updated[field];
+          return updated;
+        });
+
+        // 3️⃣ Reset suggestion UI
+        setSuggestionVisibility((prev) => ({
+          ...prev,
+          [field]: false,
+        }));
+        setHighlightedIndex((prev) => ({
+          ...prev,
+          [field]: 0,
+        }));
+      }
+
+      return {
+        ...prev,
+        [field]: newValue,
+      };
+    });
 
     setGrupEnChekBoxImage((prev) =>
       prev.map((item) =>
@@ -609,12 +711,15 @@ export default function MainReport({
       ?.map((col, index) => {
         return {
           field: col.FieldName,
-          headerName: (
-            <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          headerName: col.HeaderName, // Just use the text here
+          renderHeader: (
+            params // Use renderHeader for custom header content
+          ) => (
+            <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
               {col?.GrupChekBox == "True" &&
                 masterKeyData?.GroupCheckBox == "True" && (
                   <Checkbox
-                    checked={grupEnChekBox[col.FieldName] ?? true}
+                    checked={grupEnChekBox[col.FieldName] || false}
                     onClick={(e) => e.stopPropagation()}
                     onChange={() => handleGrupEnChekBoxChange(col.FieldName)}
                     size="small"
@@ -626,7 +731,7 @@ export default function MainReport({
                     }}
                   />
                 )}
-              {col.HeaderName}
+              <span>{col.HeaderName}</span>
             </div>
           ),
           headerNameSub: col.HeaderName,
@@ -670,6 +775,41 @@ export default function MainReport({
 
           renderCell: (params) => {
             const displayValue = params.value;
+
+            if (col.ColumnType === "Date") {
+              let formattedDate = "-";
+              if (
+                params.value &&
+                params.value !== "-" &&
+                !isNaN(new Date(params.value).getTime())
+              ) {
+                formattedDate = new Date(params.value).toLocaleDateString(
+                  "en-GB",
+                  {
+                    day: "2-digit",
+                    month: "short",
+                    year: "numeric",
+                    timeZone: "UTC",
+                  }
+                );
+              }
+
+              return (
+                <span
+                  style={{
+                    color: col.FontColor || "inherit",
+                    backgroundColor: col.BackgroundColor || "inherit",
+                    fontSize: col.FontSize || "12px",
+                    textTransform: col.ColumTitleCapital ? "uppercase" : "none",
+                    padding: "0px",
+                    borderRadius: col.BorderRadius,
+                  }}
+                >
+                  {formattedDate}
+                </span>
+              );
+            }
+
             if (col?.ImageColumn == "True") {
               const src =
                 String(params?.row?.ImgUrl ?? "").trim() || noFoundImg;
@@ -740,6 +880,7 @@ export default function MainReport({
             if (
               col?.TwoColumnData &&
               col?.TwoColumnData.trim() !== "" &&
+              col?.TwoColumnData.trim() !== "0" &&
               col?.TwoColumnData !== "Select"
             ) {
               const secondValue = params?.row?.[col.TwoColumnData];
@@ -826,40 +967,6 @@ export default function MainReport({
                   }}
                 >
                   {params.value}
-                </span>
-              );
-            }
-
-            if (col.ColumnType === "Date") {
-              let formattedDate = "-";
-
-              if (
-                params.value &&
-                params.value !== "-" &&
-                !isNaN(new Date(params.value).getTime())
-              ) {
-                formattedDate = new Date(params.value).toLocaleDateString(
-                  "en-GB",
-                  {
-                    day: "2-digit",
-                    month: "short",
-                    year: "numeric",
-                  }
-                );
-              }
-
-              return (
-                <span
-                  style={{
-                    color: col.FontColor || "inherit",
-                    backgroundColor: col.BackgroundColor || "inherit",
-                    fontSize: col.FontSize || "12px",
-                    textTransform: col.ColumTitleCapital ? "uppercase" : "none",
-                    padding: "0px",
-                    borderRadius: col.BorderRadius,
-                  }}
-                >
-                  {formattedDate}
                 </span>
               );
             }
@@ -1060,7 +1167,6 @@ export default function MainReport({
 
   const buildIframeUrl = (params, colId, iframeTypeId) => {
     const row = params?.row || {};
-    console.log("iframeModelData: ", iframeModelData);
     const rd1Item = iframeModelData?.rd1?.find(
       (x) => x.ColId == colId && x.IframeTypeId == iframeTypeId
     );
@@ -1109,7 +1215,6 @@ export default function MainReport({
       return;
     }
     const url = buildIframeUrl(params, columId, iframeTypeId);
-    console.log("iframe url", url);
     setIframeUrl(url);
     setOpenHrefModel(true);
   };
@@ -1163,107 +1268,6 @@ export default function MainReport({
     }
   };
 
-  // const handleCellClick = (params, colId) => {
-  //   if (!navigationData) return;
-  //   console.log("navigationData", navigationData, colId);
-  //   const rd1Item = navigationData.rd1.find((item) => item.ColId == colId);
-  //   console.log("navigationData rd1Item", rd1Item);
-  //   if (!rd1Item) {
-  //     console.warn("No rd1 found for ColId:", colId);
-  //     return;
-  //   }
-
-  //   const baseUrl = rd1Item.BaseUrl || "";
-  //   const redirectUrl = rd1Item.ReportRedirectUrl || "";
-  //   const rdParams = navigationData.rd.filter((item) => item.ColId == colId);
-  //   const getRowValue = (paramName) => {
-  //     const row = params?.row || {};
-  //     const key = Object.keys(row).find(
-  //       (k) => k.toLowerCase() === paramName.toLowerCase()
-  //     );
-  //     return key ? row[key] : "";
-  //   };
-  //   const queryParams = rdParams
-  //     .map((item) => {
-  //       const { VariableName, VariableValue, IsStatic } = item;
-  //       if (IsStatic === "true") {
-  //         return `${VariableName}=${encodeURIComponent(VariableValue)}`;
-  //       } else {
-  //         const dynamicVal = getRowValue(VariableName) || VariableValue || "";
-  //         return `${VariableName}=${btoa(dynamicVal)}`;
-  //       }
-  //     })
-  //     .join("&");
-
-  //   console.log("fullUrl", baseUrl, redirectUrl, queryParams);
-  //   const fullUrl = `${baseUrl}${redirectUrl}&${queryParams}`;
-  //   const navigatePageId = params?.colDef?.RedirectId || "";
-  //   const navigateObj = navigationPageMaster?.rd1?.find(
-  //     (x) => x.RedirectId === Number(navigatePageId)
-  //   );
-  //   const navigateName = navigateObj?.RedirectPage || "";
-  //   console.log("navigateObj", navigateObj);
-  //   console.log("fullUrl", fullUrl);
-
-  //   if (window?.parent?.parent?.addTab) {
-  //     window.parent.addTab(
-  //       navigateName,
-  //       "icon-InventoryManagement_invoiceSummary",
-  //       fullUrl
-  //     );
-  //   }
-  // };
-
-  // const handleCellClick = (params, colId) => {
-  //   if (!navigationData) return;
-  //   const rd1Item = navigationData.rd1.find((item) => item.ColId == colId);
-  //   console.log("navigationData rd1Item", rd1Item);
-
-  //   if (!rd1Item) {
-  //     console.warn("No rd1 found for ColId:", colId);
-  //     return;
-  //   }
-
-  //   const baseUrl = rd1Item.BaseUrl || "";
-  //   const redirectUrl = rd1Item.ReportRedirectUrl || "";
-  //   const rdParams = navigationData.rd.filter((item) => item.ColId == colId);
-
-  //   const getRowValue = (paramName) => {
-  //     const row = params?.row || {};
-  //     const key = Object.keys(row).find(
-  //       (k) => k.toLowerCase() === paramName.toLowerCase()
-  //     );
-  //     return key ? row[key] : "";
-  //   };
-
-  //   const queryParams = rdParams
-  //     .map((item) => {
-  //       const { VariableName, VariableValue, IsStatic } = item;
-  //       if (IsStatic === "true") {
-  //         return `${VariableName}=${encodeURIComponent(VariableValue)}`;
-  //       } else {
-  //         const dynamicVal = getRowValue(VariableName) || VariableValue || "";
-  //         return `${VariableName}=${btoa(dynamicVal)}`;
-  //       }
-  //     })
-  //     .join("&");
-
-  //   const fullUrl = `${baseUrl}${redirectUrl}&${queryParams}`;
-  //   const navigatePageId = params?.colDef?.RedirectId || "";
-  //   const navigateObj = navigationPageMaster?.rd1?.find(
-  //     (x) => x.RedirectId === Number(navigatePageId)
-  //   );
-  //   const navigateName = navigateObj?.RedirectPage || "";
-
-  //   console.log("navigateObj", navigateObj);
-  //   console.log("fullUrl", fullUrl);
-  //   try {
-  //     window.location.href = fullUrl;
-  //   } catch (error) {
-  //     console.error("Failed to send message to parent:", error);
-  //   }
-  // };
-
   const buildMasterValueMap = (masterData) => {
     const map = {};
     Object.keys(masterData || {}).forEach((key) => {
@@ -1283,6 +1287,33 @@ export default function MainReport({
     () => buildMasterValueMap(masterData),
     [masterData]
   );
+  useEffect(() => {
+    if (apiRef.current) {
+      const gridElement = apiRef.current.rootElementRef.current;
+
+      if (gridElement) {
+        const handleDoubleClick = (e) => {
+          // Check if double-click is on column separator
+          if (e.target.classList.contains("MuiDataGrid-columnSeparator")) {
+            e.preventDefault();
+            e.stopPropagation();
+
+            // Auto-resize ALL columns
+            apiRef.current.autosizeColumns({
+              includeHeaders: true,
+              includeOutliers: true,
+            });
+          }
+        };
+
+        gridElement.addEventListener("dblclick", handleDoubleClick, true);
+
+        return () => {
+          gridElement.removeEventListener("dblclick", handleDoubleClick, true);
+        };
+      }
+    }
+  }, [apiRef]);
 
   const originalRows =
     allColumIdWiseName &&
@@ -1304,18 +1335,19 @@ export default function MainReport({
       return { id: index, ...formattedRow };
     });
 
+  const isFirstLoad = useRef(true);
   useEffect(() => {
     if (allColumData) {
-      const dateCols = allColumData.filter((col) => col.ColumnType == "Date");
+      const dateCols = allColumData?.filter((col) => col.ColumnType == "Date");
       setDateColumnOptions(
         dateCols.map((col) => ({
           field: col.FieldName,
           label: col.HeaderName,
         }))
       );
-
-      if (dateCols.length > 0) {
+      if (isFirstLoad.current && dateCols.length > 0) {
         setSelectedDateColumn(dateCols[0].FieldName);
+        isFirstLoad.current = false;
       }
     }
   }, [allColumData]);
@@ -1420,7 +1452,6 @@ export default function MainReport({
         const rowDate = toDateOnly(row[selectedDateColumn]);
         const parsedStart = toDateOnly(startDate);
         const parsedEnd = toDateOnly(endDate);
-
         if (
           isNaN(rowDate.getTime()) ||
           rowDate < parsedStart ||
@@ -1708,19 +1739,26 @@ export default function MainReport({
                 </AccordionSummary>
                 <AccordionDetails className="gridMetalComboMain">
                   {uniqueValues.map((value) => (
-                    <label key={value}>
+                    <label key={value} style={{ display: "flex", gap: "6px" }}>
                       <input
                         type="checkbox"
                         value={value}
-                        checked={(filters[col.field] || []).includes(value)}
-                        onChange={(e) =>
-                          handleFilterChange(
-                            col.field,
-                            { value, checked: e.target.checked },
-                            "MultiSelection",
-                            headerName
-                          )
-                        }
+                        checked={(draftFilters[col.field] || []).includes(
+                          value
+                        )}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          setDraftFilters((prev) => {
+                            const existing = prev[col.field] || [];
+
+                            return {
+                              ...prev,
+                              [col.field]: checked
+                                ? [...existing, value] // add
+                                : existing.filter((v) => v !== value), // remove
+                            };
+                          });
+                        }}
                       />
                       {value}
                     </label>
@@ -1754,12 +1792,12 @@ export default function MainReport({
                 name={`filter-${col.headerNamesingle}-MinFilter`}
                 label={`${col.headerNamesingle} Min`}
                 variant="outlined"
-                value={filters[`${col.FieldName}_min`] || ""}
+                value={draftFilters[`${col.FieldName}_min`] || ""}
                 onChange={(e) => {
                   const value = e.target.value
                     ? parseFloat(e.target.value)
                     : "";
-                  setFilters((prev) => ({
+                  setDraftFilters((prev) => ({
                     ...prev,
                     [`${col.FieldName}_min`]: value,
                   }));
@@ -1795,12 +1833,12 @@ export default function MainReport({
                 name={`filter-${col.headerNamesingle}-MaxFilter`}
                 label={`${col.headerNamesingle} Max`}
                 variant="outlined"
-                value={filters[`${col.FieldName}_max`] || ""}
+                value={draftFilters[`${col.FieldName}_max`] || ""}
                 onChange={(e) => {
                   const value = e.target.value
                     ? parseFloat(e.target.value)
                     : "";
-                  setFilters((prev) => ({
+                  setDraftFilters((prev) => ({
                     ...prev,
                     [`${col.FieldName}_max`]: value,
                   }));
@@ -1839,9 +1877,12 @@ export default function MainReport({
 
   //
   const renderFilterDropDown = (col) => {
+    const field = col.field;
+    if (masterKeyData?.GroupCheckBox == "True") {
+      if (!grupEnChekBox[field] && col?.HideColumn != "True") return null;
+    }
     if (!col.filterTypes || col.filterTypes.length === 0) return null;
     const filtersToRender = col.filterTypes;
-
     return filtersToRender.map((filterType) => {
       switch (filterType) {
         case "selectDropdownFilter": {
@@ -1864,14 +1905,12 @@ export default function MainReport({
                   id="demo-simple-select"
                   label={`Select ${col.headerNameSub}`}
                   name={`Select ${col.headerNameSub}`}
-                  value={filters[col.field] || ""}
+                  value={draftFilters[col.field] || ""} // use draftFilters
                   onChange={(e) =>
-                    handleFilterChange(
-                      col.field,
-                      e.target.value,
-                      "",
-                      col.headerNameSub
-                    )
+                    setDraftFilters((prev) => ({
+                      ...prev,
+                      [col.field]: e.target.value,
+                    }))
                   }
                   style={{
                     height: 40,
@@ -1922,15 +1961,13 @@ export default function MainReport({
                 name={`filter-${col.headerNamesingle}-NormalFilter`}
                 label={`Enter ${col.headerNamesingle}`}
                 variant="outlined"
-                value={filters[col.FieldName] || ""}
+                value={draftFilters[col.FieldName] || ""} // use draftFilters
                 style={{ width: "100%" }}
                 onChange={(e) =>
-                  handleFilterChange(
-                    col.FieldName,
-                    e.target.value,
-                    "",
-                    col.headerNamesingle
-                  )
+                  setDraftFilters((prev) => ({
+                    ...prev,
+                    [col.FieldName]: e.target.value,
+                  }))
                 }
                 className="customize_colum_input"
                 InputLabelProps={{
@@ -1968,6 +2005,7 @@ export default function MainReport({
   const [highlightedIndex, setHighlightedIndex] = useState({});
   const [suggestionVisibility, setSuggestionVisibility] = useState({});
   const suggestionRefs = useRef({});
+  const suggestionItemRefs = useRef({});
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -1990,15 +2028,48 @@ export default function MainReport({
     };
   }, []);
 
-  const renderSuggestionFilter = (col) => {
-    if (!col.filterTypes || col.filterTypes.length === 0) return null;
-    const filtersToRender = col.filterTypes;
+  useEffect(() => {
+    Object.keys(suggestionVisibility).forEach((field) => {
+      if (suggestionVisibility[field] && suggestionRefs.current[field]) {
+        suggestionRefs.current[field].scrollIntoView({
+          behavior: "smooth",
+          block: "nearest",
+        });
+      }
+    });
+  }, [suggestionVisibility]);
 
-    return filtersToRender.map((filterType) => {
+  useEffect(() => {
+    Object.keys(highlightedIndex).forEach((field) => {
+      const index = highlightedIndex[field];
+      const el = suggestionItemRefs.current[field]?.[index];
+
+      if (el) {
+        el.scrollIntoView({
+          block: "nearest",
+          behavior: "smooth",
+        });
+      }
+    });
+  }, [highlightedIndex]);
+  const renderSuggestionFilter = (col) => {
+    const field = col.field;
+    if (masterKeyData?.GroupCheckBox == "True") {
+      if (!grupEnChekBox[field] && col?.HideColumn != "True") return null;
+    }
+    if (!col.filterTypes || col.filterTypes.length === 0) return null;
+
+    return col.filterTypes.map((filterType) => {
       if (filterType !== "suggestionFilter") return null;
+
       const field = col.field;
       const headerName = col.headerNameSub;
-      const inputValue = filters[field]?.toLowerCase() || "";
+
+      if (!suggestionItemRefs.current[field]) {
+        suggestionItemRefs.current[field] = [];
+      }
+
+      const inputValue = draftFilters[field]?.toString().toLowerCase() || "";
       const suggestions =
         inputValue.length > 0
           ? [
@@ -2014,13 +2085,19 @@ export default function MainReport({
           : [];
 
       const handleInputChange = (value) => {
-        handleFilterChange(field, value.trimStart(), "", headerName);
+        setDraftFilters((prev) => ({
+          ...prev,
+          [field]: value,
+        }));
         setSuggestionVisibility((prev) => ({ ...prev, [field]: true }));
         setHighlightedIndex((prev) => ({ ...prev, [field]: 0 }));
       };
 
       const handleSelectSuggestion = (value) => {
-        handleFilterChange(field, value, "", headerName);
+        setDraftFilters((prev) => ({
+          ...prev,
+          [field]: value,
+        }));
         setSuggestionVisibility((prev) => ({ ...prev, [field]: false }));
         setHighlightedIndex((prev) => ({ ...prev, [field]: 0 }));
       };
@@ -2053,6 +2130,10 @@ export default function MainReport({
         }
       };
 
+      const shouldOpenUpward =
+        suggestionRefs.current[field]?.getBoundingClientRect().bottom >
+        window.innerHeight - 250;
+
       return (
         <div
           key={`filter-${field}-suggestionFilter`}
@@ -2060,51 +2141,44 @@ export default function MainReport({
           style={{ margin: "10px 20px", position: "relative", width: "100%" }}
         >
           <TextField
-            key={`filter-${col.headerNameSub}`}
-            name={`filter-${col.headerNameSub}`}
-            label={`Enter ${col.headerNameSub}`}
+            label={`Enter ${headerName}`}
             variant="outlined"
-            value={filters[col.FieldName] || ""}
+            value={draftFilters[field] || ""}
             style={{ width: "100%" }}
             onChange={(e) => handleInputChange(e.target.value)}
             onFocus={() => {
-              if ((filters[field] || "").trim().length > 0) {
+              if ((draftFilters[field] || "").trim().length > 0) {
                 setSuggestionVisibility((prev) => ({ ...prev, [field]: true }));
               }
             }}
             onKeyDown={handleKeyDown}
             size="small"
             autoComplete="off"
-            InputLabelProps={{
-              style: {
-                fontFamily: "Poppins, sans-serif",
-              },
-            }}
-            InputProps={{
-              style: {
-                height: 40,
-                fontSize: 16,
-              },
-            }}
+            InputLabelProps={{ style: { fontFamily: "Poppins, sans-serif" } }}
+            InputProps={{ style: { height: 40, fontSize: 16 } }}
           />
+
           {suggestionVisibility[field] && suggestions.length > 0 && (
             <div
               style={{
-                position: "absolute",
-                top: "100%",
                 left: 0,
                 width: "100%",
-                maxHeight: "300px",
+                maxHeight: "250px",
                 overflowY: "auto",
                 background: "#fff",
-                border: "1px solid rgba(0,0,0,0.1)",
-                zIndex: 10,
-                borderRadius: "4px",
+                border: "1px solid rgba(0,0,0,0.15)",
+                zIndex: 1000,
+                position: "absolute",
+                top: shouldOpenUpward ? "auto" : "100%",
+                bottom: shouldOpenUpward ? "100%" : "auto",
               }}
             >
               {suggestions.map((value, index) => (
                 <div
                   key={`suggestion-${field}-${value}`}
+                  ref={(el) => {
+                    suggestionItemRefs.current[field][index] = el;
+                  }}
                   onClick={() => handleSelectSuggestion(value)}
                   style={{
                     padding: "8px 12px",
@@ -2125,6 +2199,76 @@ export default function MainReport({
         </div>
       );
     });
+  };
+
+  const buildFilterActivityDetails = (currentFilters) => {
+    const activities = [];
+    Object.entries(currentFilters || {}).forEach(([field, value]) => {
+      if (value === "" || value === null || value === undefined) return;
+
+      if (Array.isArray(value)) {
+        value.forEach((v) => {
+          activities.push({
+            ActionName: "FILTER",
+            ActionOn: field,
+            ActionValue: String(v),
+          });
+        });
+      } else {
+        activities.push({
+          ActionName: "FILTER",
+          ActionOn: field,
+          ActionValue: String(value),
+        });
+      }
+    });
+
+    // Server-side filters
+    Object.entries(serverFiltersRef.current || {}).forEach(([field, value]) => {
+      activities.push({
+        ActionName: "FILTER",
+        ActionOn: field,
+        ActionValue: String(value),
+      });
+    });
+
+    // Common search
+    if (commonSearch?.trim()) {
+      activities.push({
+        ActionName: "SEARCH",
+        ActionOn: "commonsearch",
+        ActionValue: commonSearch.trim(),
+      });
+    }
+
+    // Date range filter
+    if (selectedDateColumn && startDate && endDate) {
+      activities.push({
+        ActionName: "FILTER",
+        ActionOn: selectedDateColumn,
+        ActionValue: `${startDate} to ${endDate}`,
+      });
+    }
+
+    return activities;
+  };
+
+  const handleApplyFilter = () => {
+    const keyPrefix = `${pid}_`;
+    const matchingKey = Object.keys(sessionStorage).find((key) =>
+      key.startsWith(keyPrefix)
+    );
+    if (!matchingKey) {
+      console.warn("No ReportId found in sessionStorage for pid", pid);
+      return;
+    }
+    const reportId = matchingKey.split("_")[1];
+    setFilters(draftFilters);
+    const filterActivities = buildFilterActivityDetails(draftFilters);
+    if (filterActivities.length > 0) {
+      saveReportActivity(reportId, filterActivities);
+    }
+    toggleDrawer(false);
   };
 
   const summaryColumns = columnsHide?.filter((col) => {
@@ -2230,13 +2374,8 @@ export default function MainReport({
       <div
         className="summaryBox"
         style={{
-          display: sortedSummaryColumns.length >= 3 ? "grid" : "flex",
-          gridTemplateColumns:
-            sortedSummaryColumns.length >= 3
-              ? `repeat(${sortedSummaryColumns.length}, 1fr)`
-              : "none",
-          justifyContent:
-            sortedSummaryColumns.length < 3 ? "flex-start" : "unset",
+          display: "flex",
+          flexWrap: "wrap",
         }}
       >
         {sortedSummaryColumns.map((col) => {
@@ -2266,7 +2405,9 @@ export default function MainReport({
               key={col.field}
               className={
                 sortedSummaryColumns.length >= 3
-                  ? "AllEmploe_boxViewTotal_big"
+                  ? sortedSummaryColumns.length >= 9
+                    ? "AllEmploe_boxViewTotal_big_more"
+                    : "AllEmploe_boxViewTotal_big"
                   : "AllEmploe_boxViewTotal"
               }
             >
@@ -2284,7 +2425,8 @@ export default function MainReport({
                 </p>
 
                 <p className="boxViewTotalTitle">
-                  {columnMeta?.SummaryTitle == null
+                  {columnMeta?.SummaryTitle == null ||
+                  columnMeta?.SummaryTitle == ""
                     ? col?.headerNameSub
                     : columnMeta?.SummaryTitle}
                 </p>
@@ -2396,17 +2538,9 @@ export default function MainReport({
 
   const converted = mapRowsToHeaders(columns, filteredRows);
   const exportToExcel = () => {
-    const worksheet = XLSX.utils.json_to_sheet(converted);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Data");
-    const excelBuffer = XLSX.write(workbook, {
-      bookType: "xlsx",
-      type: "array",
-    });
-
-    const data = new Blob([excelBuffer], { type: EXCEL_TYPE });
     const now = new Date();
-    const dateString = now
+
+    const formattedDate = now
       .toLocaleString("en-GB", {
         year: "numeric",
         month: "2-digit",
@@ -2416,13 +2550,38 @@ export default function MainReport({
         second: "2-digit",
         hour12: false,
       })
-      .replace(/[/:]/g, "-")
-      .replace(/, /g, "_");
-    const fileName = `${reportName}_${dateString}.xlsx`;
+      .replace(/[/:]/g, "-");
+    const headerRows = [
+      [`Report Name : ${reportName}`],
+      [`${formattedDate}`],
+      [],
+    ];
+    const worksheet = XLSX.utils.aoa_to_sheet(headerRows);
+    XLSX.utils.sheet_add_json(worksheet, converted, {
+      origin: "A4",
+      skipHeader: false,
+    });
+    const columnWidths = Object.keys(converted[0] || {}).map((key) => ({
+      wch: Math.max(
+        key.length,
+        ...converted.map((row) => String(row[key] ?? "").length)
+      ),
+    }));
+    worksheet["!cols"] = columnWidths;
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Data");
+    const excelBuffer = XLSX.write(workbook, {
+      bookType: "xlsx",
+      type: "array",
+    });
+
+    const data = new Blob([excelBuffer], { type: EXCEL_TYPE });
+    const fileName = `${reportName}_${formattedDate}.xlsx`;
     saveAs(data, fileName);
   };
 
   const handleClearFilter = () => {
+    setDraftFilters({});
     setCommonSearch("");
     setFiltersShow();
     setFilters({});
@@ -2432,6 +2591,28 @@ export default function MainReport({
   const handlePaginationChange = (newModel) => {
     setIsPageChanging(true);
     setPaginationModel(newModel);
+
+    const keyPrefix = `${pid}_`;
+    const matchingKey = Object.keys(sessionStorage).find((key) =>
+      key.startsWith(keyPrefix)
+    );
+    if (!matchingKey) {
+      console.warn("No ReportId found in sessionStorage for pid", pid);
+      return;
+    }
+    const reportId = matchingKey.split("_")[1];
+
+    saveReportActivity(reportId, {
+      ActionName: "PAGINATION",
+      ActionOn: "pageno",
+      ActionValue: String(newModel.page + 1),
+    });
+
+    saveReportActivity(reportId, {
+      ActionName: "PAGINATION",
+      ActionOn: "pagesize",
+      ActionValue: String(newModel.pageSize),
+    });
     setTimeout(() => {
       setIsPageChanging(false);
     }, 400);
@@ -2502,8 +2683,6 @@ export default function MainReport({
         }
       }
     });
-
-    console.log("rows tempGrouped", tempGrouped);
     return Object.values(tempGrouped).map((item, index) => ({
       ...item,
       id: index,
@@ -2543,6 +2722,7 @@ export default function MainReport({
         con: JSON.stringify({
           mode: "updateCompanyReportColumns",
           appuserid: AllData?.LUId,
+          IPAddress: clientIpAddress,
         }),
         p: JSON.stringify({
           ReportId: reportId,
@@ -2592,6 +2772,7 @@ export default function MainReport({
         id: "",
         mode: "SetAction",
         appuserid: AllData?.LUId,
+        IPAddress: clientIpAddress,
       }),
       p: JSON.stringify({
         ReportId: String(activeActionColumn.ReportId),
@@ -2628,27 +2809,47 @@ export default function MainReport({
   };
 
   const handleAllDataShow = () => {
+    const dateCols = allColumData?.filter((col) => col.ColumnType == "Date");
     setIsPageChanging(true);
     setTimeout(() => {
       setIsPageChanging(false);
     }, 400);
-    const allStart = new Date("1990-01-01T18:30:00.000Z");
-    const allEnd = new Date();
+
+    // Clear date filter
     setFilterState((prev) => ({
       ...prev,
-      dateRange: { startDate: allStart, endDate: allEnd },
+      dateRange: { startDate: "", endDate: "" },
     }));
     const pickerInput = document.querySelector(
       'input[aria-label="Date Range"]'
     );
     if (pickerInput) pickerInput.value = "";
     setCommonSearch("");
-    setSelectedDateColumn();
-    setFiltersShow();
+    if (masterKeyData?.MultiDateFilter == "True") {
+      setSelectedDateColumn();
+    }
+    setFiltersShow({});
     setFilters({});
-    setFilteredValue();
+    setDraftFilters({});
+    setFilteredValue([]);
+
+    // Trigger report refresh
     if (!showReportMaster) {
-      filteredValueState != 0 && onSearchFilter?.({}, "2");
+      onSearchFilter?.({}, "2");
+    }
+
+    // Log the “All” action to activityDetails
+    const keyPrefix = `${pid}_`;
+    const matchingKey = Object.keys(sessionStorage).find((key) =>
+      key.startsWith(keyPrefix)
+    );
+    if (matchingKey) {
+      const reportId = matchingKey.split("_")[1];
+      saveReportActivity(reportId, {
+        ActionName: "FILTER",
+        ActionOn: "AllDatabutton",
+        ActionValue: "",
+      });
     }
   };
 
@@ -2667,7 +2868,6 @@ export default function MainReport({
         return String(x).localeCompare(String(y)) * order;
       }
 
-      // DefaultSort column
       const col = columns.find(
         (c) => c.DefaultSort && c.DefaultSort !== "None"
       );
@@ -2711,7 +2911,6 @@ export default function MainReport({
     if (!container) return;
 
     const images = container.querySelectorAll(".print-content img");
-
     const imagePromises = Array.from(images).map(
       (img) =>
         new Promise((resolve) => {
@@ -2731,13 +2930,9 @@ export default function MainReport({
       const checkLayout = () => {
         requestAnimationFrame(() => {
           attempts++;
-
           const items = container.querySelectorAll(".print-content .col1");
-
           if (items.length >= itemsToPrint.length || attempts >= maxAttempts) {
             setPreparingPrint(false);
-
-            // Small delay to ensure layout is stable
             setTimeout(() => {
               window.print();
             }, 300);
@@ -2837,6 +3032,17 @@ export default function MainReport({
           sx={{ width: "100vw", display: "flex", flexDirection: "column" }}
           ref={gridContainerRef}
         >
+          <Snackbar
+            open={openSnackbar}
+            autoHideDuration={3000}
+            onClose={() => setOpenSnackbar(false)}
+            anchorOrigin={{ vertical: "top", horizontal: "center" }}
+          >
+            <Alert severity="success" onClose={() => setOpenSnackbar(false)}>
+              Column Update Successfully!
+            </Alert>
+          </Snackbar>
+
           <Dialog
             open={openHrefModel}
             onClose={() => setOpenHrefModel(false)}
@@ -2890,12 +3096,12 @@ export default function MainReport({
             onClose={() => setOpenPopup(false)}
             container={gridContainerRef.current}
           >
-            <IconButton
+            {/* <IconButton
               style={{ position: "absolute", top: 0, right: 5 }}
               onClick={() => setOpenPopup(false)}
             >
               <CircleX />
-            </IconButton>
+            </IconButton> */}
             <div className="colum_setting_model_main">
               <div className="filterDrawer">
                 <p className="title">Column Rearrange</p>
@@ -2907,20 +3113,22 @@ export default function MainReport({
                       {...provided.droppableProps}
                       className="columns-list"
                     >
-                      {allColumData.map((col, index) => (
-                        <DraggableColumn
-                          key={col.FieldName}
-                          col={col}
-                          index={index}
-                          checkedColumns={checkedColumns}
-                          handleCheckboxChange={() =>
-                            setCheckedColumns((prev) => ({
-                              ...prev,
-                              [col.FieldName]: !prev[col.FieldName],
-                            }))
-                          }
-                        />
-                      ))}
+                      {allColumData
+                        .filter((col) => col.HideColumn !== "True")
+                        .map((col, index) => (
+                          <DraggableColumn
+                            key={col.FieldName}
+                            col={col}
+                            index={index}
+                            checkedColumns={checkedColumns}
+                            handleCheckboxChange={() =>
+                              setCheckedColumns((prev) => ({
+                                ...prev,
+                                [col.FieldName]: !prev[col.FieldName],
+                              }))
+                            }
+                          />
+                        ))}
                       {provided.placeholder}
                     </div>
                   )}
@@ -2971,21 +3179,13 @@ export default function MainReport({
           >
             <div
               style={{
-                margin: "20px 10px 0px 10px",
+                margin: "13px 10px 0px 24px",
                 fontSize: "25px",
                 display: "flex",
                 justifyContent: "space-between",
                 alignItems: "center",
               }}
             >
-              <button
-                onClick={handleClearFilter}
-                className="btn_ClearFilterButton"
-              >
-                <MdOutlineFilterAltOff style={{ fontSize: "25px" }} />
-                Clear
-              </button>
-
               <CircleX
                 style={{
                   cursor: "pointer",
@@ -2994,66 +3194,85 @@ export default function MainReport({
                 }}
                 onClick={() => setSideFilterOpen(false)}
               />
+
+              <div style={{ display: "flex" }}>
+                <button
+                  onClick={handleClearFilter}
+                  className="btn_ClearFilterButton"
+                >
+                  <MdOutlineFilterAltOff style={{ fontSize: "25px" }} />
+                  Clear
+                </button>
+
+                <button
+                  className="btn_FilterButton"
+                  onClick={handleApplyFilter}
+                >
+                  <FaFilter style={{ fontSize: "20px" }} />
+                  Apply
+                </button>
+              </div>
             </div>
+            <div style={{ paddingBottom: "100px" }}>
+              {columnsHide
+                .filter((col) => col.filterable)
+                .map((col) => (
+                  <div
+                    key={col.FieldName}
+                    style={{ display: "flex", gap: "10px" }}
+                  >
+                    {renderServerSideFilter(col)}
+                  </div>
+                ))}
 
-            {columnsHide
-              .filter((col) => col.filterable)
-              .map((col) => (
-                <div
-                  key={col.FieldName}
-                  style={{ display: "flex", gap: "10px" }}
-                >
-                  {renderServerSideFilter(col)}
-                </div>
-              ))}
+              {columnsHide
+                .filter((col) => col.filterable)
+                .map((col) => (
+                  <div key={col.FieldName}>
+                    {col.filterTypes?.includes("MultiSelection") &&
+                      renderFilterMulti(col)}
+                  </div>
+                ))}
 
-            {columnsHide
-              .filter((col) => col.filterable)
-              .map((col) => (
-                <div key={col.FieldName}>
-                  {col.filterTypes?.includes("MultiSelection") &&
-                    renderFilterMulti(col)}
-                </div>
-              ))}
+              {columnsHide
+                .filter((col) => col.filterable)
+                .map((col) => (
+                  <div key={col.FieldName}>{renderFilterRange(col)}</div>
+                ))}
 
-            {columnsHide
-              .filter((col) => col.filterable)
-              .map((col) => (
-                <div key={col.FieldName}>{renderFilterRange(col)}</div>
-              ))}
+              {columnsHide
+                .filter((col) => col.filterable)
+                .map((col) => (
+                  <div
+                    key={col.FieldName}
+                    style={{ display: "flex", gap: "10px" }}
+                  >
+                    {renderFilterDropDown(col)}
+                  </div>
+                ))}
 
-            {columnsHide
-              .filter((col) => col.filterable)
-              .map((col) => (
-                <div
-                  key={col.FieldName}
-                  style={{ display: "flex", gap: "10px" }}
-                >
-                  {renderFilterDropDown(col)}
-                </div>
-              ))}
+              {columnsHide
+                .filter((col) => col.filterable)
+                .map((col) => (
+                  <div
+                    key={col.FieldName}
+                    style={{ display: "flex", gap: "10px" }}
+                  >
+                    {renderFilter(col)}
+                  </div>
+                ))}
 
-            {columnsHide
-              .filter((col) => col.filterable)
-              .map((col) => (
-                <div
-                  key={col.FieldName}
-                  style={{ display: "flex", gap: "10px" }}
-                >
-                  {renderFilter(col)}
-                </div>
-              ))}
-
-            {columnsHide
-              .filter((col) => col.filterable)
-              .map((col) => (
-                <div
-                  key={col.FieldName}
-                  style={{ display: "flex", gap: "10px" }}
-                >
-                  {renderSuggestionFilter(col)}
-                </div>
-              ))}
+              {columnsHide
+                .filter((col) => col.filterable)
+                .map((col) => (
+                  <div
+                    key={col.FieldName}
+                    style={{ display: "flex", gap: "10px" }}
+                  >
+                    {renderSuggestionFilter(col)}
+                  </div>
+                ))}
+            </div>
           </Drawer>
 
           <LocalizationProvider dateAdapter={AdapterDayjs}>
@@ -3174,7 +3393,13 @@ export default function MainReport({
             </div>
             <div style={{ display: "flex", gap: "10px" }}>
               {masterKeyData?.ColumnSettingModel == "True" && (
-                <Tooltip title="Column Rearrange">
+                <Tooltip
+                  title="Column Rearrange"
+                  isablePortal
+                  PopperProps={{
+                    container: gridContainerRef.current,
+                  }}
+                >
                   <IconButton
                     onClick={handleClickOpenPoup}
                     sx={{
@@ -3190,13 +3415,11 @@ export default function MainReport({
                       },
                     }}
                     size="medium"
+                    className="btn_column_setting_model"
                   >
                     <AiFillSetting size={22} />
                   </IconButton>
                 </Tooltip>
-                // <div className="fullScreenButton  " onClick={handleClickOpenPoup}>
-                //   <AiFillSetting style={{ height: "25px", width: "25px" }} />
-                // </div>
               )}
             </div>
           </div>
@@ -3358,7 +3581,14 @@ export default function MainReport({
                       const isSelected = selectedColors.includes(data.id);
 
                       return (
-                        <Tooltip title={data.code} key={index}>
+                        <Tooltip
+                          title={data.code}
+                          key={index}
+                          isablePortal
+                          PopperProps={{
+                            container: gridContainerRef.current,
+                          }}
+                        >
                           <div
                             onClick={() => handleColorClick(data.id)}
                             style={{
@@ -3397,6 +3627,7 @@ export default function MainReport({
                     value={selectedCurrency}
                     onChange={(e) => setSelectedCurrency(e.target.value)}
                     MenuProps={{
+                      disablePortal: true,
                       PaperProps: {
                         style: {
                           maxHeight: 300,
@@ -3433,7 +3664,13 @@ export default function MainReport({
               )}
 
               {masterKeyData?.PrintButton == "True" && (
-                <Tooltip title="Print">
+                <Tooltip
+                  title="Print"
+                  isablePortal
+                  PopperProps={{
+                    container: gridContainerRef.current,
+                  }}
+                >
                   <IconButton
                     onClick={handleOpenPrintPreview}
                     sx={{
@@ -3468,7 +3705,13 @@ export default function MainReport({
                       }}
                     >
                       {showImageView ? (
-                        <Tooltip title="Report View">
+                        <Tooltip
+                          title="Report View"
+                          isablePortal
+                          PopperProps={{
+                            container: gridContainerRef.current,
+                          }}
+                        >
                           <IconButton
                             onClick={() => setShowImageView(false)}
                             sx={{
@@ -3489,7 +3732,13 @@ export default function MainReport({
                           </IconButton>
                         </Tooltip>
                       ) : (
-                        <Tooltip title="Image View">
+                        <Tooltip
+                          title="Image View"
+                          isablePortal
+                          PopperProps={{
+                            container: gridContainerRef.current,
+                          }}
+                        >
                           <IconButton
                             onClick={() => setShowImageView(true)}
                             sx={{
@@ -3521,7 +3770,13 @@ export default function MainReport({
                     }}
                   >
                     {showImageView ? (
-                      <Tooltip title="Report View">
+                      <Tooltip
+                        title="Report View"
+                        isablePortal
+                        PopperProps={{
+                          container: gridContainerRef.current,
+                        }}
+                      >
                         <IconButton
                           onClick={() => setShowImageView(false)}
                           sx={{
@@ -3542,7 +3797,13 @@ export default function MainReport({
                         </IconButton>
                       </Tooltip>
                     ) : (
-                      <Tooltip title="Image View">
+                      <Tooltip
+                        title="Image View"
+                        isablePortal
+                        PopperProps={{
+                          container: gridContainerRef.current,
+                        }}
+                      >
                         <IconButton
                           onClick={() => setShowImageView(true)}
                           sx={{
@@ -3566,8 +3827,14 @@ export default function MainReport({
                   </div>
                 ))}
 
-              {masterKeyData?.ExcelExport && (
-                <Tooltip title="Export to Excel">
+              {masterKeyData?.ExcelExport == "True" && (
+                <Tooltip
+                  title="Export to Excel"
+                  disablePortal
+                  PopperProps={{
+                    container: gridContainerRef.current,
+                  }}
+                >
                   <IconButton
                     onClick={exportToExcel}
                     sx={{
@@ -3590,7 +3857,13 @@ export default function MainReport({
               )}
 
               {masterKeyData?.FullScreenGridButton == "True" && (
-                <Tooltip title="Full Screen Report">
+                <Tooltip
+                  title="Full Screen Report"
+                  isablePortal
+                  PopperProps={{
+                    container: gridContainerRef.current,
+                  }}
+                >
                   <IconButton
                     onClick={toggleFullScreen}
                     sx={{
@@ -3632,6 +3905,10 @@ export default function MainReport({
                 ? masterKeyData?.ColumnSettingModel == "True"
                   ? "calc(100vh - 190px)"
                   : "calc(100vh - 130px)"
+                : finalSummaryColumns?.length > 9
+                ? finalSummaryColumns?.length > 18
+                  ? "calc(100vh - 370px)"
+                  : "calc(100vh - 300px)"
                 : "calc(100vh - 255px)",
               margin: "5px 10px",
               overflow: "auto",
@@ -3874,7 +4151,26 @@ export default function MainReport({
                   sortModel={sortModel}
                   // onSortModelChange={(model) => setSortModel(model)}
                   onSortModelChange={(model) => {
-                    if (model.length === 0 && initialSort.current) return;
+                    if (!model.length) return;
+                    const keyPrefix = `${pid}_`;
+                    const matchingKey = Object.keys(sessionStorage).find(
+                      (key) => key.startsWith(keyPrefix)
+                    );
+                    if (!matchingKey) {
+                      console.warn(
+                        "No ReportId found in sessionStorage for pid",
+                        pid
+                      );
+                      return;
+                    }
+                    const reportId = matchingKey.split("_")[1];
+                    const { field, sort } = model[0];
+                    saveReportActivity(reportId, {
+                      ActionName: "SORT",
+                      ActionOn: field,
+                      ActionValue: sort,
+                    });
+
                     setSortModel(model);
                   }}
                   localeText={{ noRowsLabel: "No Data" }}
@@ -3979,17 +4275,6 @@ export default function MainReport({
           ></iframe>
         </Box>
       </Modal>
-
-      <Snackbar
-        open={openSnackbar}
-        autoHideDuration={3000}
-        onClose={() => setOpenSnackbar(false)}
-        anchorOrigin={{ vertical: "top", horizontal: "center" }}
-      >
-        <Alert severity="success" onClose={() => setOpenSnackbar(false)}>
-          Column Update Successfully!
-        </Alert>
-      </Snackbar>
     </DragDropContext>
   );
 }

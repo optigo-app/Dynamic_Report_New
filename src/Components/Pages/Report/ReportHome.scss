@@ -521,26 +521,6 @@
   }
 }
 
-.btn_ClearFilterButton {
-  background-color: rgb(250 77 77);
-  color: white;
-  font-size: 16px;
-  width: 80px;
-  height: 35px;
-  font-weight: 500;
-  border: none;
-  outline: none;
-  border-radius: 3px;
-  cursor: pointer;
-  margin-inline: 5px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-.btn_ClearFilterButton:hover {
-  background-color: rgb(238, 37, 37);
-  transition: transform 0.3s ease, background-color 0.3s ease;
-}
 
 .btn_SaveColumModel {
   background: linear-gradient(
