@@ -20,16 +20,11 @@ export default function Print1JewelleryBook({
   const itemsPerPage = 1000;
   const [currentPage, setCurrentPage] = useState(1);
   const preloadedImages = useRef(new Set());
-
-  // Current page items for display
   const visibleItems = useMemo(() => {
     const startIdx = (currentPage - 1) * itemsPerPage;
     const endIdx = startIdx + itemsPerPage;
     return visibleItemsMain?.slice(startIdx, endIdx) || [];
   }, [visibleItemsMain, currentPage, itemsPerPage]);
-  console.log("visibleItems: ", visibleItems);
-
-  // Items to print (only current page)
   const itemsToPrint = useMemo(() => {
     if (preparingPrint) {
       const startIdx = (currentPrintPage - 1) * itemsPerPage;

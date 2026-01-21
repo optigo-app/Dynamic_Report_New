@@ -14,6 +14,57 @@ import MainReport from "../MainReport/MainReport";
 import DualDatePicker from "../../../../Utils/DatePicker/DualDatePicker";
 import FullReportDataSample from "../SampleData_getFullReport.json";
 import { CircleX } from "lucide-react";
+import KeyboardArrowRightRoundedIcon from '@mui/icons-material/KeyboardArrowRightRounded';
+
+
+const GlassIconButton = () => {
+  return (
+    <IconButton
+      disableRipple
+      sx={{
+        width: 35,
+        height: 35,
+        borderRadius: '50%',
+
+        /* Glass effect */
+        background: 'rgba(255, 255, 255, 0.55)',
+        backdropFilter: 'blur(12px)',
+        WebkitBackdropFilter: 'blur(12px)', // Edge/Safari support
+
+        /* Premium border & shadow */
+        border: '1px solid rgba(255, 255, 255, 0.35)',
+        boxShadow: `
+          0 8px 24px rgba(0,0,0,0.12),
+          inset 0 1px 0 rgba(255,255,255,0.6)
+        `,
+
+        color: '#4f46e5', // premium indigo
+
+        transition: 'all 0.25s ease',
+
+        '&:hover': {
+          background: 'rgba(255, 255, 255, 0.75)',
+          transform: 'translateY(-1px)',
+          boxShadow: `
+            0 12px 30px rgba(0,0,0,0.18),
+            inset 0 1px 0 rgba(255,255,255,0.8)
+          `,
+        },
+
+        '&:active': {
+          transform: 'scale(0.95)',
+        },
+        position:'absolute',
+        zIndex:9999999999999999,
+        top:45 ,
+        left:46
+      }}
+    >
+      <KeyboardArrowRightRoundedIcon fontSize="medium" />
+    </IconButton>
+  );
+};
+
 
 const formatToYYYYMMDD = (date) => {
   if (!date) return null;
@@ -66,6 +117,10 @@ export default function SpliterReport({
   const [firstPanelSearch, setFirstPanelSearch] = useState("");
   const [secondPanelSearch, setSecondPanelSearch] = useState("");
   const clientIpAddress = sessionStorage.getItem("clientIpAddress");
+  const [IsDragging,setIsDragging] = useState(false)
+
+
+  console.log(IsDragging , "IsDragging")
 
   useEffect(() => {
     const now = new Date();
@@ -238,8 +293,6 @@ export default function SpliterReport({
     spliterReportFirstPanel,
   ]);
 
-  console.log("spData", spData);
-
   useEffect(() => {
     if (
       spData &&
@@ -339,6 +392,7 @@ export default function SpliterReport({
   };
 
   const handleDrag = (index, e) => {
+    setIsDragging(true)
     const startX = e.clientX;
     const start = paneWidths.map((x) => parseFloat(x));
     const cw = containerRef.current.offsetWidth;
@@ -355,6 +409,7 @@ export default function SpliterReport({
     const up = () => {
       document.removeEventListener("mousemove", move);
       document.removeEventListener("mouseup", up);
+      setIsDragging(false)
     };
 
     document.addEventListener("mousemove", move);
@@ -636,7 +691,11 @@ export default function SpliterReport({
             </div>
           </div>
         </div>
-        <div className="splitter" onMouseDown={(e) => handleDrag(0, e)} />
+        {/* <GlassIconButton/> */}
+        <div 
+          className={`splitter ${IsDragging ? 'active' : ''}`}
+
+        onMouseDown={(e) => handleDrag(0, e)} />
         {spliterReportSecondPanel && (
           <>
             <div className="pane" style={{ width: paneWidths[1], padding: 8 }}>

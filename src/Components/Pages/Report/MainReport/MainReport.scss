@@ -30,14 +30,14 @@
 .AllEmploe_boxViewTotal {
   display: flex;
   align-items: center;
-  padding: 15px;
+  padding: 5px 10px;
   border-radius: 8px;
   border: 1px solid #00000014;
   background-color: white;
   margin: 0px;
   width: 300px; /* ✅ fixed width */
   justify-content: space-between;
-  box-shadow: rgba(0, 0, 0, 0.08) 0px 4px 8px !important;
+  // box-shadow: rgba(0, 0, 0, 0.08) 0px 4px 8px !important;
   height: 50px;
 }
 
@@ -45,13 +45,13 @@
   display: flex;
   gap: 15px;
   align-items: center;
-  padding: 15px;
+  padding: 5px 10px;
   border-radius: 8px;
   border: 1px solid #00000014;
   background-color: white;
   margin: 0px;
   justify-content: space-between;
-  box-shadow: rgba(0, 0, 0, 0.08) 0px 4px 8px !important;
+  // box-shadow: rgba(0, 0, 0, 0.08) 0px 4px 8px !important;
   height: 50px;
   width: 9%;
 }
@@ -66,9 +66,26 @@
   background-color: white;
   margin: 0px;
   justify-content: space-between;
-  box-shadow: rgba(0, 0, 0, 0.08) 0px 4px 8px !important;
+  // box-shadow: rgba(0, 0, 0, 0.08) 0px 4px 8px !important;
   height: 50px;
   width: 9%;
+}
+
+.AllEmplo_boxViewTotalValue {
+  font-weight: 600;
+  font-size: 16px;
+  color: rgb(115, 103, 240);
+  margin: 0px;
+  min-width: 70px;
+  line-height: 23px;
+}
+
+.boxViewTotalTitle {
+  margin: 0px;
+  font-size: 12px;
+  color: rgb(66 66 66);
+  cursor: pointer;
+  font-weight: 500;
 }
 
 .master_title_report {
@@ -93,7 +110,7 @@
   justify-content: center;
   align-items: center;
   padding: 10px;
-
+  
   .filterDrawer {
     width: 450px;
     border-radius: 8px;
@@ -152,10 +169,9 @@
     .title {
       text-align: center;
       font-weight: 600;
-      margin: 10px 0px 20px 0px;
-      font-size: 17px;
+      margin: 0px 0px 10px 8px;
+      font-size: 20px;
       color: #444;
-      font-family: $fontFamily;
     }
 
     .columns-list {
@@ -165,6 +181,26 @@
       display: flex;
       flex-direction: column;
       gap: 10px;
+
+      &::-webkit-scrollbar {
+        width: 5px;
+      }
+
+      /* remove track */
+      &::-webkit-scrollbar-track {
+        background: transparent;
+      }
+
+      /* purple thumb only */
+      &::-webkit-scrollbar-thumb {
+        background-color: #776cf0;
+        border-radius: 10px;
+        border: none;
+      }
+
+      &::-webkit-scrollbar-thumb:hover {
+        background-color: #5b52d6;
+      }
 
       .column-item {
         display: flex;
@@ -317,6 +353,7 @@
   display: flex;
   margin: 0px;
   align-items: center;
+  font-weight: 600;
 }
 
 .osr_subname {
@@ -324,7 +361,6 @@
   display: flex;
   margin: 0px;
   align-items: center;
-  color: gray;
 }
 
 .yellow-row {
@@ -352,6 +388,19 @@
   transition: transform 0.3s ease, background-color 0.3s ease;
 }
 
+.btn_FiletrBtnOpen {
+  height: 40px;
+  width: 42px;
+  min-width: 40px !important;
+  border-radius: 10px;
+  border: 1px solid #7367f0 !important;
+  color: #7367f0 !important;
+  outline: none;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 15px;
+  padding: 0px !important;
+}
 
 .btn_FilterButton {
   background-color: #1b911b;
@@ -374,6 +423,47 @@
   transition: transform 0.3s ease, background-color 0.3s ease;
 }
 
+.btn_Action_FiletrBtnOpen {
+  height: 40px;
+  border-radius: 3px;
+  border: 1px solid #7367f0;
+  color: #7367f0;
+  outline: none;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.drawerMain .MuiDrawer-paper {
+  width: 400px !important;
+}
+
+.sidebar_filter_main_div {
+  padding-bottom: 100px;
+  height: 77vh;
+  overflow: auto;
+
+  &::-webkit-scrollbar {
+    width: 5px;
+  }
+
+  /* remove track */
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  /* purple thumb only */
+  &::-webkit-scrollbar-thumb {
+    background-color: #776cf0;
+    border-radius: 10px;
+    border: none;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background-color: #5b52d6;
+  }
+}
+
 /* Remove native title tooltip on header */
 .MuiDataGrid-columnHeaderTitle {
   pointer-events: none;
@@ -384,6 +474,28 @@
   pointer-events: auto;
 }
 
+.simpleGridView {
+  box-shadow: 0 0.1875rem 0.75rem 0 rgba(47, 43, 61, 0.14);
+  background-color: white;
+  font-family: $fontFamily;
+  margin: 0px;
+}
+
+.btn_FiletrBtnAll {
+  margin: 0px !important;
+  padding: 0px !important;
+  border-radius: 10px;
+  color: #7367f0 !important;
+  border: 1px solid #7367f0 !important;
+  outline: none !important;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 15px;
+  min-width: 50px !important;
+  height: 37px;
+}
+.btn_FiletrBtnAll:hover {
+}
 
 .dataGrid_Warper {
   .pagination {
@@ -478,5 +590,3 @@
     font-size: 11.5px !important;
   }
 }
-
-

@@ -7,33 +7,41 @@ import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import "react-datepicker/dist/react-datepicker.css";
 import {
+  Alert,
   Button,
   Checkbox,
   Dialog,
   Drawer,
   IconButton,
   Paper,
+  Snackbar,
   Tooltip,
   Typography,
 } from "@mui/material";
+import { AiFillSetting } from "react-icons/ai";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { useSearchParams } from "react-router-dom";
-import { AlertTriangle, ArrowLeft, X } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowLeft,
+  X,
+  NotebookPen,
+  Printer,
+  MessageCircle,
+} from "lucide-react";
 import { GoCopy } from "react-icons/go";
 import Warper from "../../warper";
 import { CallApi } from "../../../../API/CallApi/CallApi";
-import Print1JewelleryBook from "../Print1JewelleryBook/Print1JewelleryBook";
+import Print1JewelleryBook from "./Print1JewelleryBook";
 import FilterDrawer from "../FilterDrawer/FilterDrawer";
 import {
   CustomPagination,
+  DraggableColumn,
   formatToMMDDYYYY,
 } from "../../../../Utils/globalFunc";
 import ImageView from "../ImageView/ImageView";
 import ReportTopFilterEndAction from "../ReportTopFilterEndAction/ReportTopFilterEndAction";
 import ActionFilter from "../ActionFilter/ActionFilter";
-import ColumnRearrange from "../ColumnRearrange/ColumnRearrange";
-import IframAction from "../IframAction/IframAction";
-import SummaryEndFilteredValue from "../SummaryEndFilteredValue/SummaryEndFilteredValue";
 
 export default function MainReport({
   OtherKeyData,
@@ -53,12 +61,15 @@ export default function MainReport({
   const [isLoading, setIsLoading] = useState(isLoadingChek);
   const [showImageView, setShowImageView] = useState(false);
   const [openPopup, setOpenPopup] = useState(false);
+  const [columSaveLoding, setColumSaveLoding] = useState(false);
+  const [openHrefModel, setOpenHrefModel] = useState(false);
   const [columns, setColumns] = useState([]);
   const [columnsHide, setColumnsHide] = useState([]);
   const [allColumData, setAllColumData] = useState();
   const [masterKeyData, setMasterKeyData] = useState();
   const [allColumIdWiseName, setAllColumIdWiseName] = useState();
   const [allRowData, setAllRowData] = useState();
+  const [checkedColumns, setCheckedColumns] = useState({});
   const [status500, setStatus500] = useState(false);
   const [commonSearch, setCommonSearch] = useState("");
   const [sortModel, setSortModel] = useState([]);
@@ -70,13 +81,16 @@ export default function MainReport({
   const [filteredValueState, setFilteredValue] = useState();
   const [grupEnChekBox, setGrupEnChekBox] = useState({});
   const [grupEnChekBoxImage, setGrupEnChekBoxImage] = useState([]);
+  const [openSnackbar, setOpenSnackbar] = useState(false);
   const [showReportMaster, setShowReportMaster] = useState(showBackErrow);
   const [isPageChanging, setIsPageChanging] = useState(false);
   const [showPrintView, setShowPrintView] = useState(false);
   const [printData, setPrintData] = useState([]);
   const [navigationData, setNavigationData] = useState();
+  const [iframeModelData, setIframeModelData] = useState();
   const [sideFilterOpen, setSideFilterOpen] = useState(false);
   const [selectedColors, setSelectedColors] = useState([]);
+  const [iframeUrl, setIframeUrl] = useState("");
   const [navigationPageMaster, setNavigationPageMaster] = useState();
   const [selectedCurrency, setSelectedCurrency] = useState("INR");
   const [draftFilters, setDraftFilters] = useState({});
@@ -85,17 +99,7 @@ export default function MainReport({
   const [highlightedIndex, setHighlightedIndex] = useState({});
   const [preparingPrint, setPreparingPrint] = useState(false);
   const [currentPrintPage, setCurrentPrintPage] = useState(1);
-  const [tempColumns, setTempColumns] = useState([]);
   const [searchParams] = useSearchParams();
-  const [isExpanded, setIsExpanded] = useState(false); // Add this state
-  const [selectedGroups, setSelectedGroups] = useState(grupEnChekBox);
-  const [summaryColumns, setSummaryColumns] = useState();
-  const [finalSummaryColumns, setFinalSummaryColumns] = useState();
-
-  const [previewImg, setPreviewImg] = useState(null);
-  const [openImgModal, setOpenImgModal] = useState(false);
-
-
   const gridContainerRef = useRef(null);
   const fullscreenContainer = gridContainerRef.current || document.body;
   const apiRef = useGridApiRef();
@@ -114,19 +118,10 @@ export default function MainReport({
   });
   const startDate = filterState?.dateRange?.startDate;
   const endDate = filterState?.dateRange?.endDate;
+
   const toggleDrawer = (newOpen) => () => {
     setSideFilterOpen(newOpen);
   };
-
-  useEffect(() => {
-    if (openPopup) {
-      setTempColumns(JSON.parse(JSON.stringify(allColumData)));
-    }
-  }, [openPopup, allColumData]);
-
-  useEffect(() => {
-    setSelectedGroups(grupEnChekBox); // update internal state when prop changes
-  }, [grupEnChekBox]);
 
   useEffect(() => {
     const keyPrefix = `${pid}_`;
@@ -138,6 +133,26 @@ export default function MainReport({
       return;
     }
     const reportId = matchingKey.split("_")[1];
+    const getIframeUrlParams = async () => {
+      try {
+        let AllData = JSON.parse(sessionStorage.getItem("reportVarible"));
+        const body = {
+          con: JSON.stringify({
+            mode: "getIframeUrlParams",
+            appuserid: AllData?.LUId,
+            IPAddress: clientIpAddress,
+          }),
+          p: JSON.stringify({
+            ReportId: reportId,
+          }),
+          f: "get iframe list (get url data)",
+        };
+        const response = await CallApi(body);
+        setIframeModelData(response);
+      } catch (error) {
+        console.error("Error fetching report data:", error);
+      }
+    };
 
     let AllData = JSON.parse(sessionStorage.getItem("reportVarible"));
     const getNavigationPageName = async () => {
@@ -159,8 +174,40 @@ export default function MainReport({
         console.error("Failed fetching report settings", err);
       }
     };
+    getIframeUrlParams();
     getNavigationPageName();
   }, []);
+
+  const saveReportActivity = (reportId, activity) => {
+    const key = `reportActivity_${reportId}`;
+
+    const existing = JSON.parse(sessionStorage.getItem(key)) || {
+      ReportId: reportId,
+      ReportName: reportName,
+      activityDetails: [],
+    };
+
+    let newActivities = [];
+
+    if (Array.isArray(activity)) {
+      newActivities = activity;
+    } else if (activity) {
+      newActivities = [activity];
+    }
+
+    const updatedActivityDetails = [
+      ...existing.activityDetails,
+      ...newActivities,
+    ];
+
+    sessionStorage.setItem(
+      key,
+      JSON.stringify({
+        ...existing,
+        activityDetails: updatedActivityDetails,
+      })
+    );
+  };
 
   useEffect(() => {
     const interval = setInterval(async () => {
@@ -276,6 +323,23 @@ export default function MainReport({
     }
   }, [filterState.dateRange]);
 
+  useEffect(() => {
+    setTimeout(() => {
+      const items = document.querySelectorAll(
+        ".MuiButtonBase-root.MuiListItem-root.MuiListItem-gutters.MuiListItem-padding.MuiListItem-button"
+      );
+      items.forEach((item) => {
+        const textElement = item.querySelector(".MuiListItemText-root");
+        if (textElement) {
+          const text = textElement.textContent.trim();
+          if (text === "Last Year" || text === "This Year") {
+            item.style.display = "none";
+          }
+        }
+      });
+    }, 100);
+  }, []);
+
   const fetchData = async () => {
     try {
       if (OtherKeyData == null) {
@@ -321,11 +385,18 @@ export default function MainReport({
     fetchData();
   }, [OtherKeyData]);
 
-  const handleGrupEnChekBoxChange = (field, HeaderName) => {
-    setFilteredValue((prev = []) =>
-      prev.filter((item) => item.name !== HeaderName)
-    );
+  useEffect(() => {
+    if (allColumData?.length > 0) {
+      const initialChecked = {};
+      allColumData?.forEach((col) => {
+        initialChecked[col.FieldName] =
+          col.IsVisible === true || col.IsVisible === "True";
+      });
+      setCheckedColumns(initialChecked);
+    }
+  }, [allColumData]);
 
+  const handleGrupEnChekBoxChange = (field) => {
     setGrupEnChekBox((prev) => {
       const newValue = !prev[field];
 
@@ -366,17 +437,6 @@ export default function MainReport({
     );
   };
 
-  const handleImageOpen = (src) => {
-    setPreviewImg(src);
-    setOpenImgModal(true);
-  };
-
-  const handleImageClose = () => {
-    setOpenImgModal(false);
-    setPreviewImg(null);
-  };
-
-
   useEffect(() => {
     const handleKeyPress = (e) => {
       if (e.altKey && e.key.toLowerCase() === "f") {
@@ -395,11 +455,6 @@ export default function MainReport({
     };
   }, []);
 
-  const getSafeImageSrc = (src) => {
-    const cleanSrc = String(src ?? "").trim();
-    return cleanSrc ? cleanSrc : noFoundImg;
-  };
-
   useEffect(() => {
     if (!allColumData) return;
     const toBool = (val) => String(val).toLowerCase() === "true";
@@ -410,7 +465,7 @@ export default function MainReport({
           field: col.FieldName,
           headerName: col.HeaderName, // Just use the text here
           renderHeader: (
-            params
+            params // Use renderHeader for custom header content
           ) => (
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
               {col?.GrupChekBox == "True" &&
@@ -418,7 +473,7 @@ export default function MainReport({
                   <Checkbox
                     checked={grupEnChekBox[col.FieldName] || false}
                     onClick={(e) => e.stopPropagation()}
-                    onChange={() => handleGrupEnChekBoxChange(col.FieldName, col.HeaderName)}
+                    onChange={() => handleGrupEnChekBoxChange(col.FieldName)}
                     size="small"
                     sx={{
                       p: 0,
@@ -443,7 +498,6 @@ export default function MainReport({
           onHrefLinkModel: col.OnHrefLinkModel,
           onHrefNavigate: col.OnHrefNavigate,
           Summary: col?.Summary,
-          GrupChekBox: col?.GrupChekBox,
           SummaryValueKey: col.SummaryValueKey,
           DefaultSort: col.DefaultSort,
           SummaryValueFormated: col.SummaryValueFormated,
@@ -463,7 +517,6 @@ export default function MainReport({
           RedirectId: col?.RedirectId,
           IframeTypeId: col.IframeTypeId,
           IsShowDateWithTime: col.IsShowDateWithTime,
-          TwoColumnData: col.TwoColumnData,
           filterTypes: [
             toBool(col.NormalFilter) && "NormalFilter",
             toBool(col.MultiSelection) && "MultiSelection",
@@ -485,7 +538,8 @@ export default function MainReport({
               ) {
                 const dateObj = new Date(params.value);
 
-                if (col.IsShowDateWithTime == "True") {
+                if (col.IsShowDateWithTime) {
+                  // Date + Time (HH:mm:ss) in UTC
                   const datePart = dateObj.toLocaleDateString("en-GB", {
                     day: "2-digit",
                     month: "short",
@@ -503,6 +557,7 @@ export default function MainReport({
 
                   formattedDate = `${datePart} ${timePart}`;
                 } else {
+                  // Date only
                   formattedDate = dateObj.toLocaleDateString("en-GB", {
                     day: "2-digit",
                     month: "short",
@@ -528,9 +583,9 @@ export default function MainReport({
               );
             }
 
-            if (col?.ImageColumn === "True") {
-              const src = getSafeImageSrc(params?.row?.ImgUrl);
-
+            if (col?.ImageColumn == "True") {
+              const src =
+                String(params?.row?.ImgUrl ?? "").trim() || noFoundImg;
               return (
                 <div
                   style={{
@@ -542,27 +597,57 @@ export default function MainReport({
                 >
                   <img
                     src={src}
-                    onClick={() => handleImageOpen(src)}
                     onError={(e) => {
-                      if (e.currentTarget.src !== noFoundImg) {
-                        e.currentTarget.src = noFoundImg;
-                      }
+                      if (e.target.src !== noFoundImg)
+                        e.target.src = noFoundImg;
                     }}
                     style={{
                       height: "35px",
                       width: "35px",
                       borderRadius: "5px",
-                      cursor: "pointer",
-                      objectFit: "cover",
                     }}
-                    alt="img"
                   />
                 </div>
               );
             }
 
             if (col?.IframeTypeId) {
-              return <IframAction params={params} col={col} />;
+              return (
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "center",
+                    alignItems: "center",
+                    height: "100%",
+                  }}
+                >
+                  <Button
+                    onClick={() =>
+                      openIframe(
+                        params,
+                        params?.colDef?.ColId,
+                        params?.colDef?.IframeTypeId
+                      )
+                    }
+                    style={{
+                      padding: "0px",
+                      fontSize: "12px",
+                      color: "black",
+                      textDecoration: "underline",
+                    }}
+                  >
+                    {col?.IconName == "NotebookPen" ? (
+                      <NotebookPen style={{ color: "gray" }} />
+                    ) : col?.IconName == "Printer" ? (
+                      <Printer style={{ color: "gray" }} />
+                    ) : col?.IconName == "MessageCircle" ? (
+                      <MessageCircle style={{ color: "gray" }} />
+                    ) : (
+                      "OPEN"
+                    )}
+                  </Button>
+                </div>
+              );
             }
 
             if (
@@ -579,7 +664,6 @@ export default function MainReport({
 
               return (
                 <span
-                  className=""
                   style={{
                     color: col.Color || "inherit",
                     backgroundColor: col.BackgroundColor || "inherit",
@@ -757,8 +841,8 @@ export default function MainReport({
       field: "sr",
       headerName: (
         <>
-          <div style={{ display: "flex", alignItems: "center" }}>
-            {masterKeyData?.CheckBoxSelection == "True" && (
+          {masterKeyData?.CheckBoxSelection == "True" ? (
+            <>
               <Checkbox
                 checked={
                   filteredRows?.length > 0 &&
@@ -782,9 +866,11 @@ export default function MainReport({
                 }}
                 size="small"
               />
-            )}
-            <p style={{ fontWeight: "500" }}>Sr#</p>
-          </div>
+              Sr#
+            </>
+          ) : (
+            "Sr#"
+          )}
         </>
       ),
       width: 90,
@@ -836,18 +922,124 @@ export default function MainReport({
 
       if (cand) {
         const hasField = visibleColumns.some((vc) => vc.field === cand.field);
+
         if (hasField) {
           const sortDir =
             String(cand.DefaultSort).toLowerCase() === "ascending"
               ? "asc"
               : "desc";
+
           initialSort.current = [{ field: cand.field, sort: sortDir }];
           setSortModel(initialSort.current);
         }
       }
+
       defaultSortApplied.current = true;
     }
   }, [allColumData, grupEnChekBox, paginationModel, selectionModel]);
+
+  const buildIframeUrl = (params, colId, iframeTypeId) => {
+    const row = params?.row || {};
+    const rd1Item = iframeModelData?.rd1?.find(
+      (x) => x.ColId == colId && x.IframeTypeId == iframeTypeId
+    );
+    const rdParams = iframeModelData?.rd?.filter(
+      (x) => x.ColId == colId && x.IframeTypeId == iframeTypeId
+    );
+    if (!rd1Item || !rdParams) return "";
+    const getRowValue = (paramName) => {
+      const key = Object.keys(row).find(
+        (k) => k.toLowerCase() === paramName.toLowerCase()
+      );
+      return key ? row[key] : "";
+    };
+    const queryString = rdParams
+      .map((p) => {
+        if (p.IsStatic === true || p.IsStatic === "true") {
+          return `${p.ParameterName}=${encodeURIComponent(p.ParameterValue)}`;
+        } else {
+          return `${p.ParameterName}=${encodeURIComponent(
+            getRowValue(p.ParameterName) || ""
+          )}`;
+        }
+      })
+      .join("&");
+    return `${rd1Item.BaseUrl}${rd1Item.ReportRedirectUrl}&${queryString}`;
+  };
+
+  const waitForIframeData = async () => {
+    let retries = 10; // retry max 10 times
+    let delay = 300; // 300ms interval
+    while (retries > 0) {
+      if (iframeModelData && iframeModelData.rd1 && iframeModelData.rd) {
+        return iframeModelData; // data ready
+      }
+      await new Promise((res) => setTimeout(res, delay)); // wait
+      retries--;
+    }
+
+    return null; // still no data
+  };
+
+  const openIframe = async (params, columId, iframeTypeId) => {
+    const data = await waitForIframeData();
+    if (!data) {
+      console.warn("iframeModelData not loaded even after waiting");
+      return;
+    }
+    const url = buildIframeUrl(params, columId, iframeTypeId);
+    setIframeUrl(url);
+    setOpenHrefModel(true);
+  };
+
+  const handleCellClick = (params, colId) => {
+    if (!navigationData) return;
+    const rd1Item = navigationData.rd1.find((item) => item.ColId == colId);
+    if (!rd1Item) {
+      console.warn("No rd1 found for ColId:", colId);
+      return;
+    }
+    const baseUrl = rd1Item.BaseUrl || "";
+    const redirectUrl = rd1Item.ReportRedirectUrl || "";
+    const rdParams = navigationData.rd.filter((item) => item.ColId == colId);
+    const getRowValue = (paramName) => {
+      const row = params?.row || {};
+      const key = Object.keys(row).find(
+        (k) => k.toLowerCase() === paramName.toLowerCase()
+      );
+      return key ? row[key] : "";
+    };
+    const queryParams = rdParams
+      .map((item) => {
+        const { VariableName, VariableValue, IsStatic } = item;
+        if (IsStatic === "true") {
+          return `${VariableName}=${encodeURIComponent(VariableValue)}`;
+        } else {
+          const dynamicVal = getRowValue(VariableName) || VariableValue || "";
+          return `${VariableName}=${btoa(dynamicVal)}`;
+        }
+      })
+      .join("&");
+    const fullUrl = `${baseUrl}${redirectUrl}&${queryParams}`;
+    const navigatePageId = params?.colDef?.RedirectId || "";
+    const navigateObj = navigationPageMaster?.rd1?.find(
+      (x) => x.RedirectId === Number(navigatePageId)
+    );
+    const navigateName = navigateObj?.RedirectPage || "";
+    if (window?.parent?.postMessage) {
+      window.parent.postMessage(
+        {
+          type: "ADD_TAB",
+          evt: "DynamicReport",
+          payload: {
+            TabName: navigateName,
+            TabUrl: fullUrl,
+          },
+        },
+        "*"
+      );
+    }
+  };
 
   const buildMasterValueMap = (masterData) => {
     const map = {};
@@ -869,22 +1061,27 @@ export default function MainReport({
     [masterData]
   );
 
-  //Single Colum Clikc All Colum Sepret
   useEffect(() => {
     if (apiRef.current) {
       const gridElement = apiRef.current.rootElementRef.current;
+
       if (gridElement) {
         const handleDoubleClick = (e) => {
+          // Check if double-click is on column separator
           if (e.target.classList.contains("MuiDataGrid-columnSeparator")) {
             e.preventDefault();
             e.stopPropagation();
+
+            // Auto-resize ALL columns
             apiRef.current.autosizeColumns({
               includeHeaders: true,
               includeOutliers: true,
             });
           }
         };
+
         gridElement.addEventListener("dblclick", handleDoubleClick, true);
+
         return () => {
           gridElement.removeEventListener("dblclick", handleDoubleClick, true);
         };
@@ -911,6 +1108,7 @@ export default function MainReport({
 
       return { id: index, ...formattedRow };
     });
+
   const isFirstLoad = useRef(true);
   useEffect(() => {
     if (allColumData) {
@@ -919,10 +1117,9 @@ export default function MainReport({
         dateCols.map((col) => ({
           field: col.FieldName,
           label: col.HeaderName,
-          IsVisible: col?.IsVisible
         }))
       );
-      if (isFirstLoad.current && dateCols.length > 0 && dateCols[0].HideColumn != "True") {
+      if (isFirstLoad.current && dateCols.length > 0) {
         setSelectedDateColumn(dateCols[0].FieldName);
         isFirstLoad.current = false;
       }
@@ -932,11 +1129,39 @@ export default function MainReport({
   const [filteredRows, setFilteredRows] = useState(originalRows);
   const [filters, setFilters] = useState({});
   const [filtersShow, setFiltersShow] = useState({});
-  const [filtersShowDraf, setFiltersShowDraf] = useState({});
+
+  useEffect(() => {
+    const filtersArray = filtersShow
+      ? Object.entries(filtersShow)
+          .filter(
+            ([_, value]) =>
+              value !== "" && value !== null && value !== undefined
+          )
+          .map(([key, value]) => {
+            if (Array.isArray(value) && value.length === 0) return null;
+            return { name: key, value };
+          })
+          .filter(Boolean)
+      : [];
+
+    const merged = [
+      ...filtersArray,
+      ...(Array.isArray(filteredValue) ? filteredValue : []),
+    ];
+
+    const uniqueMerged = merged.reduce((acc, current) => {
+      const exists = acc.find((item) => item.name === current.name);
+      if (!exists) acc.push(current);
+      return acc;
+    }, []);
+
+    setFilteredValue(uniqueMerged);
+  }, [filters, filteredValue, filtersShow]);
 
   useEffect(() => {
     const newFilteredRows = originalRows?.filter((row) => {
       let isMatch = true;
+
       for (const filterField of Object.keys(filters)) {
         const filterValue = filters[filterField];
         if (!filterValue || filterValue.length === 0) continue;
@@ -982,6 +1207,7 @@ export default function MainReport({
         }
       }
 
+      // Priority color filter
       if (isMatch && selectedColors?.length > 0) {
         const priorityCol = allColumData?.find(
           (x) => x.IsPriorityColumn === "True"
@@ -994,28 +1220,20 @@ export default function MainReport({
         }
       }
 
-      if (isMatch && !spliterReportShow && filterState && selectedDateColumn &&
-        (masterKeyData?.MainDateFilter == "True" ||
-          masterKeyData?.AllDataButton == "True")
-      ) {
-
-        // "2025-12-31T10:16:49.000Z"
-        const toDateOnly = (d) => new Date(new Date(d).toDateString());
-        const rowDate = toDateOnly(row[selectedDateColumn]);
-        const parsedStart = toDateOnly(startDate);
-        const parsedEnd = toDateOnly(endDate);
-
-        // const toUTCDateOnly = (d) =>
-        //   new Date(
-        //     Date.UTC(
-        //       new Date(d).getUTCFullYear(),
-        //       new Date(d).getUTCMonth(),
-        //       new Date(d).getUTCDate()
-        //     )
-        //   );
-        // const rowDate = toUTCDateOnly(row[selectedDateColumn]);
-        // const parsedStart = toUTCDateOnly(startDate);
-        // const parsedEnd = toUTCDateOnly(endDate);
+      // Date filter
+      if (isMatch && !spliterReportShow && filterState && selectedDateColumn) {
+        // const toDateOnly = (d) => new Date(new Date(d).toDateString());
+        const toUTCDateOnly = (d) =>
+          new Date(
+            Date.UTC(
+              new Date(d).getUTCFullYear(),
+              new Date(d).getUTCMonth(),
+              new Date(d).getUTCDate()
+            )
+          );
+        const rowDate = toUTCDateOnly(row[selectedDateColumn]);
+        const parsedStart = toUTCDateOnly(startDate);
+        const parsedEnd = toUTCDateOnly(endDate);
 
         if (
           isNaN(rowDate.getTime()) ||
@@ -1026,6 +1244,7 @@ export default function MainReport({
         }
       }
 
+      // Common search
       if (isMatch && commonSearch) {
         const searchText = commonSearch.toLowerCase();
         const hasMatch = Object.values(row).some((value) =>
@@ -1079,90 +1298,96 @@ export default function MainReport({
     selectedCurrency,
   ]);
 
-  const handleCellClick = (params, colId) => {
-    if (!navigationData) return;
-    const rd1Item = navigationData.rd1.find((item) => item.ColId == colId);
-    if (!rd1Item) {
-      console.warn("No rd1 found for ColId:", colId);
-      return;
-    }
-    const baseUrl = rd1Item.BaseUrl || "";
-    const redirectUrl = rd1Item.ReportRedirectUrl || "";
-    const rdParams = navigationData.rd.filter((item) => item.ColId == colId);
-    const getRowValue = (paramName) => {
-      const row = params?.row || {};
-      const key = Object.keys(row).find(
-        (k) => k.toLowerCase() === paramName.toLowerCase()
-      );
-      return key ? row[key] : "";
-    };
-    const queryParams = rdParams
-      .map((item) => {
-        const { VariableName, VariableValue, IsStatic, IsEncoded } = item;
-        if (IsStatic === "True") {
-          if (IsEncoded == "True") {
-            return `${VariableName}=${encodeURIComponent(VariableValue)}`;
-          } else {
-            return `${VariableName}=${VariableValue}`;
-          }
-        } else {
-          const dynamicVal = getRowValue(VariableName) || VariableValue || "";
-          if (IsEncoded == "True") {
-            return `${VariableName}=${btoa(dynamicVal)}`;
-          } else {
-            return `${VariableName}=${dynamicVal}`;
-          }
-        }
-      })
-      .join("&");
-    const fullUrl = `${baseUrl}${redirectUrl}&${queryParams}`;
-    const navigatePageId = params?.colDef?.RedirectId || "";
-    const navigateObj = navigationPageMaster?.rd1?.find(
-      (x) => x.RedirectId === Number(navigatePageId)
+  const summaryColumns = columnsHide?.filter((col) => {
+    const columnData = Object?.values(allColumData)?.find(
+      (data) => data?.FieldName === col?.field
     );
-    const navigateName = navigateObj?.RedirectPage || "";
-    if (window?.parent?.postMessage) {
-      window.parent.postMessage(
-        {
-          type: "ADD_TAB",
-          evt: "DynamicReport",
-          payload: {
-            TabName: navigateName,
-            TabUrl: fullUrl,
-          },
-        },
-        "*"
-      );
-    }
-  };
+    return String(columnData?.Summary).toLowerCase() === "true";
+  });
 
-  const saveReportActivity = (reportId, activity) => {
-    const key = `reportActivity_${reportId}`;
-    const existing = JSON.parse(sessionStorage.getItem(key)) || {
-      ReportId: reportId,
-      ReportName: reportName,
-      activityDetails: [],
-    };
+  const unicSummaryColumns = columnsHide?.filter((col) => {
+    const columnData = Object?.values(allColumData)?.find(
+      (data) => data?.FieldName === col?.field
+    );
+    return String(columnData?.IsUniqueCount).toLowerCase() === "true";
+  });
 
-    let newActivities = [];
+  const finalSummaryColumns = [...summaryColumns, ...unicSummaryColumns];
+  const renderSummary = () => {
+    const sortedSummaryColumns = [...finalSummaryColumns].sort((a, b) => {
+      const aOrder = a.SummeryOrder;
+      const bOrder = b.SummeryOrder;
+      if (!aOrder && !bOrder) return 0;
+      if (aOrder && !bOrder) return -1;
+      if (!aOrder && bOrder) return 1;
+      return Number(aOrder) - Number(bOrder);
+    });
 
-    if (Array.isArray(activity)) {
-      newActivities = activity;
-    } else if (activity) {
-      newActivities = [activity];
-    }
+    return (
+      <div
+        className="summaryBox"
+        style={{
+          display: "flex",
+          flexWrap: "wrap",
+        }}
+      >
+        {sortedSummaryColumns.map((col) => {
+          const columnMeta = Object.values(allColumData)?.find(
+            (data) => data.FieldName === col.field
+          );
 
-    const updatedActivityDetails = [
-      ...existing.activityDetails,
-      ...newActivities,
-    ];
+          const isUniq =
+            String(columnMeta?.IsUniqueCount).toLowerCase() === "true";
 
-    sessionStorage.setItem(
-      key,
-      JSON.stringify({
-        ...existing,
-        activityDetails: updatedActivityDetails,
-      })
+          let calculatedValue = 0;
+
+          if (isUniq) {
+            const allValues = filteredRows?.map((row) => row[col.field]) || [];
+            const uniqueValues = [...new Set(allValues)];
+            calculatedValue = uniqueValues.length;
+          } else {
+            calculatedValue =
+              filteredRows?.reduce(
+                (sum, row) => sum + (parseFloat(row[col.field]) || 0),
+                0
+              ) || 0;
+          }
+
+          return (
+            <div
+              key={col.field}
+              className={
+                sortedSummaryColumns.length >= 3
+                  ? sortedSummaryColumns.length >= 9
+                    ? "AllEmploe_boxViewTotal_big_more"
+                    : "AllEmploe_boxViewTotal_big"
+                  : "AllEmploe_boxViewTotal"
+              }
+            >
+              <div>
+                <p className="AllEmplo_boxViewTotalValue">
+                  {isUniq
+                    ? calculatedValue
+                    : col?.SummaryValueFormated == 1
+                    ? Number(calculatedValue).toLocaleString("en-IN", {
+                        minimumFractionDigits: col?.SummaryValueKey,
+                        maximumFractionDigits: col?.SummaryValueKey,
+                      })
+                    : calculatedValue.toFixed(Number(col?.SummaryValueKey))}
+                  <span style={{ fontSize: "17px" }}>{col?.SummaryUnit}</span>
+                </p>
+
+                <p className="boxViewTotalTitle">
+                  {columnMeta?.SummaryTitle == null ||
+                  columnMeta?.SummaryTitle == ""
+                    ? col?.headerNameSub
+                    : columnMeta?.SummaryTitle}
+                </p>
+              </div>
+            </div>
+          );
+        })}
+      </div>
     );
   };
 
@@ -1178,8 +1403,8 @@ export default function MainReport({
       console.warn("No ReportId found in sessionStorage for pid", pid);
       return;
     }
-
     const reportId = matchingKey.split("_")[1];
+
     saveReportActivity(reportId, {
       ActionName: "PAGINATION",
       ActionOn: "pageno",
@@ -1196,29 +1421,20 @@ export default function MainReport({
     }, 400);
   };
 
+  const handleClickOpenPoup = () => {
+    setOpenPopup(true);
+  };
+
+  const handleClosePopup = () => {
+    setOpenPopup(false);
+  };
+
   const onDragEnd = (result) => {
     if (!result.destination) return;
-
-    const visibleColumns = tempColumns.filter(
-      (col) => col.HideColumn !== "True"
-    );
-
-    const [moved] = visibleColumns.splice(result.source.index, 1);
-    visibleColumns.splice(result.destination.index, 0, moved);
-
-    const newTempColumns = [];
-    let visibleIndex = 0;
-
-    for (let col of tempColumns) {
-      if (col.HideColumn !== "True") {
-        newTempColumns.push(visibleColumns[visibleIndex]);
-        visibleIndex++;
-      } else {
-        newTempColumns.push(col);
-      }
-    }
-
-    setTempColumns(newTempColumns); // ✅ only temp changes
+    const updated = Array.from(allColumData);
+    const [moved] = updated.splice(result.source.index, 1);
+    updated.splice(result.destination.index, 0, moved);
+    setAllColumData(updated);
   };
 
   const groupRows = (rows, groupCheckBox) => {
@@ -1266,6 +1482,65 @@ export default function MainReport({
       id: index,
       srNo: index + 1,
     }));
+  };
+
+  const handleSaveSettings = async () => {
+    setColumSaveLoding(true);
+    let reportId = null;
+    const keyPrefix = `${pid}_`;
+    for (let i = 0; i < sessionStorage.length; i++) {
+      const key = sessionStorage.key(i);
+      if (key && key.startsWith(keyPrefix)) {
+        reportId = key.split("_")[1];
+        break;
+      }
+    }
+    if (!reportId) {
+      console.warn("No ReportId found in sessionStorage for pid", pid);
+      return;
+    }
+    try {
+      const updatedData = allColumData.map((col, idx) => ({
+        ...col,
+        IsVisible: checkedColumns[col.FieldName] ? "True" : "False",
+        DisplayOrder: idx + 1,
+      }));
+      const columnsPayload = updatedData.map((col) => ({
+        ColId: parseInt(col.ColId, 10),
+        IsVisible: col.IsVisible,
+        DisplayOrder: col.DisplayOrder,
+      }));
+      let AllData = JSON.parse(sessionStorage.getItem("reportVarible"));
+
+      const body = {
+        con: JSON.stringify({
+          mode: "updateCompanyReportColumns",
+          appuserid: AllData?.LUId,
+          IPAddress: clientIpAddress,
+        }),
+        p: JSON.stringify({
+          ReportId: reportId,
+          Columns: columnsPayload,
+        }),
+        f: "DynamicReport (update display order test)",
+      };
+      const response = await CallApi(body);
+      if (response?.rd[0]?.stat === 1) {
+        setAllColumData(updatedData);
+        sessionStorage.setItem(
+          "savedColumns_" + reportName,
+          JSON.stringify(updatedData)
+        ); // ✅ store
+        setOpenSnackbar(true);
+        setColumSaveLoding(false);
+      } else {
+        console.warn("Failed to update DisplayOrder:", response?.stat_msg);
+        setColumSaveLoding(false);
+      }
+    } catch (error) {
+      console.error("handleSaveSettings failed:", error);
+      setColumSaveLoding(false);
+    }
   };
 
   const handlePrintNow = (currentPageItems, currentPage) => {
@@ -1371,7 +1646,7 @@ export default function MainReport({
   }
 
   return (
-    <DragDropContext key={openPopup ? "open" : "closed"} onDragEnd={onDragEnd}>
+    <DragDropContext onDragEnd={onDragEnd}>
       {showPrintView ? (
         <div ref={printRef}>
           <Print1JewelleryBook visibleItemsMain={printData} />
@@ -1379,36 +1654,137 @@ export default function MainReport({
       ) : (
         <div
           className="dynamic_sample_report_main"
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            position: isExpanded ? "fixed" : "relative",
-            top: isExpanded ? 0 : "auto",
-            left: isExpanded ? 0 : "auto",
-            right: isExpanded ? 0 : "auto",
-            bottom: isExpanded ? 0 : "auto",
-            zIndex: isExpanded ? 9999 : "auto",
-            // backgroundColor: isExpanded ? "#fff" : "transparent",
-            overflow: isExpanded ? "auto" : "visible",
-            padding: isExpanded ? "10px" : "0",
-          }}
+          sx={{ width: "100vw", display: "flex", flexDirection: "column" }}
           ref={gridContainerRef}
         >
+          <Snackbar
+            open={openSnackbar}
+            autoHideDuration={3000}
+            onClose={() => setOpenSnackbar(false)}
+            anchorOrigin={{ vertical: "top", horizontal: "center" }}
+          >
+            <Alert severity="success" onClose={() => setOpenSnackbar(false)}>
+              Column Update Successfully!
+            </Alert>
+          </Snackbar>
+
+          <Dialog
+            open={openHrefModel}
+            onClose={() => setOpenHrefModel(false)}
+            PaperProps={{
+              sx: {
+                height: "40vh",
+                borderRadius: 2,
+                overflow: "hidden",
+                width: "600px",
+              },
+            }}
+          >
+            <div
+              style={{
+                position: "absolute",
+                right: "10px",
+                top: "10px",
+              }}
+            >
+              <IconButton
+                edge="end"
+                size="small"
+                onClick={() => setOpenHrefModel(false)}
+                aria-label="clear"
+                style={{ border: "1px solid #b3c6ff" }}
+              >
+                <X size={18} color="black" />
+              </IconButton>
+            </div>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                padding: "20px",
+                height: "100%",
+              }}
+            >
+              <iframe
+                src={iframeUrl}
+                title="iframe-preview"
+                style={{
+                  border: "none",
+                  height: "100%",
+                }}
+              />
+            </div>
+          </Dialog>
+
           <Dialog
             open={openPopup}
             onClose={() => setOpenPopup(false)}
-            disablePortal
-            sx={{
-              borderRadius: '20px'
-            }}
+            container={gridContainerRef.current}
           >
-            <ColumnRearrange
-              setOpenPopup={setOpenPopup}
-              tempColumns={tempColumns}
-              setAllColumData={setAllColumData}
-              reportName={reportName}
-              allColumData={allColumData}
-            />
+            <div className="colum_setting_model_main">
+              <div className="filterDrawer">
+                <p className="title">Column Rearrange</p>
+
+                <Droppable droppableId="columns-list" type="COLUMN">
+                  {(provided) => (
+                    <div
+                      ref={provided.innerRef}
+                      {...provided.droppableProps}
+                      className="columns-list"
+                    >
+                      {allColumData
+                        .filter((col) => col.HideColumn !== "True")
+                        .map((col, index) => (
+                          <DraggableColumn
+                            key={col.FieldName}
+                            col={col}
+                            index={index}
+                            checkedColumns={checkedColumns}
+                            handleCheckboxChange={() =>
+                              setCheckedColumns((prev) => ({
+                                ...prev,
+                                [col.FieldName]: !prev[col.FieldName],
+                              }))
+                            }
+                          />
+                        ))}
+                      {provided.placeholder}
+                    </div>
+                  )}
+                </Droppable>
+
+                <div className="btn-container">
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    className="btn_SaveColumModel"
+                    onClick={handleSaveSettings}
+                    disabled={columSaveLoding}
+                  >
+                    {columSaveLoding ? (
+                      <span className="loading-text">
+                        {"Loading...".split("").map((char, index) => (
+                          <span key={index} style={{ "--i": index }}>
+                            {char}
+                          </span>
+                        ))}
+                      </span>
+                    ) : (
+                      "Save"
+                    )}
+                  </Button>
+
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    className="btn_CancelColumModel"
+                    onClick={handleClosePopup}
+                  >
+                    cancel
+                  </Button>
+                </div>
+              </div>
+            </div>
           </Dialog>
 
           <Drawer
@@ -1425,8 +1801,6 @@ export default function MainReport({
               setDraftFilters={setDraftFilters}
               setCommonSearch={setCommonSearch}
               setFiltersShow={setFiltersShow}
-              setFiltersShowDraf={setFiltersShowDraf}
-              filtersShowDraf={filtersShowDraf}
               setFilters={setFilters}
               setFilteredValue={setFilteredValue}
               filteredValueState={filteredValueState}
@@ -1448,10 +1822,6 @@ export default function MainReport({
               saveReportActivity={saveReportActivity}
               endDate={endDate}
               startDate={startDate}
-              selectedGroups={selectedGroups}
-              filtersShow={filtersShow}
-              filteredValue={filteredValue}
-              filters={filters}
             />
           </Drawer>
 
@@ -1473,25 +1843,75 @@ export default function MainReport({
               />
             </Dialog>
           </LocalizationProvider>
-          <div>
-            <SummaryEndFilteredValue
-              setSummaryColumns={setSummaryColumns}
-              setFinalSummaryColumns={setFinalSummaryColumns}
-              columnsHide={columnsHide}
-              allColumData={allColumData}
-              filteredRows={filteredRows}
-              showReportMaster={showReportMaster}
-              onBack={onBack}
-              filteredValueState={filteredValueState}
-              masterKeyData={masterKeyData}
-              gridContainerRef={gridContainerRef}
-              setOpenPopup={setOpenPopup}
-              selectedGroups={selectedGroups}
-              setDraftFilters={setDraftFilters}
-              setFiltersShowDraf={setFiltersShowDraf}
-              setFilteredValue={setFilteredValue}
-            />
+
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              padding: "5px 10px 0px 10px",
+            }}
+          >
+            <div style={{ display: "flex" }}>
+              <div style={{ display: "flex", gap: "15px" }}>
+                {showReportMaster && (
+                  <Button
+                    variant="outlined"
+                    onClick={onBack}
+                    className="Btn_BackErrow"
+                  >
+                    <ArrowLeft color="#7367f0b3" />
+                  </Button>
+                )}
+                <div style={{ display: "flex", gap: "10px" }}>
+                  {filteredValueState?.map((data, i) => (
+                    <div
+                      key={i}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "4px",
+                      }}
+                    >
+                      <p className="FilterValue_title">{data.name} : </p>
+                      <p className="FilterValue_Value">{" " + data.value}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: "10px" }}>
+              {masterKeyData?.ColumnSettingModel == "True" && (
+                <Tooltip
+                  title="Column Rearrange"
+                  isablePortal
+                  PopperProps={{
+                    container: gridContainerRef.current,
+                  }}
+                >
+                  <IconButton
+                    onClick={handleClickOpenPoup}
+                    sx={{
+                      background: "#cdd5ff",
+                      color: "#6f53ff",
+                      height: "42px",
+                      width: "42px",
+                      borderRadius: "6px",
+                      transition: "all .2s ease",
+                      "&:hover": {
+                        backgroundColor: "#cdd5ff",
+                        transform: "translateY(-2px)",
+                      },
+                    }}
+                    size="medium"
+                    className="btn_column_setting_model"
+                  >
+                    <AiFillSetting size={22} />
+                  </IconButton>
+                </Tooltip>
+              )}
+            </div>
           </div>
+          <div>{renderSummary()}</div>
           <ReportTopFilterEndAction
             isLoading={isLoading}
             toggleDrawer={toggleDrawer}
@@ -1531,26 +1951,23 @@ export default function MainReport({
             showImageView={showImageView}
             setShowImageView={setShowImageView}
             reportName={reportName}
-            isExpanded={isExpanded}
-            setIsExpanded={setIsExpanded}
-            apiRef={apiRef}
           />
           <div
             ref={gridRef}
             style={{
               height: showImageView
-                ? finalSummaryColumns?.length == 0
+                ? summaryColumns?.length == 0
                   ? "77vh"
                   : "70vh"
-                : finalSummaryColumns?.length == 0
-                  ? masterKeyData?.ColumnSettingModel == "True"
-                    ? "calc(100vh - 130px)"
-                    : "calc(100vh - 130px)"
-                  : finalSummaryColumns?.length > 9
-                    ? finalSummaryColumns?.length > 18
-                      ? "calc(100vh - 320px)"
-                      : "calc(100vh - 260px)"
-                    : "calc(100vh - 195px)",
+                : summaryColumns?.length == 0
+                ? masterKeyData?.ColumnSettingModel == "True"
+                  ? "calc(100vh - 190px)"
+                  : "calc(100vh - 130px)"
+                : finalSummaryColumns?.length > 9
+                ? finalSummaryColumns?.length > 18
+                  ? "calc(100vh - 370px)"
+                  : "calc(100vh - 300px)"
+                : "calc(100vh - 255px)",
               margin: "5px 10px",
               overflow: "auto",
               transition: "opacity 0.3s",
@@ -1575,17 +1992,19 @@ export default function MainReport({
                   columns={columns ?? []}
                   autoHeight={false}
                   columnBuffer={17}
-                  rowHeight={43}
+                  rowHeight={40}
                   getRowClassName={(params) =>
                     params.row.IsClub === 1 ? "yellow-row" : ""
                   }
                   sortModel={sortModel}
                   onSortModelChange={(model) => {
                     if (!model.length) return;
+
                     const keyPrefix = `${pid}_`;
                     const matchingKey = Object.keys(sessionStorage).find(
                       (key) => key.startsWith(keyPrefix)
                     );
+
                     if (!matchingKey) {
                       console.warn(
                         "No ReportId found in sessionStorage for pid",
@@ -1593,15 +2012,18 @@ export default function MainReport({
                       );
                       return;
                     }
+
                     const reportId = matchingKey.split("_")[1];
                     const { field, sort } = model[0];
                     const column = apiRef.current.getColumn(field);
                     const actionOn = column?.headerName || field;
+
                     saveReportActivity(reportId, {
                       ActionName: "SORT",
                       ActionOn: actionOn,
                       ActionValue: sort,
                     });
+
                     setSortModel(model);
                   }}
                   localeText={{ noRowsLabel: "No Data" }}
@@ -1619,7 +2041,7 @@ export default function MainReport({
                   sortingOrder={["asc", "desc"]}
                   sortingMode="client"
                   paginationModel={paginationModel}
-                  onPaginationModelChange={handlePaginationChange}
+                  onPaginationModelChange={handlePaginationChange} // ✅ use wrapped function
                   className="simpleGridView"
                   pagination
                   sx={{
@@ -1629,70 +2051,12 @@ export default function MainReport({
                     "& .MuiDataGrid-selectedRowCount": {
                       display: "none",
                     },
-                    "& .MuiDataGrid-columnHeaders": {
-                      fontWeight: 500,
-                    },
                   }}
                 />
               </Warper>
             )}
           </div>
 
-          <Dialog
-            open={openImgModal}
-            onClose={handleImageClose}
-            maxWidth="md"
-            PaperProps={{
-              sx: {
-                borderRadius: "10px",
-                backgroundColor: "#000",
-                position: "relative",
-                overflow: "visible", // important for button to float outside
-              },
-            }}
-          >
-            <IconButton
-              onClick={handleImageClose}
-              sx={{
-                position: "absolute",
-                top: 2, // negative to go half outside
-                right: 2, // negative to go half outside
-                color: "#fff",
-                zIndex: 2,
-                background: "rgba(0,0,0,0.5)",
-                "&:hover": { background: "rgba(0,0,0,0.7)" },
-                boxShadow: 1, // optional, makes it float nicely
-              }}
-            >
-              <X size={22} />
-            </IconButton>
-
-            <div
-              style={{
-                backgroundColor: "white",
-                height: "480px",
-                width: "480px",
-                display: "flex",
-                justifyContent: "center",
-                alignItems: "center",
-                borderRadius: '10px'
-              }}
-            >
-              <img
-                src={previewImg || noFoundImg}
-                alt="Preview"
-                onError={(e) => {
-                  if (e.currentTarget.src !== noFoundImg) {
-                    e.currentTarget.src = noFoundImg;
-                  }
-                }}
-                style={{
-                  width: "400px",
-                  height: "400px",
-                }}
-              />
-            </div>
-          </Dialog>
           {status500 && (
             <div
               style={{

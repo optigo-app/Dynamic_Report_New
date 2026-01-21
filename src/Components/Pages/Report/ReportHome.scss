@@ -215,81 +215,16 @@
     color: #7d7f85 !important;
   }
 
-  .boxViewTotalTitle {
-    margin: 0px;
-    font-size: 13px;
-    color: rgb(117, 117, 117);
-    cursor: pointer;
-    font-weight: 400;
-  }
 
-  .AllEmplo_boxViewTotalValue {
-    font-weight: 600;
-    font-size: 18px;
-    color: rgb(115, 103, 240);
-    margin: 0px;
-    min-width: 70px;
-    line-height: 23px;
-  }
 
   .selectDropDownMain {
     width: 100% !important;
-  }
-
-  .simpleGridView {
-    box-shadow: 0 0.1875rem 0.75rem 0 rgba(47, 43, 61, 0.14);
-    background-color: white;
-    font-family: $fontFamily;
-    margin: 0px;
   }
 
   .minTexBox {
     width: 150px !important;
   }
 
-  .btn_FiletrBtnOpen {
-    height: 35px;
-    width: 45px;
-    min-width: 40px;
-    border-radius: 3px;
-    background: linear-gradient(270deg, #7367f0b3, #7367f0) !important;
-    box-shadow: 0 2px 6px 0 #7367f04d !important;
-    border: none;
-    color: white;
-    outline: none;
-    cursor: pointer;
-    font-weight: 600;
-    font-size: 15px;
-  }
-
-  .btn_Action_FiletrBtnOpen {
-    height: 35px;
-    border-radius: 3px;
-    background: linear-gradient(270deg, #7367f0b3, #7367f0) !important;
-    border: none;
-    color: white;
-    outline: none;
-    cursor: pointer;
-    font-weight: 600;
-    font-size: 15px;
-  }
-
-  .btn_FiletrBtnAll {
-    height: 35px;
-    width: 40px;
-    min-width: 50px;
-    margin: 0px;
-    padding: 0px;
-    border-radius: 3px;
-    background: linear-gradient(270deg, #7367f0b3, #7367f0) !important;
-    box-shadow: 0 2px 6px 0 #7367f04d !important;
-    color: white !important;
-    border: none;
-    outline: none;
-    cursor: pointer;
-    font-weight: 600;
-    font-size: 15px;
-  }
 
   .accordianMain {
     margin: 20px !important;
@@ -531,9 +466,6 @@
   color: white !important;
 }
 
-.drawerMain .MuiDrawer-paper {
-  width: 400px !important;
-}
 
 .gridMetalComboMain {
   display: flex !important;
