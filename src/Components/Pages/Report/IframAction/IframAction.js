@@ -13,39 +13,43 @@ const IframAction = ({ params, col }) => {
   const [iframeUrl, setIframeUrl] = useState("");
   const [openHrefModel, setOpenHrefModel] = useState(false);
 
-  useEffect(() => {
-    const keyPrefix = `${pid}_`;
-    const matchingKey = Object.keys(sessionStorage).find((key) =>
-      key.startsWith(keyPrefix)
-    );
-    if (!matchingKey) {
-      console.warn("No ReportId found in sessionStorage for pid", pid);
-      return;
-    }
-    const reportId = matchingKey.split("_")[1];
-    const getIframeUrlParams = async () => {
-      try {
-        let AllData = JSON.parse(sessionStorage.getItem("reportVarible"));
-        const body = {
-          con: JSON.stringify({
-            mode: "getIframeUrlParams",
-            appuserid: AllData?.LUId,
-            IPAddress: clientIpAddress,
-          }),
-          p: JSON.stringify({
-            ReportId: reportId,
-          }),
-          f: "get iframe list (get url data)",
-        };
-        const response = await CallApi(body);
-        setIframeModelData(response);
-      } catch (error) {
-        console.error("Error fetching report data:", error);
-      }
-    };
 
+  useEffect(() => {
     getIframeUrlParams();
   }, []);
+
+  const keyPrefix = `${pid}_`;
+  const matchingKey = Object.keys(sessionStorage).find((key) =>
+    key.startsWith(keyPrefix)
+  );
+  if (!matchingKey) {
+    console.warn("No ReportId found in sessionStorage for pid", pid);
+    return;
+  }
+  const reportId = matchingKey.split("_")[1];
+  const getIframeUrlParams = async () => {
+    try {
+      let AllData = JSON.parse(sessionStorage.getItem("reportVarible"));
+      const body = {
+        con: JSON.stringify({
+          mode: "getIframeUrlParams",
+          appuserid: AllData?.LUId,
+          IPAddress: clientIpAddress,
+        }),
+        p: JSON.stringify({
+          ReportId: reportId,
+        }),
+        f: "get iframe list (get url data)",
+      };
+      const response = await CallApi(body);
+      setIframeModelData(response);
+    } catch (error) {
+      console.error("Error fetching report data:", error);
+    }
+  };
+
+
+
 
   const buildIframeUrl = (params, colId, iframeTypeId) => {
     const row = params?.row || {};

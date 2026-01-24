@@ -626,7 +626,7 @@ export default function ReportHome({
     setShowReportMaster(true);
   };
   return (
-    <DragDropContext onDragEnd={() => {}}>
+    <DragDropContext onDragEnd={() => { }}>
       {/* {isLoading && (
         <div className="loader-overlay">
           <CircularProgress className="loadingBarManage" />
@@ -762,6 +762,7 @@ export default function ReportHome({
                     Object.values(masterFields).find((arr) =>
                       arr.some((item) => item.hasOwnProperty(field))
                     ) || [];
+                  if (dataArray.length === 0) return null;
                   return (
                     <Grid item key={idx}>
                       <SelectionBox

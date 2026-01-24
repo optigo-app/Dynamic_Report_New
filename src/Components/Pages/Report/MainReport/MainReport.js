@@ -23,17 +23,19 @@ import { GoCopy } from "react-icons/go";
 import Warper from "../../warper";
 import { CallApi } from "../../../../API/CallApi/CallApi";
 import Print1JewelleryBook from "../Print1JewelleryBook/Print1JewelleryBook";
-import FilterDrawer from "../FilterDrawer/FilterDrawer";
 import {
   CustomPagination,
   formatToMMDDYYYY,
 } from "../../../../Utils/globalFunc";
 import ImageView from "../ImageView/ImageView";
-import ReportTopFilterEndAction from "../ReportTopFilterEndAction/ReportTopFilterEndAction";
 import ActionFilter from "../ActionFilter/ActionFilter";
 import ColumnRearrange from "../ColumnRearrange/ColumnRearrange";
 import IframAction from "../IframAction/IframAction";
-import SummaryEndFilteredValue from "../SummaryEndFilteredValue/SummaryEndFilteredValue";
+import BarChartView from "../ChartView/BarChartView";
+import PieChartView from "../ChartView/PieChartView";
+import FilterDrawer from "../FilterEndSummury/FilterDrawer/FilterDrawer";
+import ReportTopFilterEndAction from "../FilterEndSummury/ReportTopFilterEndAction/ReportTopFilterEndAction";
+import SummaryEndFilteredValue from "../FilterEndSummury/SummaryEndFilteredValue/SummaryEndFilteredValue";
 
 export default function MainReport({
   OtherKeyData,
@@ -50,6 +52,7 @@ export default function MainReport({
   colorMaster,
   currencyMaster,
 }) {
+  console.log('filteredValue: ', filteredValue);
   const [isLoading, setIsLoading] = useState(isLoadingChek);
   const [showImageView, setShowImageView] = useState(false);
   const [openPopup, setOpenPopup] = useState(false);
@@ -91,7 +94,7 @@ export default function MainReport({
   const [selectedGroups, setSelectedGroups] = useState(grupEnChekBox);
   const [summaryColumns, setSummaryColumns] = useState();
   const [finalSummaryColumns, setFinalSummaryColumns] = useState();
-
+  const [chartView, setChartView] = useState(false);
   const [previewImg, setPreviewImg] = useState(null);
   const [openImgModal, setOpenImgModal] = useState(false);
 
@@ -114,6 +117,8 @@ export default function MainReport({
   });
   const startDate = filterState?.dateRange?.startDate;
   const endDate = filterState?.dateRange?.endDate;
+
+
   const toggleDrawer = (newOpen) => () => {
     setSideFilterOpen(newOpen);
   };
@@ -464,6 +469,9 @@ export default function MainReport({
           IframeTypeId: col.IframeTypeId,
           IsShowDateWithTime: col.IsShowDateWithTime,
           TwoColumnData: col.TwoColumnData,
+          IsInFilterSection: col.IsInFilterSection,
+          IsOnScreenFilter: col.IsOnScreenFilter,
+          IsPositiveNagativeColor: col.IsPositiveNagativeColor,
           filterTypes: [
             toBool(col.NormalFilter) && "NormalFilter",
             toBool(col.MultiSelection) && "MultiSelection",
@@ -564,6 +572,51 @@ export default function MainReport({
             if (col?.IframeTypeId) {
               return <IframAction params={params} col={col} />;
             }
+
+            if (col?.IsPositiveNagativeColor === "True") {
+              console.log('col: ', col);
+              const value = Number(params.value);
+
+              const isPositive = value >= 0;
+
+              const fontColor = isPositive
+                ? col.PvFColor
+                : col.NvFColor;
+
+              const bgColor = isPositive
+                ? col.PvBgColor
+                : col.NvBgColor;
+
+              return (
+                <div
+                  style={{
+                    display: 'flex',
+                    height: '100%',
+                    justifyContent: col?.ColumnAlign || "left",
+                    alignItems: 'center'
+                  }}>
+                  <p
+                    style={{
+                      fontWeight: "bold",
+                      color: fontColor,
+                      backgroundColor: bgColor,
+                      padding: "4px 8px",
+                      borderRadius: "4px",
+                      display: "inline-block",
+                      textAlign: "center",
+                      display: 'flex',
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                      height: '18px',
+                      minWidth: '70px'
+                    }}
+                  >
+                    {params.value}
+                  </p>
+                </div>
+              );
+            }
+
 
             if (
               col?.TwoColumnData &&
@@ -847,7 +900,7 @@ export default function MainReport({
       }
       defaultSortApplied.current = true;
     }
-  }, [allColumData, grupEnChekBox, paginationModel, selectionModel]);
+  }, [allColumData, grupEnChekBox, paginationModel, selectionModel, sortModel]);
 
   const buildMasterValueMap = (masterData) => {
     const map = {};
@@ -933,6 +986,33 @@ export default function MainReport({
   const [filters, setFilters] = useState({});
   const [filtersShow, setFiltersShow] = useState({});
   const [filtersShowDraf, setFiltersShowDraf] = useState({});
+
+  useEffect(() => {
+    const filtersArray = filtersShow
+      ? Object.entries(filtersShow)
+        .filter(
+          ([_, value]) =>
+            value !== "" && value !== null && value !== undefined
+        )
+        .map(([key, value]) => {
+          if (Array.isArray(value) && value.length === 0) return null;
+          return { name: key, value };
+        })
+        .filter(Boolean)
+      : [];
+
+    const merged = [
+      ...filtersArray,
+      ...(Array.isArray(filteredValue) ? filteredValue : []),
+    ];
+
+    const uniqueMerged = merged.reduce((acc, current) => {
+      const exists = acc.find((item) => item.name === current.name);
+      if (!exists) acc.push(current);
+      return acc;
+    }, []);
+    setFilteredValue(uniqueMerged);
+  }, [filteredValue, filtersShow]);
 
   useEffect(() => {
     const newFilteredRows = originalRows?.filter((row) => {
@@ -1534,6 +1614,18 @@ export default function MainReport({
             isExpanded={isExpanded}
             setIsExpanded={setIsExpanded}
             apiRef={apiRef}
+            setChartView={setChartView}
+            chartView={chartView}
+            columnsHide={columnsHide}
+            draftFilters={draftFilters}
+            setFiltersShowDraf={setFiltersShowDraf}
+            filteredValueState={filteredValueState}
+            originalRows={originalRows}
+            selectedGroups={selectedGroups}
+            setSuggestionVisibility={setSuggestionVisibility}
+            suggestionVisibility={suggestionVisibility}
+            highlightedIndex={highlightedIndex}
+            setHighlightedIndex={setHighlightedIndex}
           />
           <div
             ref={gridRef}
@@ -1565,6 +1657,21 @@ export default function MainReport({
                   sortModel={sortModel}
                   columns={columns}
                 />
+              </div>
+            ) : chartView ? (
+              <div>
+                <BarChartView
+                  filteredRows={filteredRows}
+                  sortModel={sortModel}
+                  columns={columns}
+                />
+
+                <PieChartView
+                  filteredRows={filteredRows}
+                  sortModel={sortModel}
+                  columns={columns}
+                />
+
               </div>
             ) : (
               <Warper>

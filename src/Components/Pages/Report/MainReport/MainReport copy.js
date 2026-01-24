@@ -1,292 +1,42 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import Box from "@mui/material/Box";
 import "./MainReport.scss";
-// import mainButton from "../../../images/Mail_32.png";
 import noFoundImg from "../../../images/noFound.jpg";
 import { DataGrid, useGridApiRef } from "@mui/x-data-grid";
-import { DatePicker } from "@mui/x-date-pickers/DatePicker";
 import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
 import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
 import "react-datepicker/dist/react-datepicker.css";
-import { RiFullscreenLine } from "react-icons/ri";
-import ReactDOM from "react-dom/client";
 import {
-  Accordion,
-  AccordionDetails,
-  AccordionSummary,
-  Alert,
   Button,
-  Card,
   Checkbox,
-  CircularProgress,
   Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   Drawer,
-  FormControl,
-  FormControlLabel,
   IconButton,
-  InputAdornment,
-  InputLabel,
-  MenuItem,
-  Modal,
   Paper,
-  Select,
-  Slide,
-  Snackbar,
-  TextField,
   Tooltip,
   Typography,
 } from "@mui/material";
-import emailjs from "emailjs-com";
-import {
-  MdExpandMore,
-  MdOutlineFilterAlt,
-  MdOutlineFilterAltOff,
-} from "react-icons/md";
-import * as XLSX from "xlsx";
-import { saveAs } from "file-saver";
-import { AiFillSetting } from "react-icons/ai";
 import { DragDropContext, Droppable, Draggable } from "@hello-pangea/dnd";
 import { useSearchParams } from "react-router-dom";
-import {
-  AlertTriangle,
-  ArrowLeft,
-  ArrowLeftToLine,
-  CircleX,
-  Ellipsis,
-  FileSpreadsheet,
-  Grip,
-  GripHorizontal,
-  ImageUp,
-  Image,
-  ImageUpscale,
-  LayoutGrid,
-  Search,
-  X,
-  NotebookPen,
-  Printer,
-  MessageCircle,
-} from "lucide-react";
+import { AlertTriangle, ArrowLeft, X } from "lucide-react";
 import { GoCopy } from "react-icons/go";
-import {
-  GridPagination,
-  useGridApiContext,
-  useGridSelector,
-  gridPageSelector,
-  gridPageCountSelector,
-} from "@mui/x-data-grid";
-import {
-  FirstPage,
-  LastPage,
-  KeyboardArrowLeft,
-  KeyboardArrowRight,
-} from "@mui/icons-material";
-// import DynamicIcon from "../../../../Utils/Icone/DynamicIcon";
-import DualDatePicker from "../../../../Utils/DatePicker/DualDatePicker";
 import Warper from "../../warper";
 import { CallApi } from "../../../../API/CallApi/CallApi";
-import { FaFilter, FaPrint } from "react-icons/fa";
-import dayjs from "dayjs";
-import { ReportCallApi } from "../../../../API/ReportCommonAPI/ReportCallApi";
-import Print1JewelleryBook from "./Print1JewelleryBook";
+import Print1JewelleryBook from "../Print1JewelleryBook/Print1JewelleryBook";
 import FilterDrawer from "../FilterDrawer/FilterDrawer";
-const EXCEL_TYPE =
-  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8";
-
-const DraggableColumn = ({
-  col,
-  index,
-  handleCheckboxChange,
-  checkedColumns,
-}) => {
-  return (
-    <Draggable draggableId={col.FieldName.toString()} index={index}>
-      {(provided, snapshot) => (
-        <div
-          ref={provided.innerRef}
-          {...provided.draggableProps}
-          {...provided.dragHandleProps}
-          className="banner_card"
-          style={{
-            opacity: snapshot.isDragging ? 0.5 : 1,
-            cursor: "grab",
-            transition: "opacity 0.2s ease",
-            ...provided.draggableProps.style,
-            boxShadow:
-              "rgba(60, 64, 67, 0.3) 0px 1px 2px 0px, rgba(60, 64, 67, 0.15) 0px 2px 6px 2px",
-            padding: "5px 10px",
-            display: "flex",
-            justifyContent: "space-between",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
-            {/* <Grip color="#5c62dc"/> */}
-            <GripHorizontal color="#aeadad " />
-            <p style={{ margin: "0px" }}>{col.HeaderName}</p>
-          </div>
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={!!checkedColumns[col.FieldName]}
-                onChange={() => handleCheckboxChange(col.FieldName)}
-                sx={{
-                  "&.Mui-checked": {
-                    color: "rgb(115, 103, 240)",
-                  },
-                }}
-              />
-            }
-            sx={{
-              "& .MuiCheckbox-sizeSmall": {
-                display: "none!important",
-              },
-            }}
-          />
-        </div>
-      )}
-    </Draggable>
-  );
-};
-
-const formatToMMDDYYYY = (date) => {
-  const d = new Date(date);
-  return `${(d.getMonth() + 1).toString().padStart(2, "0")}/${d
-    .getDate()
-    .toString()
-    .padStart(2, "0")}/${d.getFullYear()}`;
-};
-
-function CustomPagination() {
-  const apiRef = useGridApiContext();
-  const page = useGridSelector(apiRef, gridPageSelector);
-  const pageCount = useGridSelector(apiRef, gridPageCountSelector);
-  const rowCount = apiRef.current.getRowsCount();
-  const pageSize = apiRef.current.state.pagination.paginationModel.pageSize;
-  const [inputPage, setInputPage] = React.useState(page + 1);
-
-  React.useEffect(() => {
-    setInputPage(page + 1);
-  }, [page]);
-
-  const handleInputChange = (e) => {
-    setInputPage(e.target.value);
-  };
-
-  const handleInputBlur = () => {
-    let newPage = Number(inputPage);
-
-    if (isNaN(newPage) || newPage < 1) {
-      newPage = 1;
-    } else if (newPage > pageCount) {
-      newPage = pageCount;
-    }
-
-    apiRef.current.setPage(newPage - 1);
-    setInputPage(newPage);
-  };
-
-  const handlePageSizeChange = (e) => {
-    apiRef.current.setPageSize(Number(e.target.value));
-  };
-
-  const startItem = page * pageSize + 1;
-  const endItem = Math.min((page + 1) * pageSize, rowCount);
-
-  return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "flex-end",
-        width: "100%",
-        padding: "0 8px",
-        gap: 16,
-      }}
-    >
-      {/* ✅ Page navigation */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <span style={{ fontSize: 14 }}>Rows per page:</span>
-        <TextField
-          select
-          size="small"
-          value={pageSize}
-          onChange={handlePageSizeChange}
-          SelectProps={{
-            native: true,
-          }}
-          style={{ width: 60 }}
-          sx={{
-            "& .MuiNativeSelect-select": {
-              padding: "2px 5px!important",
-              fontSize: "14px !important",
-            },
-          }}
-        >
-          {[20, 30, 50, 100].map((size) => (
-            <option key={size} value={size}>
-              {size}
-            </option>
-          ))}
-        </TextField>
-
-        <IconButton
-          size="small"
-          onClick={() => apiRef.current.setPage(0)}
-          disabled={page === 0}
-        >
-          <FirstPage fontSize="small" />
-        </IconButton>
-
-        <IconButton
-          size="small"
-          onClick={() => apiRef.current.setPage(page - 1)}
-          disabled={page === 0}
-        >
-          <KeyboardArrowLeft fontSize="small" />
-        </IconButton>
-
-        <p>Page</p>
-        <TextField
-          value={inputPage}
-          onChange={handleInputChange}
-          onBlur={handleInputBlur}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              handleInputBlur();
-            }
-          }}
-          size="small"
-          variant="outlined"
-          style={{ width: 60 }}
-          inputProps={{ style: { textAlign: "center", padding: "2px 4px" } }}
-        />
-        <span style={{ fontSize: 14 }}>of {pageCount}</span>
-
-        <IconButton
-          size="small"
-          onClick={() => apiRef.current.setPage(page + 1)}
-          disabled={page >= pageCount - 1}
-        >
-          <KeyboardArrowRight fontSize="small" />
-        </IconButton>
-
-        <IconButton
-          size="small"
-          onClick={() => apiRef.current.setPage(pageCount - 1)}
-          disabled={page >= pageCount - 1}
-        >
-          <LastPage fontSize="small" />
-        </IconButton>
-
-        <span style={{ fontSize: 14 }}>
-          Displaying {rowCount === 0 ? 0 : startItem} to {endItem} of {rowCount}
-        </span>
-      </div>
-    </div>
-  );
-}
+import {
+  CustomPagination,
+  formatToMMDDYYYY,
+} from "../../../../Utils/globalFunc";
+import ImageView from "../ImageView/ImageView";
+import ReportTopFilterEndAction from "../ReportTopFilterEndAction/ReportTopFilterEndAction";
+import ActionFilter from "../ActionFilter/ActionFilter";
+import ColumnRearrange from "../ColumnRearrange/ColumnRearrange";
+import IframAction from "../IframAction/IframAction";
+import SummaryEndFilteredValue from "../SummaryEndFilteredValue/SummaryEndFilteredValue";
+import BarChart from "../ChartView/BarChartView";
+import BarChartView from "../ChartView/BarChartView";
+import PieChartView from "../ChartView/PieChartView";
 
 export default function MainReport({
   OtherKeyData,
@@ -304,21 +54,14 @@ export default function MainReport({
   currencyMaster,
 }) {
   const [isLoading, setIsLoading] = useState(isLoadingChek);
-  const gridContainerRef = useRef(null);
-  const fullscreenContainer = gridContainerRef.current || document.body;
   const [showImageView, setShowImageView] = useState(false);
   const [openPopup, setOpenPopup] = useState(false);
-  const [columSaveLoding, setColumSaveLoding] = useState(false);
-  const [openHrefModel, setOpenHrefModel] = useState(false);
   const [columns, setColumns] = useState([]);
   const [columnsHide, setColumnsHide] = useState([]);
   const [allColumData, setAllColumData] = useState();
   const [masterKeyData, setMasterKeyData] = useState();
   const [allColumIdWiseName, setAllColumIdWiseName] = useState();
   const [allRowData, setAllRowData] = useState();
-  const [checkedColumns, setCheckedColumns] = useState({});
-  const gridRef = useRef(null);
-  const [searchParams] = useSearchParams();
   const [status500, setStatus500] = useState(false);
   const [commonSearch, setCommonSearch] = useState("");
   const [sortModel, setSortModel] = useState([]);
@@ -328,42 +71,65 @@ export default function MainReport({
   const [dateColumnOptions, setDateColumnOptions] = useState([]);
   const [selectedDateColumn, setSelectedDateColumn] = useState("");
   const [filteredValueState, setFilteredValue] = useState();
-  const [filterState, setFilterState] = useState({
-    dateRange: { startDate: null, endDate: null },
-  });
-  const startDate = filterState?.dateRange?.startDate;
-  const endDate = filterState?.dateRange?.endDate;
-  const apiRef = useGridApiRef();
   const [grupEnChekBox, setGrupEnChekBox] = useState({});
   const [grupEnChekBoxImage, setGrupEnChekBoxImage] = useState([]);
-  const [paginationModel, setPaginationModel] = useState({
-    page: 0,
-    pageSize: 20,
-  });
-  const [openSnackbar, setOpenSnackbar] = useState(false);
-  const pid = searchParams.get("pid");
-
-  const firstTimeLoadedRef = useRef(false);
   const [showReportMaster, setShowReportMaster] = useState(showBackErrow);
   const [isPageChanging, setIsPageChanging] = useState(false);
   const [showPrintView, setShowPrintView] = useState(false);
   const [printData, setPrintData] = useState([]);
   const [navigationData, setNavigationData] = useState();
-  const [iframeModelData, setIframeModelData] = useState();
-  const printRef = useRef();
   const [sideFilterOpen, setSideFilterOpen] = useState(false);
   const [selectedColors, setSelectedColors] = useState([]);
-  const [iframeUrl, setIframeUrl] = useState("");
   const [navigationPageMaster, setNavigationPageMaster] = useState();
   const [selectedCurrency, setSelectedCurrency] = useState("INR");
-  const pageSize = 250;
-  const [currentPage, setCurrentPage] = useState(1);
   const [draftFilters, setDraftFilters] = useState({});
   const clientIpAddress = sessionStorage.getItem("clientIpAddress");
+  const [suggestionVisibility, setSuggestionVisibility] = useState({});
+  const [highlightedIndex, setHighlightedIndex] = useState({});
+  const [preparingPrint, setPreparingPrint] = useState(false);
+  const [currentPrintPage, setCurrentPrintPage] = useState(1);
+  const [tempColumns, setTempColumns] = useState([]);
+  const [searchParams] = useSearchParams();
+  const [isExpanded, setIsExpanded] = useState(false); // Add this state
+  const [selectedGroups, setSelectedGroups] = useState(grupEnChekBox);
+  const [summaryColumns, setSummaryColumns] = useState();
+  const [finalSummaryColumns, setFinalSummaryColumns] = useState();
+  const [chartView, setChartView] = useState(false);
+  const [previewImg, setPreviewImg] = useState(null);
+  const [openImgModal, setOpenImgModal] = useState(false);
 
+
+  const gridContainerRef = useRef(null);
+  const fullscreenContainer = gridContainerRef.current || document.body;
+  const apiRef = useGridApiRef();
+  const printRef = useRef();
+  const gridRef = useRef(null);
+  const defaultSortApplied = useRef(false);
+  const initialSort = useRef(null);
+  const pid = searchParams.get("pid");
+  const firstTimeLoadedRef = useRef(false);
+  const [paginationModel, setPaginationModel] = useState({
+    page: 0,
+    pageSize: 20,
+  });
+  const [filterState, setFilterState] = useState({
+    dateRange: { startDate: null, endDate: null },
+  });
+  const startDate = filterState?.dateRange?.startDate;
+  const endDate = filterState?.dateRange?.endDate;
   const toggleDrawer = (newOpen) => () => {
     setSideFilterOpen(newOpen);
   };
+
+  useEffect(() => {
+    if (openPopup) {
+      setTempColumns(JSON.parse(JSON.stringify(allColumData)));
+    }
+  }, [openPopup, allColumData]);
+
+  useEffect(() => {
+    setSelectedGroups(grupEnChekBox); // update internal state when prop changes
+  }, [grupEnChekBox]);
 
   useEffect(() => {
     const keyPrefix = `${pid}_`;
@@ -375,26 +141,6 @@ export default function MainReport({
       return;
     }
     const reportId = matchingKey.split("_")[1];
-    const getIframeUrlParams = async () => {
-      try {
-        let AllData = JSON.parse(sessionStorage.getItem("reportVarible"));
-        const body = {
-          con: JSON.stringify({
-            mode: "getIframeUrlParams",
-            appuserid: AllData?.LUId,
-            IPAddress: clientIpAddress,
-          }),
-          p: JSON.stringify({
-            ReportId: reportId,
-          }),
-          f: "get iframe list (get url data)",
-        };
-        const response = await CallApi(body);
-        setIframeModelData(response);
-      } catch (error) {
-        console.error("Error fetching report data:", error);
-      }
-    };
 
     let AllData = JSON.parse(sessionStorage.getItem("reportVarible"));
     const getNavigationPageName = async () => {
@@ -416,40 +162,8 @@ export default function MainReport({
         console.error("Failed fetching report settings", err);
       }
     };
-    getIframeUrlParams();
     getNavigationPageName();
   }, []);
-
-  const saveReportActivity = (reportId, activity) => {
-    const key = `reportActivity_${reportId}`;
-
-    const existing = JSON.parse(sessionStorage.getItem(key)) || {
-      ReportId: reportId,
-      ReportName: reportName,
-      activityDetails: [],
-    };
-
-    let newActivities = [];
-
-    if (Array.isArray(activity)) {
-      newActivities = activity;
-    } else if (activity) {
-      newActivities = [activity];
-    }
-
-    const updatedActivityDetails = [
-      ...existing.activityDetails,
-      ...newActivities,
-    ];
-
-    sessionStorage.setItem(
-      key,
-      JSON.stringify({
-        ...existing,
-        activityDetails: updatedActivityDetails,
-      })
-    );
-  };
 
   useEffect(() => {
     const interval = setInterval(async () => {
@@ -565,23 +279,6 @@ export default function MainReport({
     }
   }, [filterState.dateRange]);
 
-  useEffect(() => {
-    setTimeout(() => {
-      const items = document.querySelectorAll(
-        ".MuiButtonBase-root.MuiListItem-root.MuiListItem-gutters.MuiListItem-padding.MuiListItem-button"
-      );
-      items.forEach((item) => {
-        const textElement = item.querySelector(".MuiListItemText-root");
-        if (textElement) {
-          const text = textElement.textContent.trim();
-          if (text === "Last Year" || text === "This Year") {
-            item.style.display = "none";
-          }
-        }
-      });
-    }, 100);
-  }, []);
-
   const fetchData = async () => {
     try {
       if (OtherKeyData == null) {
@@ -627,37 +324,26 @@ export default function MainReport({
     fetchData();
   }, [OtherKeyData]);
 
-  useEffect(() => {
-    if (allColumData?.length > 0) {
-      const initialChecked = {};
-      allColumData?.forEach((col) => {
-        initialChecked[col.FieldName] =
-          col.IsVisible === true || col.IsVisible === "True";
-      });
-      setCheckedColumns(initialChecked);
-    }
-  }, [allColumData]);
+  const handleGrupEnChekBoxChange = (field, HeaderName) => {
+    setFilteredValue((prev = []) =>
+      prev.filter((item) => item.name !== HeaderName)
+    );
 
-  const handleGrupEnChekBoxChange = (field) => {
     setGrupEnChekBox((prev) => {
       const newValue = !prev[field];
 
       if (!newValue) {
-        // 1️⃣ Remove from draft filters (UI)
         setDraftFilters((prevDraft) => {
           const updated = { ...prevDraft };
           delete updated[field];
           return updated;
         });
 
-        // 2️⃣ Remove from applied filters (GRID / API)
         setFilters((prevFilters) => {
           const updated = { ...prevFilters };
           delete updated[field];
           return updated;
         });
-
-        // 3️⃣ Reset suggestion UI
         setSuggestionVisibility((prev) => ({
           ...prev,
           [field]: false,
@@ -683,6 +369,17 @@ export default function MainReport({
     );
   };
 
+  const handleImageOpen = (src) => {
+    setPreviewImg(src);
+    setOpenImgModal(true);
+  };
+
+  const handleImageClose = () => {
+    setOpenImgModal(false);
+    setPreviewImg(null);
+  };
+
+
   useEffect(() => {
     const handleKeyPress = (e) => {
       if (e.altKey && e.key.toLowerCase() === "f") {
@@ -701,8 +398,10 @@ export default function MainReport({
     };
   }, []);
 
-  const defaultSortApplied = useRef(false);
-  const initialSort = useRef(null);
+  const getSafeImageSrc = (src) => {
+    const cleanSrc = String(src ?? "").trim();
+    return cleanSrc ? cleanSrc : noFoundImg;
+  };
 
   useEffect(() => {
     if (!allColumData) return;
@@ -714,7 +413,7 @@ export default function MainReport({
           field: col.FieldName,
           headerName: col.HeaderName, // Just use the text here
           renderHeader: (
-            params // Use renderHeader for custom header content
+            params
           ) => (
             <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
               {col?.GrupChekBox == "True" &&
@@ -722,7 +421,7 @@ export default function MainReport({
                   <Checkbox
                     checked={grupEnChekBox[col.FieldName] || false}
                     onClick={(e) => e.stopPropagation()}
-                    onChange={() => handleGrupEnChekBoxChange(col.FieldName)}
+                    onChange={() => handleGrupEnChekBoxChange(col.FieldName, col.HeaderName)}
                     size="small"
                     sx={{
                       p: 0,
@@ -747,6 +446,7 @@ export default function MainReport({
           onHrefLinkModel: col.OnHrefLinkModel,
           onHrefNavigate: col.OnHrefNavigate,
           Summary: col?.Summary,
+          GrupChekBox: col?.GrupChekBox,
           SummaryValueKey: col.SummaryValueKey,
           DefaultSort: col.DefaultSort,
           SummaryValueFormated: col.SummaryValueFormated,
@@ -765,6 +465,8 @@ export default function MainReport({
           IsUniqueCount: col?.IsUniqueCount,
           RedirectId: col?.RedirectId,
           IframeTypeId: col.IframeTypeId,
+          IsShowDateWithTime: col.IsShowDateWithTime,
+          TwoColumnData: col.TwoColumnData,
           filterTypes: [
             toBool(col.NormalFilter) && "NormalFilter",
             toBool(col.MultiSelection) && "MultiSelection",
@@ -784,15 +486,33 @@ export default function MainReport({
                 params.value !== "-" &&
                 !isNaN(new Date(params.value).getTime())
               ) {
-                formattedDate = new Date(params.value).toLocaleDateString(
-                  "en-GB",
-                  {
+                const dateObj = new Date(params.value);
+
+                if (col.IsShowDateWithTime == "True") {
+                  const datePart = dateObj.toLocaleDateString("en-GB", {
                     day: "2-digit",
                     month: "short",
                     year: "numeric",
                     timeZone: "UTC",
-                  }
-                );
+                  });
+
+                  const timePart = dateObj.toLocaleTimeString("en-GB", {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                    second: "2-digit",
+                    hour12: false,
+                    timeZone: "UTC",
+                  });
+
+                  formattedDate = `${datePart} ${timePart}`;
+                } else {
+                  formattedDate = dateObj.toLocaleDateString("en-GB", {
+                    day: "2-digit",
+                    month: "short",
+                    year: "numeric",
+                    timeZone: "UTC",
+                  });
+                }
               }
 
               return (
@@ -811,9 +531,9 @@ export default function MainReport({
               );
             }
 
-            if (col?.ImageColumn == "True") {
-              const src =
-                String(params?.row?.ImgUrl ?? "").trim() || noFoundImg;
+            if (col?.ImageColumn === "True") {
+              const src = getSafeImageSrc(params?.row?.ImgUrl);
+
               return (
                 <div
                   style={{
@@ -825,57 +545,27 @@ export default function MainReport({
                 >
                   <img
                     src={src}
+                    onClick={() => handleImageOpen(src)}
                     onError={(e) => {
-                      if (e.target.src !== noFoundImg)
-                        e.target.src = noFoundImg;
+                      if (e.currentTarget.src !== noFoundImg) {
+                        e.currentTarget.src = noFoundImg;
+                      }
                     }}
                     style={{
                       height: "35px",
                       width: "35px",
                       borderRadius: "5px",
+                      cursor: "pointer",
+                      objectFit: "cover",
                     }}
+                    alt="img"
                   />
                 </div>
               );
             }
 
             if (col?.IframeTypeId) {
-              return (
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "center",
-                    alignItems: "center",
-                    height: "100%",
-                  }}
-                >
-                  <Button
-                    onClick={() =>
-                      openIframe(
-                        params,
-                        params?.colDef?.ColId,
-                        params?.colDef?.IframeTypeId
-                      )
-                    }
-                    style={{
-                      padding: "0px",
-                      fontSize: "12px",
-                      color: "black",
-                      textDecoration: "underline",
-                    }}
-                  >
-                    {col?.IconName == "NotebookPen" ? (
-                      <NotebookPen style={{ color: "gray" }} />
-                    ) : col?.IconName == "Printer" ? (
-                      <Printer style={{ color: "gray" }} />
-                    ) : col?.IconName == "MessageCircle" ? (
-                      <MessageCircle style={{ color: "gray" }} />
-                    ) : (
-                      "OPEN"
-                    )}
-                  </Button>
-                </div>
-              );
+              return <IframAction params={params} col={col} />;
             }
 
             if (
@@ -892,6 +582,7 @@ export default function MainReport({
 
               return (
                 <span
+                  className=""
                   style={{
                     color: col.Color || "inherit",
                     backgroundColor: col.BackgroundColor || "inherit",
@@ -1069,8 +760,8 @@ export default function MainReport({
       field: "sr",
       headerName: (
         <>
-          {masterKeyData?.CheckBoxSelection == "True" ? (
-            <>
+          <div style={{ display: "flex", alignItems: "center" }}>
+            {masterKeyData?.CheckBoxSelection == "True" && (
               <Checkbox
                 checked={
                   filteredRows?.length > 0 &&
@@ -1094,11 +785,9 @@ export default function MainReport({
                 }}
                 size="small"
               />
-              Sr#
-            </>
-          ) : (
-            "Sr#"
-          )}
+            )}
+            <p style={{ fontWeight: "500" }}>Sr#</p>
+          </div>
         </>
       ),
       width: 90,
@@ -1150,124 +839,18 @@ export default function MainReport({
 
       if (cand) {
         const hasField = visibleColumns.some((vc) => vc.field === cand.field);
-
         if (hasField) {
           const sortDir =
             String(cand.DefaultSort).toLowerCase() === "ascending"
               ? "asc"
               : "desc";
-
           initialSort.current = [{ field: cand.field, sort: sortDir }];
           setSortModel(initialSort.current);
         }
       }
-
       defaultSortApplied.current = true;
     }
   }, [allColumData, grupEnChekBox, paginationModel, selectionModel]);
-
-  const buildIframeUrl = (params, colId, iframeTypeId) => {
-    const row = params?.row || {};
-    const rd1Item = iframeModelData?.rd1?.find(
-      (x) => x.ColId == colId && x.IframeTypeId == iframeTypeId
-    );
-    const rdParams = iframeModelData?.rd?.filter(
-      (x) => x.ColId == colId && x.IframeTypeId == iframeTypeId
-    );
-    if (!rd1Item || !rdParams) return "";
-    const getRowValue = (paramName) => {
-      const key = Object.keys(row).find(
-        (k) => k.toLowerCase() === paramName.toLowerCase()
-      );
-      return key ? row[key] : "";
-    };
-    const queryString = rdParams
-      .map((p) => {
-        if (p.IsStatic === true || p.IsStatic === "true") {
-          return `${p.ParameterName}=${encodeURIComponent(p.ParameterValue)}`;
-        } else {
-          return `${p.ParameterName}=${encodeURIComponent(
-            getRowValue(p.ParameterName) || ""
-          )}`;
-        }
-      })
-      .join("&");
-    return `${rd1Item.BaseUrl}${rd1Item.ReportRedirectUrl}&${queryString}`;
-  };
-
-  const waitForIframeData = async () => {
-    let retries = 10; // retry max 10 times
-    let delay = 300; // 300ms interval
-    while (retries > 0) {
-      if (iframeModelData && iframeModelData.rd1 && iframeModelData.rd) {
-        return iframeModelData; // data ready
-      }
-      await new Promise((res) => setTimeout(res, delay)); // wait
-      retries--;
-    }
-
-    return null; // still no data
-  };
-
-  const openIframe = async (params, columId, iframeTypeId) => {
-    const data = await waitForIframeData();
-    if (!data) {
-      console.warn("iframeModelData not loaded even after waiting");
-      return;
-    }
-    const url = buildIframeUrl(params, columId, iframeTypeId);
-    setIframeUrl(url);
-    setOpenHrefModel(true);
-  };
-
-  const handleCellClick = (params, colId) => {
-    if (!navigationData) return;
-    const rd1Item = navigationData.rd1.find((item) => item.ColId == colId);
-    if (!rd1Item) {
-      console.warn("No rd1 found for ColId:", colId);
-      return;
-    }
-    const baseUrl = rd1Item.BaseUrl || "";
-    const redirectUrl = rd1Item.ReportRedirectUrl || "";
-    const rdParams = navigationData.rd.filter((item) => item.ColId == colId);
-    const getRowValue = (paramName) => {
-      const row = params?.row || {};
-      const key = Object.keys(row).find(
-        (k) => k.toLowerCase() === paramName.toLowerCase()
-      );
-      return key ? row[key] : "";
-    };
-    const queryParams = rdParams
-      .map((item) => {
-        const { VariableName, VariableValue, IsStatic } = item;
-        if (IsStatic === "true") {
-          return `${VariableName}=${encodeURIComponent(VariableValue)}`;
-        } else {
-          const dynamicVal = getRowValue(VariableName) || VariableValue || "";
-          return `${VariableName}=${btoa(dynamicVal)}`;
-        }
-      })
-      .join("&");
-    const fullUrl = `${baseUrl}${redirectUrl}&${queryParams}`;
-    const navigatePageId = params?.colDef?.RedirectId || "";
-    const navigateObj = navigationPageMaster?.rd1?.find(
-      (x) => x.RedirectId === Number(navigatePageId)
-    );
-    const navigateName = navigateObj?.RedirectPage || "";
-    if (window?.parent?.postMessage) {
-      window.parent.postMessage(
-        {
-          type: "ADD_TAB",
-          evt: "DynamicReport",
-          payload: {
-            TabName: navigateName,
-            TabUrl: fullUrl,
-          },
-        },
-        "*"
-      );
-    }
-  };
 
   const buildMasterValueMap = (masterData) => {
     const map = {};
@@ -1288,27 +871,23 @@ export default function MainReport({
     () => buildMasterValueMap(masterData),
     [masterData]
   );
+
+  //Single Colum Clikc All Colum Sepret
   useEffect(() => {
     if (apiRef.current) {
       const gridElement = apiRef.current.rootElementRef.current;
-
       if (gridElement) {
         const handleDoubleClick = (e) => {
-          // Check if double-click is on column separator
           if (e.target.classList.contains("MuiDataGrid-columnSeparator")) {
             e.preventDefault();
             e.stopPropagation();
-
-            // Auto-resize ALL columns
             apiRef.current.autosizeColumns({
               includeHeaders: true,
               includeOutliers: true,
             });
           }
         };
-
         gridElement.addEventListener("dblclick", handleDoubleClick, true);
-
         return () => {
           gridElement.removeEventListener("dblclick", handleDoubleClick, true);
         };
@@ -1335,7 +914,6 @@ export default function MainReport({
 
       return { id: index, ...formattedRow };
     });
-
   const isFirstLoad = useRef(true);
   useEffect(() => {
     if (allColumData) {
@@ -1344,9 +922,10 @@ export default function MainReport({
         dateCols.map((col) => ({
           field: col.FieldName,
           label: col.HeaderName,
+          IsVisible: col?.IsVisible
         }))
       );
-      if (isFirstLoad.current && dateCols.length > 0) {
+      if (isFirstLoad.current && dateCols.length > 0 && dateCols[0].HideColumn != "True") {
         setSelectedDateColumn(dateCols[0].FieldName);
         isFirstLoad.current = false;
       }
@@ -1356,39 +935,11 @@ export default function MainReport({
   const [filteredRows, setFilteredRows] = useState(originalRows);
   const [filters, setFilters] = useState({});
   const [filtersShow, setFiltersShow] = useState({});
-
-  useEffect(() => {
-    const filtersArray = filtersShow
-      ? Object.entries(filtersShow)
-          .filter(
-            ([_, value]) =>
-              value !== "" && value !== null && value !== undefined
-          )
-          .map(([key, value]) => {
-            if (Array.isArray(value) && value.length === 0) return null;
-            return { name: key, value };
-          })
-          .filter(Boolean)
-      : [];
-
-    const merged = [
-      ...filtersArray,
-      ...(Array.isArray(filteredValue) ? filteredValue : []),
-    ];
-
-    const uniqueMerged = merged.reduce((acc, current) => {
-      const exists = acc.find((item) => item.name === current.name);
-      if (!exists) acc.push(current);
-      return acc;
-    }, []);
-
-    setFilteredValue(uniqueMerged);
-  }, [filters, filteredValue, filtersShow]);
+  const [filtersShowDraf, setFiltersShowDraf] = useState({});
 
   useEffect(() => {
     const newFilteredRows = originalRows?.filter((row) => {
       let isMatch = true;
-
       for (const filterField of Object.keys(filters)) {
         const filterValue = filters[filterField];
         if (!filterValue || filterValue.length === 0) continue;
@@ -1434,7 +985,6 @@ export default function MainReport({
         }
       }
 
-      // Priority color filter
       if (isMatch && selectedColors?.length > 0) {
         const priorityCol = allColumData?.find(
           (x) => x.IsPriorityColumn === "True"
@@ -1447,12 +997,29 @@ export default function MainReport({
         }
       }
 
-      // Date filter
-      if (isMatch && !spliterReportShow && filterState && selectedDateColumn) {
+      if (isMatch && !spliterReportShow && filterState && selectedDateColumn &&
+        (masterKeyData?.MainDateFilter == "True" ||
+          masterKeyData?.AllDataButton == "True")
+      ) {
+
+        // "2025-12-31T10:16:49.000Z"
         const toDateOnly = (d) => new Date(new Date(d).toDateString());
         const rowDate = toDateOnly(row[selectedDateColumn]);
         const parsedStart = toDateOnly(startDate);
         const parsedEnd = toDateOnly(endDate);
+
+        // const toUTCDateOnly = (d) =>
+        //   new Date(
+        //     Date.UTC(
+        //       new Date(d).getUTCFullYear(),
+        //       new Date(d).getUTCMonth(),
+        //       new Date(d).getUTCDate()
+        //     )
+        //   );
+        // const rowDate = toUTCDateOnly(row[selectedDateColumn]);
+        // const parsedStart = toUTCDateOnly(startDate);
+        // const parsedEnd = toUTCDateOnly(endDate);
+
         if (
           isNaN(rowDate.getTime()) ||
           rowDate < parsedStart ||
@@ -1462,7 +1029,6 @@ export default function MainReport({
         }
       }
 
-      // Common search
       if (isMatch && commonSearch) {
         const searchText = commonSearch.toLowerCase();
         const hasMatch = Object.values(row).some((value) =>
@@ -1516,1078 +1082,91 @@ export default function MainReport({
     selectedCurrency,
   ]);
 
-  const handleFilterChange = (FieldName, value, filterType, HeaderName) => {
-    setFilters((prevFilters) => {
-      if (filterType === "MultiSelection") {
-        const selectedValues = prevFilters[FieldName] || [];
-        let newValues;
-
-        if (value.checked) {
-          newValues = [...selectedValues, value.value];
-        } else {
-          newValues = selectedValues.filter((v) => v !== value.value);
-        }
-
-        return {
-          ...prevFilters,
-          [FieldName]: newValues,
-        };
-      }
-      return {
-        ...prevFilters,
-        [FieldName]: value,
-      };
-    });
-
-    setFiltersShow((prevFilters) => {
-      if (filterType === "MultiSelection") {
-        const selectedValues = prevFilters?.[HeaderName] || [];
-
-        const checked = value?.checked ?? false;
-        const val = value?.value;
-
-        if (val === undefined) {
-          console.warn("Filter value is undefined for", HeaderName);
-          return prevFilters;
-        }
-
-        const newValues = checked
-          ? [...selectedValues, val]
-          : selectedValues.filter((v) => v !== val);
-
-        return {
-          ...prevFilters,
-          [HeaderName]: newValues,
-        };
-      }
-
-      return {
-        ...prevFilters,
-        [HeaderName]: value,
-      };
-    });
-  };
-
-  const SERVER_SEP = "###";
-  const serverFiltersRef = useRef({});
-  const currentReportFiltersRef = useRef({ FilterHeader: "", FilterValue: "" });
-  const buildFilterStrings = () => {
-    const { FilterHeader = "", FilterValue = "" } =
-      currentReportFiltersRef.current;
-
-    const serverKeys = Object.keys(serverFiltersRef.current || {});
-    const serverVals = serverKeys.map((k) => serverFiltersRef.current[k] || "");
-
-    return {
-      FilterHeader,
-      FilterValue,
-      ServerFilterHeader: serverKeys.length
-        ? serverKeys.join(SERVER_SEP) + SERVER_SEP
-        : "",
-      ServerFilterValue: serverVals.length
-        ? serverVals.join(SERVER_SEP) + SERVER_SEP
-        : "",
-    };
-  };
-  
-  const [tempInput, setTempInput] = useState({});
-  const renderServerSideFilter = (col) => {
-    if (!col.filterTypes || col.filterTypes.length === 0) return null;
-
-    return col.filterTypes.map((filterType) => {
-      if (filterType !== "ServerSideFilter") return null;
-
-      const filterItem = filteredValueState?.find(
-        (f) => f.name === col.headerNamesingle
-      );
-      const handleChange = (e) => {
-        const newValue = e.target.value;
-        setTempInput((prev) => ({
-          ...prev,
-          [col.headerNamesingle]: newValue,
-        }));
-      };
-
-      const handleEnter = (e) => {
-        if (e.key !== "Enter") return;
-        const enteredValue = tempInput[col.headerNamesingle]?.trim();
-        if (!enteredValue) return;
-        setFilteredValue((prev = []) => {
-          const exists = prev.find((f) => f.name === col.headerNamesingle);
-          return exists
-            ? prev.map((f) =>
-                f.name === col.headerNamesingle
-                  ? { ...f, value: enteredValue }
-                  : f
-              )
-            : [...prev, { name: col.headerNamesingle, value: enteredValue }];
-        });
-
-        serverFiltersRef.current = {
-          ...serverFiltersRef.current,
-          [col.FieldName]: enteredValue,
-        };
-
-        const parts = buildFilterStrings();
-        const mergedPayload = {
-          ...(parts.FilterHeader && { FilterHeader: parts.FilterHeader }),
-          ...(parts.FilterValue && { FilterValue: parts.FilterValue }),
-          ...(parts.ServerFilterHeader && {
-            ServerFilterHeader: parts.ServerFilterHeader,
-          }),
-          ...(parts.ServerFilterValue && {
-            ServerFilterValue: parts.ServerFilterValue,
-          }),
-        };
-        toggleDrawer(false);
-        onSearchFilter?.([mergedPayload], "-1");
-      };
-
-      const handleClear = () => {
-        setTempInput((prev) => {
-          const copy = { ...prev };
-          delete copy[col.headerNamesingle];
-          return copy;
-        });
-
-        setFilteredValue((prev) =>
-          prev.filter((f) => f.name !== col.headerNamesingle)
-        );
-
-        const copy = { ...serverFiltersRef.current };
-        delete copy[col.FieldName];
-        serverFiltersRef.current = copy;
-
-        const parts = buildFilterStrings();
-        const mergedPayload = {
-          ...(parts.FilterHeader && { FilterHeader: parts.FilterHeader }),
-          ...(parts.FilterValue && { FilterValue: parts.FilterValue }),
-          ...(parts.ServerFilterHeader && {
-            ServerFilterHeader: parts.ServerFilterHeader,
-          }),
-          ...(parts.ServerFilterValue && {
-            ServerFilterValue: parts.ServerFilterValue,
-          }),
-        };
-
-        onSearchFilter?.([mergedPayload], "0");
-      };
-
-      return (
-        <div
-          style={{ width: "100%", margin: "10px 20px" }}
-          key={col.headerNamesingle}
-        >
-          <TextField
-            label={`Filter ${col.headerNamesingle}`}
-            variant="outlined"
-            style={{ width: "100%" }}
-            className="customize_colum_input"
-            InputProps={{
-              style: { height: 36, fontSize: 16, width: "100%" },
-              endAdornment: tempInput[col.headerNamesingle] ? (
-                <InputAdornment position="end">
-                  <IconButton size="small" onClick={handleClear}>
-                    <X size={16} />
-                  </IconButton>
-                </InputAdornment>
-              ) : null,
-            }}
-            sx={{
-              "& .MuiInputLabel-root": {
-                top: "-8px",
-              },
-              "& .MuiInputLabel-root.Mui-focused": {
-                top: "0px",
-              },
-              "& .MuiInputLabel-root.MuiInputLabel-shrink": {
-                top: "0px",
-              },
-            }}
-            value={tempInput[col.headerNamesingle] || ""}
-            onChange={handleChange}
-            onKeyDown={handleEnter}
-          />
-        </div>
-      );
-    });
-  };
-
-  //
-  const renderFilterMulti = (col) => {
-    if (!col.filterTypes || col.filterTypes.length === 0) return null;
-    const filtersToRender = col.filterTypes;
-    return filtersToRender?.map((filterType) => {
-      switch (filterType) {
-        case "MultiSelection":
-          const uniqueValues = [
-            ...new Set(originalRows?.map((row) => row[col.field])),
-          ];
-          const headerName = col.headerNameSub;
-          return (
-            <div key={col.field} style={{ margin: "10px 20px" }}>
-              <Accordion>
-                <AccordionSummary
-                  expandIcon={<MdExpandMore />}
-                  aria-controls={`${col.field}-content`}
-                  id={`${col.field}-header`}
-                  sx={{
-                    "& .MuiButtonBase-root": {
-                      display: "none",
-                    },
-                  }}
-                >
-                  <Typography>{col.headerNameSub}</Typography>
-                </AccordionSummary>
-                <AccordionDetails className="gridMetalComboMain">
-                  {uniqueValues.map((value) => (
-                    <label key={value} style={{ display: "flex", gap: "6px" }}>
-                      <input
-                        type="checkbox"
-                        value={value}
-                        checked={(draftFilters[col.field] || []).includes(
-                          value
-                        )}
-                        onChange={(e) => {
-                          const checked = e.target.checked;
-                          setDraftFilters((prev) => {
-                            const existing = prev[col.field] || [];
-
-                            return {
-                              ...prev,
-                              [col.field]: checked
-                                ? [...existing, value] // add
-                                : existing.filter((v) => v !== value), // remove
-                            };
-                          });
-                        }}
-                      />
-                      {value}
-                    </label>
-                  ))}
-                </AccordionDetails>
-              </Accordion>
-            </div>
-          );
-
-        default:
-          return null;
-      }
-    });
-  };
-
-  //
-  const renderFilterRange = (col) => {
-    if (!col.filterTypes || col.filterTypes.length === 0) return null;
-    const filtersToRender = col.filterTypes;
-    return filtersToRender.map((filterType) => {
-      switch (filterType) {
-        case "RangeFilter":
-          return (
-            <div
-              key={`filter-${col.FieldName}-RangeFilter`}
-              style={{ margin: "10px 20px", display: "flex", gap: "10px" }}
-            >
-              <TextField
-                type="number"
-                key={`filter-${col.headerNamesingle}-MinFilter`}
-                name={`filter-${col.headerNamesingle}-MinFilter`}
-                label={`${col.headerNamesingle} Min`}
-                variant="outlined"
-                value={draftFilters[`${col.FieldName}_min`] || ""}
-                onChange={(e) => {
-                  const value = e.target.value
-                    ? parseFloat(e.target.value)
-                    : "";
-                  setDraftFilters((prev) => ({
-                    ...prev,
-                    [`${col.FieldName}_min`]: value,
-                  }));
-                }}
-                style={{ width: "50%" }}
-                InputLabelProps={{
-                  style: {
-                    fontFamily: "Poppins, sans-serif",
-                  },
-                }}
-                InputProps={{
-                  style: {
-                    height: 40,
-                    fontSize: 16,
-                  },
-                }}
-                sx={{
-                  "& .MuiInputLabel-root": {
-                    top: "-5px",
-                  },
-                  "& .MuiInputLabel-root.Mui-focused": {
-                    top: "0px",
-                  },
-                  "& .MuiInputLabel-root.MuiInputLabel-shrink": {
-                    top: "0px",
-                  },
-                }}
-              />
-
-              <TextField
-                type="number"
-                key={`filter-${col.headerNamesingle}-MaxFilter`}
-                name={`filter-${col.headerNamesingle}-MaxFilter`}
-                label={`${col.headerNamesingle} Max`}
-                variant="outlined"
-                value={draftFilters[`${col.FieldName}_max`] || ""}
-                onChange={(e) => {
-                  const value = e.target.value
-                    ? parseFloat(e.target.value)
-                    : "";
-                  setDraftFilters((prev) => ({
-                    ...prev,
-                    [`${col.FieldName}_max`]: value,
-                  }));
-                }}
-                style={{ width: "50%" }}
-                InputLabelProps={{
-                  style: {
-                    fontFamily: "Poppins, sans-serif",
-                  },
-                }}
-                InputProps={{
-                  style: {
-                    height: 40,
-                    fontSize: 16,
-                  },
-                }}
-                sx={{
-                  "& .MuiInputLabel-root": {
-                    top: "-5px",
-                  },
-                  "& .MuiInputLabel-root.Mui-focused": {
-                    top: "0px",
-                  },
-                  "& .MuiInputLabel-root.MuiInputLabel-shrink": {
-                    top: "0px",
-                  },
-                }}
-              />
-            </div>
-          );
-        default:
-          return null;
-      }
-    });
-  };
-
-  //
-  const renderFilterDropDown = (col) => {
-    const field = col.field;
-    if (masterKeyData?.GroupCheckBox == "True") {
-      if (!grupEnChekBox[field] && col?.HideColumn != "True") return null;
-    }
-    if (!col.filterTypes || col.filterTypes.length === 0) return null;
-    const filtersToRender = col.filterTypes;
-    return filtersToRender.map((filterType) => {
-      switch (filterType) {
-        case "selectDropdownFilter": {
-          let uniqueValues = [
-            ...new Set(originalRows?.map((row) => row[col.field])),
-          ];
-          uniqueValues = uniqueValues.filter((v) => v && v.trim() !== "");
-          uniqueValues.sort((a, b) =>
-            a.localeCompare(b, undefined, { sensitivity: "base" })
-          );
-          return (
-            <div
-              key={`filter-${col.field}-selectDropdownFilter`}
-              style={{ width: "100%", margin: "10px 20px" }}
-            >
-              <FormControl fullWidth size="small">
-                <InputLabel id="demo-simple-select-label">{`Select ${col.headerNameSub}`}</InputLabel>
-                <Select
-                  labelId="demo-simple-select-label"
-                  id="demo-simple-select"
-                  label={`Select ${col.headerNameSub}`}
-                  name={`Select ${col.headerNameSub}`}
-                  value={draftFilters[col.field] || ""} // use draftFilters
-                  onChange={(e) =>
-                    setDraftFilters((prev) => ({
-                      ...prev,
-                      [col.field]: e.target.value,
-                    }))
-                  }
-                  style={{
-                    height: 40,
-                    fontSize: 16,
-                  }}
-                  MenuProps={{
-                    container: fullscreenContainer,
-                    PaperProps: {
-                      style: {
-                        maxHeight: 300,
-                      },
-                    },
-                  }}
-                >
-                  <MenuItem value="">
-                    <em>{`Select ${col?.headerNameSub}`}</em>
-                  </MenuItem>
-                  {uniqueValues.map((value) => (
-                    <MenuItem
-                      key={`select-${col.field}-${value}`}
-                      value={value}
-                    >
-                      {value}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </div>
-          );
-        }
-        default:
-          return null;
-      }
-    });
-  };
-
-  //
-  const renderFilter = (col) => {
-    if (!col.filterTypes || col.filterTypes.length === 0) return null;
-    const filtersToRender = col.filterTypes;
-    return filtersToRender.map((filterType) => {
-      switch (filterType) {
-        case "NormalFilter":
-          return (
-            <div style={{ width: "100%", margin: "10px 20px" }}>
-              <TextField
-                key={`filter-${col.headerNamesingle}-NormalFilter`}
-                name={`filter-${col.headerNamesingle}-NormalFilter`}
-                label={`Enter ${col.headerNamesingle}`}
-                variant="outlined"
-                value={draftFilters[col.FieldName] || ""} // use draftFilters
-                style={{ width: "100%" }}
-                onChange={(e) =>
-                  setDraftFilters((prev) => ({
-                    ...prev,
-                    [col.FieldName]: e.target.value,
-                  }))
-                }
-                className="customize_colum_input"
-                InputLabelProps={{
-                  style: {
-                    fontFamily: "Poppins, sans-serif",
-                  },
-                }}
-                InputProps={{
-                  style: {
-                    height: 40,
-                    fontSize: 16,
-                  },
-                }}
-                sx={{
-                  "& .MuiInputLabel-root": {
-                    top: "-5px",
-                  },
-                  "& .MuiInputLabel-root.Mui-focused": {
-                    top: "0px",
-                  },
-                  "& .MuiInputLabel-root.MuiInputLabel-shrink": {
-                    top: "0px",
-                  },
-                }}
-              />
-            </div>
-          );
-        default:
-          return null;
-      }
-    });
-  };
-
-  //
-  const [highlightedIndex, setHighlightedIndex] = useState({});
-  const [suggestionVisibility, setSuggestionVisibility] = useState({});
-  const suggestionRefs = useRef({});
-  const suggestionItemRefs = useRef({});
-
-  useEffect(() => {
-    function handleClickOutside(event) {
-      for (const field in suggestionRefs.current) {
-        if (
-          suggestionRefs.current[field] &&
-          !suggestionRefs.current[field].contains(event.target)
-        ) {
-          setSuggestionVisibility((prev) => ({
-            ...prev,
-            [field]: false,
-          }));
-        }
-      }
-    }
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, []);
-
-  useEffect(() => {
-    Object.keys(suggestionVisibility).forEach((field) => {
-      if (suggestionVisibility[field] && suggestionRefs.current[field]) {
-        suggestionRefs.current[field].scrollIntoView({
-          behavior: "smooth",
-          block: "nearest",
-        });
-      }
-    });
-  }, [suggestionVisibility]);
-
-  useEffect(() => {
-    Object.keys(highlightedIndex).forEach((field) => {
-      const index = highlightedIndex[field];
-      const el = suggestionItemRefs.current[field]?.[index];
-
-      if (el) {
-        el.scrollIntoView({
-          block: "nearest",
-          behavior: "smooth",
-        });
-      }
-    });
-  }, [highlightedIndex]);
-  const renderSuggestionFilter = (col) => {
-    const field = col.field;
-    if (masterKeyData?.GroupCheckBox == "True") {
-      if (!grupEnChekBox[field] && col?.HideColumn != "True") return null;
-    }
-    if (!col.filterTypes || col.filterTypes.length === 0) return null;
-
-    return col.filterTypes.map((filterType) => {
-      if (filterType !== "suggestionFilter") return null;
-
-      const field = col.field;
-      const headerName = col.headerNameSub;
-
-      if (!suggestionItemRefs.current[field]) {
-        suggestionItemRefs.current[field] = [];
-      }
-
-      const inputValue = draftFilters[field]?.toString().toLowerCase() || "";
-      const suggestions =
-        inputValue.length > 0
-          ? [
-              ...new Set(
-                originalRows
-                  .map((row) => row[field])
-                  .filter(
-                    (val) =>
-                      val && val.toString().toLowerCase().includes(inputValue)
-                  )
-              ),
-            ]
-          : [];
-
-      const handleInputChange = (value) => {
-        setDraftFilters((prev) => ({
-          ...prev,
-          [field]: value,
-        }));
-        setSuggestionVisibility((prev) => ({ ...prev, [field]: true }));
-        setHighlightedIndex((prev) => ({ ...prev, [field]: 0 }));
-      };
-
-      const handleSelectSuggestion = (value) => {
-        setDraftFilters((prev) => ({
-          ...prev,
-          [field]: value,
-        }));
-        setSuggestionVisibility((prev) => ({ ...prev, [field]: false }));
-        setHighlightedIndex((prev) => ({ ...prev, [field]: 0 }));
-      };
-
-      const handleKeyDown = (e) => {
-        if (!suggestionVisibility[field] || suggestions.length === 0) return;
-
-        if (e.key === "ArrowDown") {
-          e.preventDefault();
-          setHighlightedIndex((prev) => ({
-            ...prev,
-            [field]: Math.min((prev[field] ?? 0) + 1, suggestions.length - 1),
-          }));
-        } else if (e.key === "ArrowUp") {
-          e.preventDefault();
-          setHighlightedIndex((prev) => ({
-            ...prev,
-            [field]: Math.max((prev[field] ?? 0) - 1, 0),
-          }));
-        } else if (e.key === "Enter") {
-          e.preventDefault();
-          const current = suggestions[highlightedIndex[field] ?? 0];
-          if (current) handleSelectSuggestion(current);
-        }
-      };
-
-      const refCallback = (node) => {
-        if (node) {
-          suggestionRefs.current[field] = node;
-        }
-      };
-
-      const shouldOpenUpward =
-        suggestionRefs.current[field]?.getBoundingClientRect().bottom >
-        window.innerHeight - 250;
-
-      return (
-        <div
-          key={`filter-${field}-suggestionFilter`}
-          ref={refCallback}
-          style={{ margin: "10px 20px", position: "relative", width: "100%" }}
-        >
-          <TextField
-            label={`Enter ${headerName}`}
-            variant="outlined"
-            value={draftFilters[field] || ""}
-            style={{ width: "100%" }}
-            onChange={(e) => handleInputChange(e.target.value)}
-            onFocus={() => {
-              if ((draftFilters[field] || "").trim().length > 0) {
-                setSuggestionVisibility((prev) => ({ ...prev, [field]: true }));
-              }
-            }}
-            onKeyDown={handleKeyDown}
-            size="small"
-            autoComplete="off"
-            InputLabelProps={{ style: { fontFamily: "Poppins, sans-serif" } }}
-            InputProps={{ style: { height: 40, fontSize: 16 } }}
-          />
-
-          {suggestionVisibility[field] && suggestions.length > 0 && (
-            <div
-              style={{
-                left: 0,
-                width: "100%",
-                maxHeight: "250px",
-                overflowY: "auto",
-                background: "#fff",
-                border: "1px solid rgba(0,0,0,0.15)",
-                zIndex: 1000,
-                position: "absolute",
-                top: shouldOpenUpward ? "auto" : "100%",
-                bottom: shouldOpenUpward ? "100%" : "auto",
-              }}
-            >
-              {suggestions.map((value, index) => (
-                <div
-                  key={`suggestion-${field}-${value}`}
-                  ref={(el) => {
-                    suggestionItemRefs.current[field][index] = el;
-                  }}
-                  onClick={() => handleSelectSuggestion(value)}
-                  style={{
-                    padding: "8px 12px",
-                    cursor: "pointer",
-                    borderBottom: "1px solid #eee",
-                    fontSize: "0.8125rem",
-                    background:
-                      index === highlightedIndex[field]
-                        ? "#eee"
-                        : "transparent",
-                  }}
-                >
-                  {value}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      );
-    });
-  };
-
-  const buildFilterActivityDetails = (currentFilters) => {
-    const activities = [];
-    Object.entries(currentFilters || {}).forEach(([field, value]) => {
-      if (value === "" || value === null || value === undefined) return;
-
-      if (Array.isArray(value)) {
-        value.forEach((v) => {
-          activities.push({
-            ActionName: "FILTER",
-            ActionOn: field,
-            ActionValue: String(v),
-          });
-        });
-      } else {
-        activities.push({
-          ActionName: "FILTER",
-          ActionOn: field,
-          ActionValue: String(value),
-        });
-      }
-    });
-
-    // Server-side filters
-    Object.entries(serverFiltersRef.current || {}).forEach(([field, value]) => {
-      activities.push({
-        ActionName: "FILTER",
-        ActionOn: field,
-        ActionValue: String(value),
-      });
-    });
-
-    // Common search
-    if (commonSearch?.trim()) {
-      activities.push({
-        ActionName: "SEARCH",
-        ActionOn: "commonsearch",
-        ActionValue: commonSearch.trim(),
-      });
-    }
-
-    // Date range filter
-    if (selectedDateColumn && startDate && endDate) {
-      activities.push({
-        ActionName: "FILTER",
-        ActionOn: selectedDateColumn,
-        ActionValue: `${startDate} to ${endDate}`,
-      });
-    }
-
-    return activities;
-  };
-
-  const handleApplyFilter = () => {
-    const keyPrefix = `${pid}_`;
-    const matchingKey = Object.keys(sessionStorage).find((key) =>
-      key.startsWith(keyPrefix)
-    );
-    if (!matchingKey) {
-      console.warn("No ReportId found in sessionStorage for pid", pid);
+  const handleCellClick = (params, colId) => {
+    if (!navigationData) return;
+    const rd1Item = navigationData.rd1.find((item) => item.ColId == colId);
+    if (!rd1Item) {
+      console.warn("No rd1 found for ColId:", colId);
       return;
     }
-    const reportId = matchingKey.split("_")[1];
-    setFilters(draftFilters);
-    const filterActivities = buildFilterActivityDetails(draftFilters);
-    if (filterActivities.length > 0) {
-      saveReportActivity(reportId, filterActivities);
-    }
-    toggleDrawer(false);
-  };
-
-  const summaryColumns = columnsHide?.filter((col) => {
-    const columnData = Object?.values(allColumData)?.find(
-      (data) => data?.FieldName === col?.field
-    );
-    return String(columnData?.Summary).toLowerCase() === "true";
-  });
-
-  const unicSummaryColumns = columnsHide?.filter((col) => {
-    const columnData = Object?.values(allColumData)?.find(
-      (data) => data?.FieldName === col?.field
-    );
-    return String(columnData?.IsUniqueCount).toLowerCase() === "true";
-  });
-
-  const finalSummaryColumns = [...summaryColumns, ...unicSummaryColumns];
-
-  // const renderSummary = () => {
-  //   return (
-  //     <div
-  //       className="summaryBox"
-  //       style={{
-  //         display: finalSummaryColumns.length >= 3 ? "grid" : "flex",
-  //         gridTemplateColumns:
-  //           finalSummaryColumns.length >= 3
-  //             ? `repeat(${finalSummaryColumns.length}, 1fr)`
-  //             : "none",
-  //         justifyContent:
-  //           finalSummaryColumns.length < 3 ? "flex-start" : "unset",
-  //       }}
-  //     >
-  //       {finalSummaryColumns.map((col) => {
-  //         const columnMeta = Object.values(allColumData)?.find(
-  //           (data) => data.FieldName === col.field
-  //         );
-
-  //         const isUniq =
-  //           String(columnMeta?.IsUniqueCount).toLowerCase() === "true";
-
-  //         let calculatedValue = 0;
-
-  //         if (isUniq) {
-  //           // 🔥 UNIQUE COUNT MODE
-  //           const allValues = filteredRows?.map((row) => row[col.field]) || [];
-  //           const uniqueValues = [...new Set(allValues)];
-  //           calculatedValue = uniqueValues.length;
-  //         } else {
-  //           // 🔥 NORMAL SUM MODE
-  //           calculatedValue =
-  //             filteredRows?.reduce(
-  //               (sum, row) => sum + (parseFloat(row[col.field]) || 0),
-  //               0
-  //             ) || 0;
-  //         }
-
-  //         return (
-  //           <div
-  //             key={col.field}
-  //             className={
-  //               finalSummaryColumns.length >= 3
-  //                 ? "AllEmploe_boxViewTotal_big"
-  //                 : "AllEmploe_boxViewTotal"
-  //             }
-  //           >
-  //             <div>
-  //               <p className="AllEmplo_boxViewTotalValue">
-  //                 {isUniq
-  //                   ? calculatedValue // no formatting for unique count
-  //                   : col?.SummaryValueFormated == 1
-  //                   ? Number(calculatedValue).toLocaleString("en-IN", {
-  //                       minimumFractionDigits: col?.SummaryValueKey,
-  //                       maximumFractionDigits: col?.SummaryValueKey,
-  //                     })
-  //                   : calculatedValue.toFixed(Number(col?.SummaryValueKey))}
-  //                 <span style={{ fontSize: "17px" }}>{col?.SummaryUnit}</span>
-  //               </p>
-
-  //               <p className="boxViewTotalTitle">
-  //                 {columnMeta?.SummaryTitle == null
-  //                   ? col?.headerNameSub
-  //                   : columnMeta?.SummaryTitle}
-  //               </p>
-  //             </div>
-  //           </div>
-  //         );
-  //       })}
-  //     </div>
-  //   );
-  // };
-
-  const renderSummary = () => {
-    const sortedSummaryColumns = [...finalSummaryColumns].sort((a, b) => {
-      const aOrder = a.SummeryOrder;
-      const bOrder = b.SummeryOrder;
-      if (!aOrder && !bOrder) return 0;
-      if (aOrder && !bOrder) return -1;
-      if (!aOrder && bOrder) return 1;
-      return Number(aOrder) - Number(bOrder);
-    });
-
-    return (
-      <div
-        className="summaryBox"
-        style={{
-          display: "flex",
-          flexWrap: "wrap",
-        }}
-      >
-        {sortedSummaryColumns.map((col) => {
-          const columnMeta = Object.values(allColumData)?.find(
-            (data) => data.FieldName === col.field
-          );
-
-          const isUniq =
-            String(columnMeta?.IsUniqueCount).toLowerCase() === "true";
-
-          let calculatedValue = 0;
-
-          if (isUniq) {
-            const allValues = filteredRows?.map((row) => row[col.field]) || [];
-            const uniqueValues = [...new Set(allValues)];
-            calculatedValue = uniqueValues.length;
+    const baseUrl = rd1Item.BaseUrl || "";
+    const redirectUrl = rd1Item.ReportRedirectUrl || "";
+    const rdParams = navigationData.rd.filter((item) => item.ColId == colId);
+    const getRowValue = (paramName) => {
+      const row = params?.row || {};
+      const key = Object.keys(row).find(
+        (k) => k.toLowerCase() === paramName.toLowerCase()
+      );
+      return key ? row[key] : "";
+    };
+    const queryParams = rdParams
+      .map((item) => {
+        const { VariableName, VariableValue, IsStatic, IsEncoded } = item;
+        if (IsStatic === "True") {
+          if (IsEncoded == "True") {
+            return `${VariableName}=${encodeURIComponent(VariableValue)}`;
           } else {
-            calculatedValue =
-              filteredRows?.reduce(
-                (sum, row) => sum + (parseFloat(row[col.field]) || 0),
-                0
-              ) || 0;
+            return `${VariableName}=${VariableValue}`;
           }
-
-          return (
-            <div
-              key={col.field}
-              className={
-                sortedSummaryColumns.length >= 3
-                  ? sortedSummaryColumns.length >= 9
-                    ? "AllEmploe_boxViewTotal_big_more"
-                    : "AllEmploe_boxViewTotal_big"
-                  : "AllEmploe_boxViewTotal"
-              }
-            >
-              <div>
-                <p className="AllEmplo_boxViewTotalValue">
-                  {isUniq
-                    ? calculatedValue
-                    : col?.SummaryValueFormated == 1
-                    ? Number(calculatedValue).toLocaleString("en-IN", {
-                        minimumFractionDigits: col?.SummaryValueKey,
-                        maximumFractionDigits: col?.SummaryValueKey,
-                      })
-                    : calculatedValue.toFixed(Number(col?.SummaryValueKey))}
-                  <span style={{ fontSize: "17px" }}>{col?.SummaryUnit}</span>
-                </p>
-
-                <p className="boxViewTotalTitle">
-                  {columnMeta?.SummaryTitle == null ||
-                  columnMeta?.SummaryTitle == ""
-                    ? col?.headerNameSub
-                    : columnMeta?.SummaryTitle}
-                </p>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+        } else {
+          const dynamicVal = getRowValue(VariableName) || VariableValue || "";
+          if (IsEncoded == "True") {
+            return `${VariableName}=${btoa(dynamicVal)}`;
+          } else {
+            return `${VariableName}=${dynamicVal}`;
+          }
+        }
+      })
+      .join("&");
+    const fullUrl = `${baseUrl}${redirectUrl}&${queryParams}`;
+    const navigatePageId = params?.colDef?.RedirectId || "";
+    const navigateObj = navigationPageMaster?.rd1?.find(
+      (x) => x.RedirectId === Number(navigatePageId)
     );
-  };
-
-  const toggleFullScreen = () => {
-    if (!document.fullscreenElement) {
-      if (gridContainerRef.current.requestFullscreen) {
-        gridContainerRef.current.requestFullscreen();
-      } else if (gridContainerRef.current.mozRequestFullScreen) {
-        gridContainerRef.current.mozRequestFullScreen();
-      } else if (gridContainerRef.current.webkitRequestFullscreen) {
-        gridContainerRef.current.webkitRequestFullscreen();
-      } else if (gridContainerRef.current.msRequestFullscreen) {
-        gridContainerRef.current.msRequestFullscreen();
-      }
-    } else {
-      if (document.exitFullscreen) {
-        document.exitFullscreen();
-      }
+    const navigateName = navigateObj?.RedirectPage || "";
+    if (window?.parent?.postMessage) {
+      window.parent.postMessage(
+        {
+          type: "ADD_TAB",
+          evt: "DynamicReport",
+          payload: {
+            TabName: navigateName,
+            TabUrl: fullUrl,
+          },
+        },
+        "*"
+      );
     }
   };
 
-  function mapRowsToHeaders(columns = [], rows = []) {
-    const safeRows = Array.isArray(rows) ? rows : [];
+  const saveReportActivity = (reportId, activity) => {
+    const key = `reportActivity_${reportId}`;
+    const existing = JSON.parse(sessionStorage.getItem(key)) || {
+      ReportId: reportId,
+      ReportName: reportName,
+      activityDetails: [],
+    };
 
-    const isIsoDateTime = (str) =>
-      typeof str === "string" && /^\d{4}-\d{2}-\d{2}T/.test(str);
+    let newActivities = [];
 
-    const fieldToHeader = {};
-    const numericFields = [];
+    if (Array.isArray(activity)) {
+      newActivities = activity;
+    } else if (activity) {
+      newActivities = [activity];
+    }
 
-    columns.forEach((col) => {
-      let header = "";
-
-      if (typeof col.headerName === "string") {
-        header = col.headerName;
-      } else if (col.headerNamesingle) {
-        header = col.headerNamesingle;
-      } else if (
-        col.headerName?.props?.children &&
-        Array.isArray(col.headerName.props.children)
-      ) {
-        header = col.headerName.props.children[1];
-      }
-
-      if (!header && col.field === "sr") header = "Sr#";
-
-      fieldToHeader[col.field] = header;
-
-      if (col.ColumnType === "Number") {
-        numericFields.push(col.field);
-      }
-    });
-
-    const totals = {};
-    numericFields.forEach((f) => (totals[f] = 0));
-
-    const mappedRows = safeRows.map((row, idx) => {
-      const ordered = {};
-
-      columns.forEach((col) => {
-        const header = fieldToHeader[col.field];
-        let value = row[col.field] ?? "";
-
-        if (col.field === "sr") value = idx + 1;
-
-        if (isIsoDateTime(value)) {
-          const d = new Date(value);
-          value = `${String(d.getDate()).padStart(2, "0")}-${String(
-            d.getMonth() + 1
-          ).padStart(2, "0")}-${d.getFullYear()}`;
-        }
-
-        if (col.ColumnType === "Number" && !isNaN(value)) {
-          totals[col.field] += Number(value);
-        }
-
-        ordered[header] = value;
-      });
-
-      return ordered;
-    });
-
-    // 🔹 Summary row
-    const summaryRow = {};
-    columns.forEach((col, index) => {
-      const header = fieldToHeader[col.field];
-
-      if (index === 0) {
-        summaryRow[header] = "TOTAL";
-      } else if (col.ColumnType === "Number") {
-        summaryRow[header] = Number(
-          totals[col.field].toFixed(col.ColumnDecimal ?? 3)
-        );
-      } else {
-        summaryRow[header] = "";
-      }
-    });
-
-    return [...mappedRows, summaryRow];
-  }
-
-  const converted = mapRowsToHeaders(columns, filteredRows);
-  const exportToExcel = () => {
-    const now = new Date();
-
-    const formattedDate = now
-      .toLocaleString("en-GB", {
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-        hour12: false,
-      })
-      .replace(/[/:]/g, "-");
-    const headerRows = [
-      [`Report Name : ${reportName}`],
-      [`${formattedDate}`],
-      [],
+    const updatedActivityDetails = [
+      ...existing.activityDetails,
+      ...newActivities,
     ];
-    const worksheet = XLSX.utils.aoa_to_sheet(headerRows);
-    XLSX.utils.sheet_add_json(worksheet, converted, {
-      origin: "A4",
-      skipHeader: false,
-    });
-    const columnWidths = Object.keys(converted[0] || {}).map((key) => ({
-      wch: Math.max(
-        key.length,
-        ...converted.map((row) => String(row[key] ?? "").length)
-      ),
-    }));
-    worksheet["!cols"] = columnWidths;
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Data");
-    const excelBuffer = XLSX.write(workbook, {
-      bookType: "xlsx",
-      type: "array",
-    });
 
-    const data = new Blob([excelBuffer], { type: EXCEL_TYPE });
-    const fileName = `${reportName}_${formattedDate}.xlsx`;
-    saveAs(data, fileName);
-  };
-
-  const handleClearFilter = () => {
-    setDraftFilters({});
-    setCommonSearch("");
-    setFiltersShow();
-    setFilters({});
-    setFilteredValue();
+    sessionStorage.setItem(
+      key,
+      JSON.stringify({
+        ...existing,
+        activityDetails: updatedActivityDetails,
+      })
+    );
   };
 
   const handlePaginationChange = (newModel) => {
@@ -2602,8 +1181,8 @@ export default function MainReport({
       console.warn("No ReportId found in sessionStorage for pid", pid);
       return;
     }
-    const reportId = matchingKey.split("_")[1];
 
+    const reportId = matchingKey.split("_")[1];
     saveReportActivity(reportId, {
       ActionName: "PAGINATION",
       ActionOn: "pageno",
@@ -2620,29 +1199,29 @@ export default function MainReport({
     }, 400);
   };
 
-  const handleClickOpenPoup = () => {
-    setOpenPopup(true);
-  };
-
-  const handleClosePopup = () => {
-    setOpenPopup(false);
-  };
-
-  const handleColorClick = (id) => {
-    setSelectedColors((prev) => {
-      if (prev.includes(id)) {
-        return prev.filter((x) => x !== id);
-      }
-      return [...prev, id];
-    });
-  };
-
   const onDragEnd = (result) => {
     if (!result.destination) return;
-    const updated = Array.from(allColumData);
-    const [moved] = updated.splice(result.source.index, 1);
-    updated.splice(result.destination.index, 0, moved);
-    setAllColumData(updated);
+
+    const visibleColumns = tempColumns.filter(
+      (col) => col.HideColumn !== "True"
+    );
+
+    const [moved] = visibleColumns.splice(result.source.index, 1);
+    visibleColumns.splice(result.destination.index, 0, moved);
+
+    const newTempColumns = [];
+    let visibleIndex = 0;
+
+    for (let col of tempColumns) {
+      if (col.HideColumn !== "True") {
+        newTempColumns.push(visibleColumns[visibleIndex]);
+        visibleIndex++;
+      } else {
+        newTempColumns.push(col);
+      }
+    }
+
+    setTempColumns(newTempColumns); // ✅ only temp changes
   };
 
   const groupRows = (rows, groupCheckBox) => {
@@ -2692,217 +1271,10 @@ export default function MainReport({
     }));
   };
 
-  const handleSaveSettings = async () => {
-    setColumSaveLoding(true);
-    let reportId = null;
-    const keyPrefix = `${pid}_`;
-    for (let i = 0; i < sessionStorage.length; i++) {
-      const key = sessionStorage.key(i);
-      if (key && key.startsWith(keyPrefix)) {
-        reportId = key.split("_")[1];
-        break;
-      }
-    }
-    if (!reportId) {
-      console.warn("No ReportId found in sessionStorage for pid", pid);
-      return;
-    }
-    try {
-      const updatedData = allColumData.map((col, idx) => ({
-        ...col,
-        IsVisible: checkedColumns[col.FieldName] ? "True" : "False",
-        DisplayOrder: idx + 1,
-      }));
-      const columnsPayload = updatedData.map((col) => ({
-        ColId: parseInt(col.ColId, 10),
-        IsVisible: col.IsVisible,
-        DisplayOrder: col.DisplayOrder,
-      }));
-      let AllData = JSON.parse(sessionStorage.getItem("reportVarible"));
-
-      const body = {
-        con: JSON.stringify({
-          mode: "updateCompanyReportColumns",
-          appuserid: AllData?.LUId,
-          IPAddress: clientIpAddress,
-        }),
-        p: JSON.stringify({
-          ReportId: reportId,
-          Columns: columnsPayload,
-        }),
-        f: "DynamicReport (update display order test)",
-      };
-      const response = await CallApi(body);
-      if (response?.rd[0]?.stat === 1) {
-        setAllColumData(updatedData);
-        sessionStorage.setItem(
-          "savedColumns_" + reportName,
-          JSON.stringify(updatedData)
-        ); // ✅ store
-        setOpenSnackbar(true);
-        setColumSaveLoding(false);
-      } else {
-        console.warn("Failed to update DisplayOrder:", response?.stat_msg);
-        setColumSaveLoding(false);
-      }
-    } catch (error) {
-      console.error("handleSaveSettings failed:", error);
-      setColumSaveLoding(false);
-    }
-  };
-
-  const handleSaveAction = async () => {
-    if (!selectionModel || selectionModel.length === 0) {
-      alert("Please select at least one row first.");
-      return;
-    }
-    if (!tempValue) return;
-
-    // Format value
-    let newValue = tempValue;
-    if (
-      activeActionColumn?.DateColumn === "True" ||
-      activeActionColumn?.DateColumn === true
-    ) {
-      newValue = dayjs(tempValue, "DD-MMM-YYYY").format("MMM DD YYYY 12:00A");
-    }
-
-    const actionIds = selectionModel.join("###");
-    let AllData = JSON.parse(sessionStorage.getItem("reportVarible"));
-    const body = {
-      con: JSON.stringify({
-        id: "",
-        mode: "SetAction",
-        appuserid: AllData?.LUId,
-        IPAddress: clientIpAddress,
-      }),
-      p: JSON.stringify({
-        ReportId: String(activeActionColumn.ReportId),
-        ActionIds: actionIds,
-        ColId: String(activeActionColumn.ColId),
-        NewValue: newValue,
-        ColName: activeActionColumn.FieldName,
-      }),
-      f: "DynamicReport ( get sp list )",
-    };
-
-    try {
-      const response = await ReportCallApi(body, spNumber);
-      setFilteredRows((prev) =>
-        prev.map((row) =>
-          selectionModel.includes(row.id)
-            ? {
-                ...row,
-                [activeActionColumn.FieldName]:
-                  activeActionColumn?.DateColumn === "True" ||
-                  activeActionColumn?.DateColumn === true
-                    ? dayjs(newValue, "MMM DD YYYY hh:mma").toISOString()
-                    : newValue,
-              }
-            : row
-        )
-      );
-      setActiveActionColumn(null);
-      setTempValue("");
-    } catch (error) {
-      console.error("Error updating action:", error);
-      alert("Something went wrong while updating.");
-    }
-  };
-
-  const handleAllDataShow = () => {
-    const dateCols = allColumData?.filter((col) => col.ColumnType == "Date");
-    setIsPageChanging(true);
-    setTimeout(() => {
-      setIsPageChanging(false);
-    }, 400);
-
-    // Clear date filter
-    setFilterState((prev) => ({
-      ...prev,
-      dateRange: { startDate: "", endDate: "" },
-    }));
-    const pickerInput = document.querySelector(
-      'input[aria-label="Date Range"]'
-    );
-    if (pickerInput) pickerInput.value = "";
-    setCommonSearch("");
-    if (masterKeyData?.MultiDateFilter == "True") {
-      setSelectedDateColumn();
-    }
-    setFiltersShow({});
-    setFilters({});
-    setDraftFilters({});
-    setFilteredValue([]);
-
-    // Trigger report refresh
-    if (!showReportMaster) {
-      onSearchFilter?.({}, "2");
-    }
-
-    // Log the “All” action to activityDetails
-    const keyPrefix = `${pid}_`;
-    const matchingKey = Object.keys(sessionStorage).find((key) =>
-      key.startsWith(keyPrefix)
-    );
-    if (matchingKey) {
-      const reportId = matchingKey.split("_")[1];
-      saveReportActivity(reportId, {
-        ActionName: "FILTER",
-        ActionOn: "AllDatabutton",
-        ActionValue: "",
-      });
-    }
-  };
-
-  const getSortedRows = () => {
-    return [...filteredRows]?.sort((a, b) => {
-      const activeSort = sortModel?.[0];
-      if (activeSort) {
-        const field = activeSort.field;
-        const order = activeSort.sort === "asc" ? 1 : -1;
-        const x = a[field];
-        const y = b[field];
-
-        if (!isNaN(x) && !isNaN(y)) {
-          return (Number(x) - Number(y)) * order;
-        }
-        return String(x).localeCompare(String(y)) * order;
-      }
-
-      const col = columns.find(
-        (c) => c.DefaultSort && c.DefaultSort !== "None"
-      );
-
-      if (!col) return 0;
-
-      const field = col.field;
-      const order = col.DefaultSort.toLowerCase() === "ascending" ? 1 : -1;
-      const x = a[field];
-      const y = b[field];
-
-      if (!isNaN(x) && !isNaN(y)) {
-        return (Number(x) - Number(y)) * order;
-      }
-
-      return String(x).localeCompare(String(y)) * order;
-    });
-  };
-
-  const [preparingPrint, setPreparingPrint] = useState(false);
-  const [currentPrintPage, setCurrentPrintPage] = useState(1);
-
-  const handleOpenPrintPreview = async () => {
-    const sorted = getSortedRows();
-    setShowPrintView(true);
-    setPrintData(sorted);
-  };
-
   const handlePrintNow = (currentPageItems, currentPage) => {
     setPreparingPrint(true);
     setCurrentPrintPage(currentPage);
 
-    // Wait for images to load
     requestAnimationFrame(() => {
       waitForPrintReady(currentPageItems);
     });
@@ -2947,10 +1319,6 @@ export default function MainReport({
       checkLayout();
     });
   };
-
-  const [open, setOpen] = useState(false);
-  const url =
-    "http://nzen/R50B3/salescrm/app/ProductInfoRemarks?entrydate=11/19/2025%2010:02:57%20AM&jobno=288461&versionname=&QuotationNo=QT/00069621&-=ODM1MjAyNTExMTkwOTM2MjQ5NDcjIyN7e256ZW59fXt7MjB9fXt7b3JhaWwyNX19e3tvcmFpbDI1fX0=-v/gVApszMU4=";
 
   if (showPrintView) {
     return (
@@ -3005,25 +1373,8 @@ export default function MainReport({
     );
   }
 
-  const totalPages = Math.ceil(filteredRows?.length / pageSize);
-  const getPageNumbers = () => {
-    const pages = [];
-    const totalPageCount = totalPages;
-    const maxVisible = 5;
-
-    let start = Math.max(currentPage - 2, 1);
-    let end = Math.min(start + maxVisible - 1, totalPageCount);
-    if (end - start < maxVisible - 1) {
-      start = Math.max(end - maxVisible + 1, 1);
-    }
-    for (let i = start; i <= end; i++) {
-      pages.push(i);
-    }
-    return pages;
-  };
-
   return (
-    <DragDropContext onDragEnd={onDragEnd}>
+    <DragDropContext key={openPopup ? "open" : "closed"} onDragEnd={onDragEnd}>
       {showPrintView ? (
         <div ref={printRef}>
           <Print1JewelleryBook visibleItemsMain={printData} />
@@ -3031,143 +1382,36 @@ export default function MainReport({
       ) : (
         <div
           className="dynamic_sample_report_main"
-          sx={{ width: "100vw", display: "flex", flexDirection: "column" }}
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            position: isExpanded ? "fixed" : "relative",
+            top: isExpanded ? 0 : "auto",
+            left: isExpanded ? 0 : "auto",
+            right: isExpanded ? 0 : "auto",
+            bottom: isExpanded ? 0 : "auto",
+            zIndex: isExpanded ? 9999 : "auto",
+            // backgroundColor: isExpanded ? "#fff" : "transparent",
+            overflow: isExpanded ? "auto" : "visible",
+            padding: isExpanded ? "10px" : "0",
+          }}
           ref={gridContainerRef}
         >
-          <Snackbar
-            open={openSnackbar}
-            autoHideDuration={3000}
-            onClose={() => setOpenSnackbar(false)}
-            anchorOrigin={{ vertical: "top", horizontal: "center" }}
-          >
-            <Alert severity="success" onClose={() => setOpenSnackbar(false)}>
-              Column Update Successfully!
-            </Alert>
-          </Snackbar>
-
-          <Dialog
-            open={openHrefModel}
-            onClose={() => setOpenHrefModel(false)}
-            PaperProps={{
-              sx: {
-                height: "40vh",
-                borderRadius: 2,
-                overflow: "hidden",
-                width: "600px",
-              },
-            }}
-          >
-            <div
-              style={{
-                position: "absolute",
-                right: "10px",
-                top: "10px",
-              }}
-            >
-              <IconButton
-                edge="end"
-                size="small"
-                onClick={() => setOpenHrefModel(false)}
-                aria-label="clear"
-                style={{ border: "1px solid #b3c6ff" }}
-              >
-                <X size={18} color="black" />
-              </IconButton>
-            </div>
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                padding: "20px",
-                height: "100%",
-              }}
-            >
-              <iframe
-                src={iframeUrl}
-                title="iframe-preview"
-                style={{
-                  border: "none",
-                  height: "100%",
-                }}
-              />
-            </div>
-          </Dialog>
-
           <Dialog
             open={openPopup}
             onClose={() => setOpenPopup(false)}
-            container={gridContainerRef.current}
+            disablePortal
+            sx={{
+              borderRadius: '20px'
+            }}
           >
-            {/* <IconButton
-              style={{ position: "absolute", top: 0, right: 5 }}
-              onClick={() => setOpenPopup(false)}
-            >
-              <CircleX />
-            </IconButton> */}
-            <div className="colum_setting_model_main">
-              <div className="filterDrawer">
-                <p className="title">Column Rearrange</p>
-
-                <Droppable droppableId="columns-list" type="COLUMN">
-                  {(provided) => (
-                    <div
-                      ref={provided.innerRef}
-                      {...provided.droppableProps}
-                      className="columns-list"
-                    >
-                      {allColumData
-                        .filter((col) => col.HideColumn !== "True")
-                        .map((col, index) => (
-                          <DraggableColumn
-                            key={col.FieldName}
-                            col={col}
-                            index={index}
-                            checkedColumns={checkedColumns}
-                            handleCheckboxChange={() =>
-                              setCheckedColumns((prev) => ({
-                                ...prev,
-                                [col.FieldName]: !prev[col.FieldName],
-                              }))
-                            }
-                          />
-                        ))}
-                      {provided.placeholder}
-                    </div>
-                  )}
-                </Droppable>
-
-                <div className="btn-container">
-                  <Button
-                    variant="contained"
-                    color="primary"
-                    className="btn_SaveColumModel"
-                    onClick={handleSaveSettings}
-                    disabled={columSaveLoding}
-                  >
-                    {columSaveLoding ? (
-                      <span className="loading-text">
-                        {"Loading...".split("").map((char, index) => (
-                          <span key={index} style={{ "--i": index }}>
-                            {char}
-                          </span>
-                        ))}
-                      </span>
-                    ) : (
-                      "Save"
-                    )}
-                  </Button>
-
-                  <Button
-                    variant="contained"
-                    color="primary"
-                    className="btn_CancelColumModel"
-                    onClick={handleClosePopup}
-                  >
-                    cancel
-                  </Button>
-                </div>
-              </div>
-            </div>
+            <ColumnRearrange
+              setOpenPopup={setOpenPopup}
+              tempColumns={tempColumns}
+              setAllColumData={setAllColumData}
+              reportName={reportName}
+              allColumData={allColumData}
+            />
           </Dialog>
 
           <Drawer
@@ -3179,117 +1423,39 @@ export default function MainReport({
               disablePortal: true,
             }}
           >
-            <FilterDrawer 
-            setSideFilterOpen={setSideFilterOpen}
-            setDraftFilters={setDraftFilters}
-            setCommonSearch={setCommonSearch}
-            setFiltersShow={setFiltersShow}
-            setFilters={setFilters}
-            setFilteredValue={setFilteredValue}
-            filteredValueState={filteredValueState}
-            handleApplyFilter={handleApplyFilter}
-            columnsHide={columnsHide}
-            draftFilters={draftFilters}
-            toggleDrawer={toggleDrawer}
-            onSearchFilter={onSearchFilter}
-            originalRows={originalRows}
+            <FilterDrawer
+              setSideFilterOpen={setSideFilterOpen}
+              setDraftFilters={setDraftFilters}
+              setCommonSearch={setCommonSearch}
+              setFiltersShow={setFiltersShow}
+              setFiltersShowDraf={setFiltersShowDraf}
+              filtersShowDraf={filtersShowDraf}
+              setFilters={setFilters}
+              setFilteredValue={setFilteredValue}
+              filteredValueState={filteredValueState}
+              columnsHide={columnsHide}
+              draftFilters={draftFilters}
+              toggleDrawer={toggleDrawer}
+              onSearchFilter={onSearchFilter}
+              originalRows={originalRows}
+              masterKeyData={masterKeyData}
+              grupEnChekBox={grupEnChekBox}
+              fullscreenContainer={fullscreenContainer}
+              setSuggestionVisibility={setSuggestionVisibility}
+              suggestionVisibility={suggestionVisibility}
+              setHighlightedIndex={setHighlightedIndex}
+              highlightedIndex={highlightedIndex}
+              apiRef={apiRef}
+              commonSearch={commonSearch}
+              selectedDateColumn={selectedDateColumn}
+              saveReportActivity={saveReportActivity}
+              endDate={endDate}
+              startDate={startDate}
+              selectedGroups={selectedGroups}
+              filtersShow={filtersShow}
+              filteredValue={filteredValue}
+              filters={filters}
             />
-            <div
-              style={{
-                margin: "13px 10px 0px 24px",
-                fontSize: "25px",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
-            >
-              <CircleX
-                style={{
-                  cursor: "pointer",
-                  height: "30px",
-                  width: "30px",
-                }}
-                onClick={() => setSideFilterOpen(false)}
-              />
-
-              <div style={{ display: "flex" }}>
-                <button
-                  onClick={handleClearFilter}
-                  className="btn_ClearFilterButton"
-                >
-                  <MdOutlineFilterAltOff style={{ fontSize: "25px" }} />
-                  Clear
-                </button>
-
-                <button
-                  className="btn_FilterButton"
-                  onClick={handleApplyFilter}
-                >
-                  <FaFilter style={{ fontSize: "20px" }} />
-                  Apply
-                </button>
-              </div>
-            </div>
-            <div style={{ paddingBottom: "100px" }}>
-              {columnsHide
-                .filter((col) => col.filterable)
-                .map((col) => (
-                  <div
-                    key={col.FieldName}
-                    style={{ display: "flex", gap: "10px" }}
-                  >
-                    {renderServerSideFilter(col)}
-                  </div>
-                ))}
-
-              {columnsHide
-                .filter((col) => col.filterable)
-                .map((col) => (
-                  <div key={col.FieldName}>
-                    {col.filterTypes?.includes("MultiSelection") &&
-                      renderFilterMulti(col)}
-                  </div>
-                ))}
-
-              {columnsHide
-                .filter((col) => col.filterable)
-                .map((col) => (
-                  <div key={col.FieldName}>{renderFilterRange(col)}</div>
-                ))}
-
-              {columnsHide
-                .filter((col) => col.filterable)
-                .map((col) => (
-                  <div
-                    key={col.FieldName}
-                    style={{ display: "flex", gap: "10px" }}
-                  >
-                    {renderFilterDropDown(col)}
-                  </div>
-                ))}
-
-              {columnsHide
-                .filter((col) => col.filterable)
-                .map((col) => (
-                  <div
-                    key={col.FieldName}
-                    style={{ display: "flex", gap: "10px" }}
-                  >
-                    {renderFilter(col)}
-                  </div>
-                ))}
-
-              {columnsHide
-                .filter((col) => col.filterable)
-                .map((col) => (
-                  <div
-                    key={col.FieldName}
-                    style={{ display: "flex", gap: "10px" }}
-                  >
-                    {renderSuggestionFilter(col)}
-                  </div>
-                ))}
-            </div>
           </Drawer>
 
           <LocalizationProvider dateAdapter={AdapterDayjs}>
@@ -3299,634 +1465,97 @@ export default function MainReport({
               maxWidth="xs"
               fullWidth
             >
-              <div style={{ height: "400px" }}>
-                <DialogTitle>
-                  {activeActionColumn
-                    ? `Update ${activeActionColumn.HeaderName}`
-                    : ""}
-                </DialogTitle>
-
-                <DialogContent dividers>
-                  {activeActionColumn?.DateColumn == "True" ? (
-                    <DatePicker
-                      label="Select Date"
-                      value={tempValue ? dayjs(tempValue, "DD-MMM-YYYY") : null}
-                      onChange={(newValue) => {
-                        if (newValue) {
-                          const formatted = newValue.format("DD-MMM-YYYY");
-                          setTempValue(formatted);
-                        } else {
-                          setTempValue("");
-                        }
-                      }}
-                      slotProps={{ textField: { fullWidth: true } }}
-                    />
-                  ) : activeActionColumn?.actionMasterName ? (
-                    <TextField
-                      select
-                      fullWidth
-                      label={`Select ${activeActionColumn.HeaderName}`}
-                      value={tempValue || ""}
-                      onChange={(e) => setTempValue(e.target.value)}
-                    >
-                      {/* {masterData[activeActionColumn.actionMasterName]?.map(
-                    (item) => (
-                      <MenuItem
-                        key={item.id}
-                        value={item.userJob || item.amount}
-                      >
-                        {item.userJob || item.amount}
-                      </MenuItem>
-                    )
-                  )} */}
-                    </TextField>
-                  ) : (
-                    <TextField
-                      fullWidth
-                      label={`Enter ${activeActionColumn?.HeaderName}`}
-                      value={tempValue}
-                      onChange={(e) => setTempValue(e.target.value)}
-                    />
-                  )}
-                </DialogContent>
-
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "center",
-                    alignItems: "end",
-                    height: "55%",
-                  }}
-                >
-                  <Button onClick={() => setActiveActionColumn(null)}>
-                    Cancel
-                  </Button>
-                  <Button
-                    variant="contained"
-                    onClick={handleSaveAction}
-                    style={{ backgroundColor: "#7367f0" }}
-                  >
-                    Save
-                  </Button>
-                </div>
-              </div>
+              <ActionFilter
+                selectionModel={selectionModel}
+                setTempValue={setTempValue}
+                tempValue={tempValue}
+                activeActionColumn={activeActionColumn}
+                spNumber={spNumber}
+                setFilteredRows={setFilteredRows}
+                setActiveActionColumn={setActiveActionColumn}
+              />
             </Dialog>
           </LocalizationProvider>
-
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              padding: "5px 10px 0px 10px",
-            }}
-          >
-            <div style={{ display: "flex" }}>
-              <div style={{ display: "flex", gap: "15px" }}>
-                {showReportMaster && (
-                  <Button
-                    variant="outlined"
-                    onClick={onBack}
-                    className="Btn_BackErrow"
-                  >
-                    <ArrowLeft color="#7367f0b3" />
-                  </Button>
-                )}
-                <div style={{ display: "flex", gap: "10px" }}>
-                  {filteredValueState?.map((data, i) => (
-                    <div
-                      key={i}
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "4px",
-                      }}
-                    >
-                      <p className="FilterValue_title">{data.name} : </p>
-                      <p className="FilterValue_Value">{" " + data.value}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-            <div style={{ display: "flex", gap: "10px" }}>
-              {masterKeyData?.ColumnSettingModel == "True" && (
-                <Tooltip
-                  title="Column Rearrange"
-                  isablePortal
-                  PopperProps={{
-                    container: gridContainerRef.current,
-                  }}
-                >
-                  <IconButton
-                    onClick={handleClickOpenPoup}
-                    sx={{
-                      background: "#cdd5ff",
-                      color: "#6f53ff",
-                      height: "42px",
-                      width: "42px",
-                      borderRadius: "6px",
-                      transition: "all .2s ease",
-                      "&:hover": {
-                        backgroundColor: "#cdd5ff",
-                        transform: "translateY(-2px)",
-                      },
-                    }}
-                    size="medium"
-                    className="btn_column_setting_model"
-                  >
-                    <AiFillSetting size={22} />
-                  </IconButton>
-                </Tooltip>
-              )}
-            </div>
+          <div>
+            <SummaryEndFilteredValue
+              setSummaryColumns={setSummaryColumns}
+              setFinalSummaryColumns={setFinalSummaryColumns}
+              columnsHide={columnsHide}
+              allColumData={allColumData}
+              filteredRows={filteredRows}
+              showReportMaster={showReportMaster}
+              onBack={onBack}
+              filteredValueState={filteredValueState}
+              masterKeyData={masterKeyData}
+              gridContainerRef={gridContainerRef}
+              setOpenPopup={setOpenPopup}
+              selectedGroups={selectedGroups}
+              setDraftFilters={setDraftFilters}
+              setFiltersShowDraf={setFiltersShowDraf}
+              setFilteredValue={setFilteredValue}
+            />
           </div>
-          <div>{renderSummary()}</div>
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              padding: "5px 10px",
-            }}
-          >
-            <div style={{ display: "flex", gap: "10px", alignItems: "end" }}>
-              <div
-                style={{ display: "flex", alignItems: "center", gap: "10px" }}
-              >
-                <Button
-                  onClick={toggleDrawer(true)}
-                  className="btn_FiletrBtnOpen"
-                >
-                  <MdOutlineFilterAlt
-                    style={{ height: "30px", width: "30px" }}
-                  />
-                </Button>
-
-                {spliterReportShow != true &&
-                  masterKeyData?.MainDateFilter == "True" &&
-                  (masterKeyData?.MultiDateFilter == "True" ? (
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "10px",
-                      }}
-                    >
-                      <FormControl
-                        size="small"
-                        sx={{ minWidth: 150, margin: "0px" }}
-                      >
-                        <InputLabel>Date Type</InputLabel>
-                        <Select
-                          label="Date Type"
-                          value={selectedDateColumn}
-                          onChange={(e) =>
-                            setSelectedDateColumn(e.target.value)
-                          }
-                          style={{
-                            fontSize: "14px",
-                            display: "flex",
-                            alignItems: "center",
-                          }}
-                          sx={{
-                            "& .MuiSelect-select": {
-                              padding: "7px !important",
-                            },
-                          }}
-                        >
-                          {dateColumnOptions.map((col) => (
-                            <MenuItem key={col.field} value={col.field}>
-                              {col.label}
-                            </MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
-                      <DualDatePicker
-                        filterState={filterState}
-                        setFilterState={setFilterState}
-                        validDay={186}
-                        validMonth={6}
-                        withountDateFilter={true}
-                        hideDisplay={
-                          filterState.dateRange.startDate?.getFullYear?.() ===
-                          1990
-                        }
-                        fullscreenContainer={gridContainerRef.current} // <-- ADD THIS
-                      />
-                    </div>
-                  ) : (
-                    <DualDatePicker
-                      filterState={filterState}
-                      setFilterState={setFilterState}
-                      validDay={186}
-                      validMonth={6}
-                      withountDateFilter={true}
-                      hideDisplay={
-                        filterState.dateRange.startDate?.getFullYear?.() ===
-                        1990
-                      }
-                      fullscreenContainer={gridContainerRef.current} // <-- ADD THIS
-                    />
-                  ))}
-
-                {spliterReportShow != true &&
-                  masterKeyData?.AllDataButton == "True" && (
-                    <Button
-                      onClick={handleAllDataShow}
-                      className="btn_FiletrBtnAll"
-                    >
-                      All
-                    </Button>
-                  )}
-              </div>
-
-              <TextField
-                type="text"
-                placeholder="Search..."
-                value={commonSearch}
-                onChange={(e) => setCommonSearch(e.target.value)}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <Search size={18} color="#888" />
-                    </InputAdornment>
-                  ),
-                  endAdornment: commonSearch ? (
-                    <InputAdornment position="end">
-                      <IconButton
-                        edge="end"
-                        size="small"
-                        onClick={() => setCommonSearch("")}
-                        aria-label="clear"
-                      >
-                        <X size={18} color="#888" />
-                      </IconButton>
-                    </InputAdornment>
-                  ) : null,
-                }}
-                sx={{
-                  width: "250px",
-                  "& .MuiInputBase-input": {
-                    padding: "6px 8px !important",
-                  },
-                }}
-                className="txt_commonSearch"
-              />
-
-              <div style={{ display: "flex", gap: "8px" }}>
-                {allColumData &&
-                  Object.values(allColumData).map((col) =>
-                    col.ActionFilter == "True" ? (
-                      <Button
-                        key={col.field}
-                        variant="outlined"
-                        size="small"
-                        className="btn_Action_FiletrBtnOpen"
-                        onClick={() => {
-                          setActiveActionColumn(col);
-                          setTempValue("");
-                        }}
-                      >
-                        Set {col.HeaderName}
-                      </Button>
-                    ) : null
-                  )}
-              </div>
-              {masterKeyData?.PriorityMaster == "True" && (
-                <div style={{ display: "flex", gap: "10px" }}>
-                  {!isLoading &&
-                    colorMaster?.map((data, index) => {
-                      const isSelected = selectedColors.includes(data.id);
-
-                      return (
-                        <Tooltip
-                          title={data.code}
-                          key={index}
-                          isablePortal
-                          PopperProps={{
-                            container: gridContainerRef.current,
-                          }}
-                        >
-                          <div
-                            onClick={() => handleColorClick(data.id)}
-                            style={{
-                              backgroundColor: data.colorcode,
-                              height: isSelected ? "28px" : "30px",
-                              width: isSelected ? "28px" : "30px",
-                              cursor: "pointer",
-                              border: isSelected
-                                ? "2px solid black"
-                                : "1px solid #ccc",
-                              boxShadow: isSelected ? "0 0 5px #000" : "none",
-                            }}
-                          ></div>
-                        </Tooltip>
-                      );
-                    })}
-                </div>
-              )}
-            </div>
-            <div style={{ display: "flex", alignItems: "end", gap: "10px" }}>
-              {/* {masterKeyData?.MailButton == "True" && (
-              <img
-                src={mainButton}
-                style={{ cursor: "pointer" }}
-                onClick={handleSendEmail}
-              />
-            )} */}
-
-              {masterKeyData?.CurrencyMaster == "True" && (
-                <FormControl
-                  size="small"
-                  sx={{ width: 150, margin: "0px" }}
-                  className="dropDownMainClass"
-                >
-                  <Select
-                    value={selectedCurrency}
-                    onChange={(e) => setSelectedCurrency(e.target.value)}
-                    MenuProps={{
-                      disablePortal: true,
-                      PaperProps: {
-                        style: {
-                          maxHeight: 300,
-                          overflowY: "auto",
-                        },
-                      },
-                    }}
-                    style={{
-                      fontSize: "14px",
-                      display: "flex",
-                      alignItems: "center",
-                    }}
-                    sx={{
-                      "& .MuiSelect-select": {
-                        padding: "7px !important",
-                      },
-                    }}
-                    className="dropDownListFont"
-                  >
-                    {currencyMaster?.map((col) => (
-                      <MenuItem
-                        key={col?.id}
-                        value={col?.Currencycode}
-                        style={{
-                          fontSize: "14px",
-                        }}
-                        className="dropDownListFont"
-                      >
-                        {col?.Currencycode}
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </FormControl>
-              )}
-
-              {masterKeyData?.PrintButton == "True" && (
-                <Tooltip
-                  title="Print"
-                  isablePortal
-                  PopperProps={{
-                    container: gridContainerRef.current,
-                  }}
-                >
-                  <IconButton
-                    onClick={handleOpenPrintPreview}
-                    sx={{
-                      background: "#e8f5e9",
-                      color: "#2e7d32",
-                      height: "42px",
-                      width: "42px",
-                      borderRadius: "6px",
-                      transition: "all .2s ease",
-                      "&:hover": {
-                        backgroundColor: "#c8e6c9",
-                        transform: "translateY(-2px)",
-                      },
-                    }}
-                    size="medium"
-                  >
-                    <FaPrint size={22} />
-                  </IconButton>
-                </Tooltip>
-              )}
-
-              {masterKeyData?.ImageView === "True" &&
-                (grupEnChekBoxImage?.length > 0 ? (
-                  grupEnChekBoxImage.every(
-                    (item) => item.DefaultGrupChekBox === true
-                  ) ? (
-                    <div
-                      style={{
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                      }}
-                    >
-                      {showImageView ? (
-                        <Tooltip
-                          title="Report View"
-                          isablePortal
-                          PopperProps={{
-                            container: gridContainerRef.current,
-                          }}
-                        >
-                          <IconButton
-                            onClick={() => setShowImageView(false)}
-                            sx={{
-                              background: "#e3f2fd",
-                              color: "#1976d2",
-                              height: "42px",
-                              width: "42px",
-                              borderRadius: "6px",
-                              transition: "all .2s ease",
-                              "&:hover": {
-                                backgroundColor: "#bbdefb",
-                                transform: "translateY(-2px)",
-                              },
-                            }}
-                            size="medium"
-                          >
-                            <LayoutGrid size={22} />
-                          </IconButton>
-                        </Tooltip>
-                      ) : (
-                        <Tooltip
-                          title="Image View"
-                          isablePortal
-                          PopperProps={{
-                            container: gridContainerRef.current,
-                          }}
-                        >
-                          <IconButton
-                            onClick={() => setShowImageView(true)}
-                            sx={{
-                              background: "#e3f2fd",
-                              color: "#1976d2",
-                              height: "42px",
-                              width: "42px",
-                              borderRadius: "6px",
-                              transition: "all .2s ease",
-                              "&:hover": {
-                                backgroundColor: "#bbdefb",
-                                transform: "translateY(-2px)",
-                              },
-                            }}
-                            size="medium"
-                          >
-                            <Image size={22} />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                    </div>
-                  ) : null
-                ) : (
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                  >
-                    {showImageView ? (
-                      <Tooltip
-                        title="Report View"
-                        isablePortal
-                        PopperProps={{
-                          container: gridContainerRef.current,
-                        }}
-                      >
-                        <IconButton
-                          onClick={() => setShowImageView(false)}
-                          sx={{
-                            background: "#e3f2fd",
-                            color: "#1976d2",
-                            height: "42px",
-                            width: "42px",
-                            borderRadius: "6px",
-                            transition: "all .2s ease",
-                            "&:hover": {
-                              backgroundColor: "#bbdefb",
-                              transform: "translateY(-2px)",
-                            },
-                          }}
-                          size="medium"
-                        >
-                          <LayoutGrid size={22} />
-                        </IconButton>
-                      </Tooltip>
-                    ) : (
-                      <Tooltip
-                        title="Image View"
-                        isablePortal
-                        PopperProps={{
-                          container: gridContainerRef.current,
-                        }}
-                      >
-                        <IconButton
-                          onClick={() => setShowImageView(true)}
-                          sx={{
-                            background: "#e3f2fd",
-                            color: "#1976d2",
-                            height: "42px",
-                            width: "42px",
-                            borderRadius: "6px",
-                            transition: "all .2s ease",
-                            "&:hover": {
-                              backgroundColor: "#bbdefb",
-                              transform: "translateY(-2px)",
-                            },
-                          }}
-                          size="medium"
-                        >
-                          <Image size={22} />
-                        </IconButton>
-                      </Tooltip>
-                    )}
-                  </div>
-                ))}
-
-              {masterKeyData?.ExcelExport == "True" && (
-                <Tooltip
-                  title="Export to Excel"
-                  disablePortal
-                  PopperProps={{
-                    container: gridContainerRef.current,
-                  }}
-                >
-                  <IconButton
-                    onClick={exportToExcel}
-                    sx={{
-                      background: "#e8f5e9",
-                      color: "#2e7d32",
-                      height: "42px",
-                      width: "42px",
-                      borderRadius: "6px",
-                      transition: "all .2s ease",
-                      "&:hover": {
-                        backgroundColor: "#c8e6c9",
-                        transform: "translateY(-2px)",
-                      },
-                    }}
-                    size="medium"
-                  >
-                    <FileSpreadsheet size={22} />
-                  </IconButton>
-                </Tooltip>
-              )}
-
-              {masterKeyData?.FullScreenGridButton == "True" && (
-                <Tooltip
-                  title="Full Screen Report"
-                  isablePortal
-                  PopperProps={{
-                    container: gridContainerRef.current,
-                  }}
-                >
-                  <IconButton
-                    onClick={toggleFullScreen}
-                    sx={{
-                      background: "#e8f5e9",
-                      color: "#2e7d32",
-                      height: "42px",
-                      width: "42px",
-                      borderRadius: "6px",
-                      transition: "all .2s ease",
-                      "&:hover": {
-                        backgroundColor: "#c8e6c9",
-                        transform: "translateY(-2px)",
-                      },
-                    }}
-                    size="medium"
-                  >
-                    <RiFullscreenLine size={22} />
-                  </IconButton>
-                </Tooltip>
-
-                // <button className="fullScreenButton" onClick={toggleFullScreen}>
-                //   <RiFullscreenLine
-                //     style={{ marginInline: "5px", fontSize: "30px" }}
-                //   />
-                // </button>
-              )}
-            </div>
-            {/* <Button onClick={() => setOpen(true)}>Open iframe</Button> */}
-          </div>
-
+          <ReportTopFilterEndAction
+            isLoading={isLoading}
+            toggleDrawer={toggleDrawer}
+            spliterReportShow={spliterReportShow}
+            masterKeyData={masterKeyData}
+            selectedDateColumn={selectedDateColumn}
+            setSelectedDateColumn={setSelectedDateColumn}
+            dateColumnOptions={dateColumnOptions}
+            filterState={filterState}
+            setFilterState={setFilterState}
+            gridContainerRef={gridContainerRef}
+            allColumData={allColumData}
+            setIsPageChanging={setIsPageChanging}
+            setCommonSearch={setCommonSearch}
+            setFiltersShow={setFiltersShow}
+            setFilters={setFilters}
+            setDraftFilters={setDraftFilters}
+            setFilteredValue={setFilteredValue}
+            showReportMaster={showReportMaster}
+            onSearchFilter={onSearchFilter}
+            saveReportActivity={saveReportActivity}
+            commonSearch={commonSearch}
+            setActiveActionColumn={setActiveActionColumn}
+            setTempValue={setTempValue}
+            colorMaster={colorMaster}
+            setSelectedColors={setSelectedColors}
+            selectedColors={selectedColors}
+            setSelectedCurrency={setSelectedCurrency}
+            selectedCurrency={selectedCurrency}
+            currencyMaster={currencyMaster}
+            filteredRows={filteredRows}
+            sortModel={sortModel}
+            columns={columns}
+            setShowPrintView={setShowPrintView}
+            setPrintData={setPrintData}
+            grupEnChekBoxImage={grupEnChekBoxImage}
+            showImageView={showImageView}
+            setShowImageView={setShowImageView}
+            reportName={reportName}
+            isExpanded={isExpanded}
+            setIsExpanded={setIsExpanded}
+            apiRef={apiRef}
+            setChartView={setChartView}
+            chartView={chartView}
+          />
           <div
             ref={gridRef}
             style={{
               height: showImageView
-                ? summaryColumns?.length == 0
+                ? finalSummaryColumns?.length == 0
                   ? "77vh"
                   : "70vh"
-                : summaryColumns?.length == 0
-                ? masterKeyData?.ColumnSettingModel == "True"
-                  ? "calc(100vh - 190px)"
-                  : "calc(100vh - 130px)"
-                : finalSummaryColumns?.length > 9
-                ? finalSummaryColumns?.length > 18
-                  ? "calc(100vh - 370px)"
-                  : "calc(100vh - 300px)"
-                : "calc(100vh - 255px)",
+                : finalSummaryColumns?.length == 0
+                  ? masterKeyData?.ColumnSettingModel == "True"
+                    ? "calc(100vh - 130px)"
+                    : "calc(100vh - 130px)"
+                  : finalSummaryColumns?.length > 9
+                    ? finalSummaryColumns?.length > 18
+                      ? "calc(100vh - 320px)"
+                      : "calc(100vh - 260px)"
+                    : "calc(100vh - 195px)",
               margin: "5px 10px",
               overflow: "auto",
               transition: "opacity 0.3s",
@@ -3936,221 +1565,27 @@ export default function MainReport({
           >
             {showImageView ? (
               <div>
-                <div
-                  style={{
-                    position: "fixed",
-                    width: "100%",
-                    backgroundColor: "white",
-                  }}
-                >
-                  <div className="pagination" style={{ marginBottom: 10 }}>
-                    <IconButton
-                      onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
-                      disabled={currentPage === 1}
-                      sx={{
-                        background: "#e8f5e9",
-                        color: "#2e7d32",
-                        height: "42px",
-                        width: "42px",
-                        borderRadius: "6px",
-                        transition: "all .2s ease",
-                        "&:hover": {
-                          backgroundColor: "#c8e6c9",
-                        },
-                      }}
-                      size="medium"
-                    >
-                      Prev
-                    </IconButton>
+                <ImageView
+                  filteredRows={filteredRows}
+                  sortModel={sortModel}
+                  columns={columns}
+                />
+              </div>
+            ) : chartView ? (
+              <div>
 
-                    {getPageNumbers().map((num) => (
-                      <button
-                        key={num}
-                        onClick={() => setCurrentPage(num)}
-                        className={num === currentPage ? "active" : ""}
-                      >
-                        {num}
-                      </button>
-                    ))}
+                <BarChartView
+                  filteredRows={filteredRows}
+                  sortModel={sortModel}
+                  columns={columns}
+                />
 
-                    <IconButton
-                      onClick={() =>
-                        setCurrentPage((p) => Math.min(p + 1, totalPages))
-                      }
-                      disabled={currentPage === totalPages}
-                      sx={{
-                        background: "#e8f5e9",
-                        color: "#2e7d32",
-                        height: "42px",
-                        width: "42px",
-                        borderRadius: "6px",
-                        transition: "all .2s ease",
-                        "&:hover": {
-                          backgroundColor: "#c8e6c9",
-                        },
-                      }}
-                      size="medium"
-                    >
-                      Next
-                    </IconButton>
-                  </div>
-
-                  <p style={{ textAlign: "center" }}>
-                    Page <strong>{currentPage}</strong> of{" "}
-                    <strong>{totalPages}</strong>
-                  </p>
-                </div>
-                <div
-                  style={{
-                    display: "flex",
-                    flexWrap: "wrap",
-                    gap: "10px",
-                    paddingTop: "120px",
-                  }}
-                >
-                  {[...filteredRows]
-                    .sort((a, b) => {
-                      const activeSort = sortModel?.[0];
-                      if (activeSort) {
-                        const field = activeSort.field;
-                        const order = activeSort.sort === "asc" ? 1 : -1;
-                        const x = a[field];
-                        const y = b[field];
-                        if (!isNaN(x) && !isNaN(y)) {
-                          return (Number(x) - Number(y)) * order;
-                        }
-                        return String(x).localeCompare(String(y)) * order;
-                      }
-
-                      const col = columns.find(
-                        (c) => c.DefaultSort && c.DefaultSort !== "None"
-                      );
-                      if (!col) return 0;
-                      const field = col.field;
-                      const order =
-                        col.DefaultSort.toLowerCase() === "ascending" ? 1 : -1;
-
-                      const x = a[field];
-                      const y = b[field];
-
-                      if (!isNaN(x) && !isNaN(y)) {
-                        return (Number(x) - Number(y)) * order;
-                      }
-                      return String(x).localeCompare(String(y)) * order;
-                    })
-                    .slice((currentPage - 1) * pageSize, currentPage * pageSize) // ✅ PAGINATION APPLIED
-                    .map((item, idx) => {
-                      const defaultImg = noFoundImg;
-                      const src =
-                        String(item?.ImgUrl ?? "").trim() || defaultImg;
-                      return (
-                        <div
-                          key={idx}
-                          style={{
-                            width: 200,
-                            height: 230,
-                            display: "flex",
-                            flexDirection: "column",
-                          }}
-                        >
-                          <img
-                            src={src}
-                            alt={`record-${idx}`}
-                            loading="lazy"
-                            onError={(e) => {
-                              if (e.target.src !== defaultImg)
-                                e.target.src = defaultImg;
-                            }}
-                            style={{
-                              width: "200px",
-                              height: "200px",
-                              border: "1px solid lightgray",
-                              objectFit: "cover",
-                              borderRadius: "4px",
-                              backgroundColor: "#f9f9f9",
-                            }}
-                          />
-
-                          <div
-                            style={{
-                              display: "flex",
-                              justifyContent: "space-between",
-                              marginTop: "4px",
-                            }}
-                          >
-                            <div>
-                              <p
-                                style={{
-                                  margin: 0,
-                                  fontSize: "13px",
-                                  lineHeight: "16px",
-                                }}
-                              >
-                                {item?.designcount !== undefined && (
-                                  <span>
-                                    Order: <strong>{item.designcount}</strong>
-                                  </span>
-                                )}
-                                {item?.designcount !== undefined &&
-                                  item?.salescount !== undefined &&
-                                  ", "}
-                                {item?.salescount !== undefined && (
-                                  <span>
-                                    Sale: <strong>{item.salescount}</strong>
-                                  </span>
-                                )}
-                              </p>
-                            </div>
-                            <div style={{ display: "flex", gap: "10px" }}>
-                              <p
-                                style={{
-                                  margin: 0,
-                                  fontWeight: 600,
-                                  fontSize: "12px",
-                                  lineHeight: "10px",
-                                }}
-                              >
-                                <span>{item?.StockBarcode}</span>
-                              </p>
-                              <p
-                                style={{
-                                  margin: 0,
-                                  fontWeight: 600,
-                                  fontSize: "12px",
-                                  color: "#CF4F7D",
-                                  display: "flex",
-                                  flexDirection: "column",
-                                }}
-                              >
-                                <div
-                                  style={{
-                                    display: "flex",
-                                    gap: "3px",
-                                    lineHeight: "10px",
-                                  }}
-                                >
-                                  <span>{item?.metaltype}</span>
-                                  <span>{item?.metalpurity}</span>
-                                </div>
-                                <span>{item?.metalcolor}</span>
-                              </p>
-                            </div>
-
-                            <p
-                              style={{
-                                margin: 0,
-                                fontWeight: 600,
-                                fontSize: "13px",
-                                lineHeight: "10px",
-                              }}
-                            >
-                              {item?.designno}
-                            </p>
-                          </div>
-                        </div>
-                      );
-                    })}
-                </div>
+                <PieChartView
+                  filteredRows={filteredRows}
+                  sortModel={sortModel}
+                  columns={columns}
+                />
+                
               </div>
             ) : (
               <Warper>
@@ -4161,12 +1596,11 @@ export default function MainReport({
                   columns={columns ?? []}
                   autoHeight={false}
                   columnBuffer={17}
-                  rowHeight={40}
+                  rowHeight={43}
                   getRowClassName={(params) =>
                     params.row.IsClub === 1 ? "yellow-row" : ""
                   }
                   sortModel={sortModel}
-                  // onSortModelChange={(model) => setSortModel(model)}
                   onSortModelChange={(model) => {
                     if (!model.length) return;
                     const keyPrefix = `${pid}_`;
@@ -4182,12 +1616,13 @@ export default function MainReport({
                     }
                     const reportId = matchingKey.split("_")[1];
                     const { field, sort } = model[0];
+                    const column = apiRef.current.getColumn(field);
+                    const actionOn = column?.headerName || field;
                     saveReportActivity(reportId, {
                       ActionName: "SORT",
-                      ActionOn: field,
+                      ActionOn: actionOn,
                       ActionValue: sort,
                     });
-
                     setSortModel(model);
                   }}
                   localeText={{ noRowsLabel: "No Data" }}
@@ -4205,7 +1640,7 @@ export default function MainReport({
                   sortingOrder={["asc", "desc"]}
                   sortingMode="client"
                   paginationModel={paginationModel}
-                  onPaginationModelChange={handlePaginationChange} // ✅ use wrapped function
+                  onPaginationModelChange={handlePaginationChange}
                   className="simpleGridView"
                   pagination
                   sx={{
@@ -4215,12 +1650,70 @@ export default function MainReport({
                     "& .MuiDataGrid-selectedRowCount": {
                       display: "none",
                     },
+                    "& .MuiDataGrid-columnHeaders": {
+                      fontWeight: 500,
+                    },
                   }}
                 />
               </Warper>
             )}
           </div>
 
+          <Dialog
+            open={openImgModal}
+            onClose={handleImageClose}
+            maxWidth="md"
+            PaperProps={{
+              sx: {
+                borderRadius: "10px",
+                backgroundColor: "#000",
+                position: "relative",
+                overflow: "visible", // important for button to float outside
+              },
+            }}
+          >
+            <IconButton
+              onClick={handleImageClose}
+              sx={{
+                position: "absolute",
+                top: 2, // negative to go half outside
+                right: 2, // negative to go half outside
+                color: "#fff",
+                zIndex: 2,
+                background: "rgba(0,0,0,0.5)",
+                "&:hover": { background: "rgba(0,0,0,0.7)" },
+                boxShadow: 1, // optional, makes it float nicely
+              }}
+            >
+              <X size={22} />
+            </IconButton>
+
+            <div
+              style={{
+                backgroundColor: "white",
+                height: "480px",
+                width: "480px",
+                display: "flex",
+                justifyContent: "center",
+                alignItems: "center",
+                borderRadius: '10px'
+              }}
+            >
+              <img
+                src={previewImg || noFoundImg}
+                alt="Preview"
+                onError={(e) => {
+                  if (e.currentTarget.src !== noFoundImg) {
+                    e.currentTarget.src = noFoundImg;
+                  }
+                }}
+                style={{
+                  width: "400px",
+                  height: "400px",
+                }}
+              />
+            </div>
+          </Dialog>
           {status500 && (
             <div
               style={{
@@ -4270,28 +1763,6 @@ export default function MainReport({
           )}
         </div>
       )}
-
-      <Modal open={open} onClose={() => setOpen(false)}>
-        <Box
-          sx={{
-            position: "absolute",
-            top: "50%",
-            left: "50%",
-            transform: "translate(-50%, -50%)",
-            width: "90%",
-            height: "90%",
-            bgcolor: "white",
-            boxShadow: 24,
-            p: 0,
-          }}
-        >
-          <iframe
-            src={url}
-            style={{ width: "100%", height: "100%", border: "none" }}
-            title="Product Info"
-          ></iframe>
-        </Box>
-      </Modal>
     </DragDropContext>
   );
 }

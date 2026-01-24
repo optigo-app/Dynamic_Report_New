@@ -20,7 +20,6 @@ const SummaryEndFilteredValue = ({
   setFiltersShowDraf,
   setFilteredValue
 }) => {
-
   const handleClickOpenPoup = () => {
     setOpenPopup(true);
   };
@@ -194,8 +193,8 @@ const SummaryEndFilteredValue = ({
                   >
                     <p className="FilterValue_title">{data.name} :</p>
                     <p className="FilterValue_Value">
-                      {data.value}
-                      {i !== filteredValueState.length - 1 && ","}
+                      {Array.isArray(data.value) ? data.value.join(", ") : data.value}
+                      {i !== filteredValueState.length - 1 ? "," : ""}
                     </p>
                   </div>
                 ))

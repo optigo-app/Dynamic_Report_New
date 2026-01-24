@@ -16,6 +16,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { FaFilter } from "react-icons/fa";
 import { MdExpandMore, MdOutlineFilterAltOff } from "react-icons/md";
 import { useSearchParams } from "react-router-dom";
+import { renderFilter } from "../FilterFunction/FilterFunction";
 
 const FilterDrawer = ({
   setSideFilterOpen,
@@ -83,7 +84,6 @@ const FilterDrawer = ({
       if (!exists) acc.push(current);
       return acc;
     }, []);
-
     setFilteredValue(uniqueMerged);
   }, [filters, filteredValue, filtersShow]);
 
@@ -148,6 +148,7 @@ const FilterDrawer = ({
     }
     const reportId = matchingKey.split("_")[1];
     setFilters(draftFilters);
+    console.log('filtersShowDraf: ', filtersShowDraf);
     setFiltersShow(filtersShowDraf);
     const filterActivities = buildFilterActivityDetails(draftFilters);
     if (filterActivities.length > 0) {
@@ -156,67 +157,67 @@ const FilterDrawer = ({
     toggleDrawer(false);
   };
 
-  const renderFilter = (col) => {
-    if (!col.filterTypes || col.filterTypes.length === 0) return null;
-    const filtersToRender = col.filterTypes;
-    return filtersToRender.map((filterType) => {
-      switch (filterType) {
-        case "NormalFilter":
-          return (
-            <div style={{ width: "100%", margin: "10px 20px" }}>
-              <TextField
-                key={`filter-${col.headerNamesingle}-NormalFilter`}
-                name={`filter-${col.headerNamesingle}-NormalFilter`}
-                label={`Search ${col.headerNamesingle}`}
-                variant="outlined"
-                value={draftFilters[col.FieldName] || ""}
-                style={{ width: "100%" }}
-                onChange={(e) => {
-                  const value = e.target.value.replace(/^\s+/, ""); // remove leading spaces
+  // const renderFilter = (col) => {
+  //   if (!col.filterTypes || col.filterTypes.length === 0) return null;
+  //   const filtersToRender = col.filterTypes;
+  //   return filtersToRender.map((filterType) => {
+  //     switch (filterType) {
+  //       case "NormalFilter":
+  //         return (
+  //           <div style={{ width: "100%", margin: "10px 20px" }}>
+  //             <TextField
+  //               key={`filter-${col.headerNamesingle}-NormalFilter`}
+  //               name={`filter-${col.headerNamesingle}-NormalFilter`}
+  //               label={`Search ${col.headerNamesingle}`}
+  //               variant="outlined"
+  //               value={draftFilters[col.FieldName] || ""}
+  //               style={{ width: "100%" }}
+  //               onChange={(e) => {
+  //                 const value = e.target.value.replace(/^\s+/, ""); // remove leading spaces
 
-                  setDraftFilters((prev) => ({
-                    ...prev,
-                    [col.FieldName]: value,
-                  }));
+  //                 setDraftFilters((prev) => ({
+  //                   ...prev,
+  //                   [col.FieldName]: value,
+  //                 }));
 
-                  setFiltersShowDraf((prev) => ({
-                    ...prev,
-                    [col.headerNamesingle]: value,
-                  }));
-                }}
-                onBlur={(e) => {
-                  const value = e.target.value.trim(); // final trim
+  //                 setFiltersShowDraf((prev) => ({
+  //                   ...prev,
+  //                   [col.headerNamesingle]: value,
+  //                 }));
+  //               }}
+  //               onBlur={(e) => {
+  //                 const value = e.target.value.trim(); // final trim
 
-                  setDraftFilters((prev) => ({
-                    ...prev,
-                    [col.FieldName]: value,
-                  }));
+  //                 setDraftFilters((prev) => ({
+  //                   ...prev,
+  //                   [col.FieldName]: value,
+  //                 }));
 
-                  setFiltersShowDraf((prev) => ({
-                    ...prev,
-                    [col.headerNamesingle]: value,
-                  }));
-                }}
-                className="customize_colum_input"
-                InputLabelProps={{
-                  style: { fontFamily: "Poppins, sans-serif" },
-                }}
-                InputProps={{
-                  style: { height: 40, fontSize: 16 },
-                }}
-                sx={{
-                  "& .MuiInputLabel-root": { top: "-5px" },
-                  "& .MuiInputLabel-root.Mui-focused": { top: "0px" },
-                  "& .MuiInputLabel-root.MuiInputLabel-shrink": { top: "0px" },
-                }}
-              />
-            </div>
-          );
-        default:
-          return null;
-      }
-    });
-  };
+  //                 setFiltersShowDraf((prev) => ({
+  //                   ...prev,
+  //                   [col.headerNamesingle]: value,
+  //                 }));
+  //               }}
+  //               className="customize_colum_input"
+  //               InputLabelProps={{
+  //                 style: { fontFamily: "Poppins, sans-serif" },
+  //               }}
+  //               InputProps={{
+  //                 style: { height: 40, fontSize: 16 },
+  //               }}
+  //               sx={{
+  //                 "& .MuiInputLabel-root": { top: "-5px" },
+  //                 "& .MuiInputLabel-root.Mui-focused": { top: "0px" },
+  //                 "& .MuiInputLabel-root.MuiInputLabel-shrink": { top: "0px" },
+  //               }}
+  //             />
+  //           </div>
+  //         );
+  //       default:
+  //         return null;
+  //     }
+  //   });
+  // };
 
   const SERVER_SEP = "###";
   const currentReportFiltersRef = useRef({ FilterHeader: "", FilterValue: "" });
@@ -400,7 +401,6 @@ const FilterDrawer = ({
                           const checked = e.target.checked;
                           setDraftFilters((prev) => {
                             const existing = prev[col.field] || [];
-
                             return {
                               ...prev,
                               [col.field]: checked
@@ -410,12 +410,16 @@ const FilterDrawer = ({
                           });
 
                           setFiltersShowDraf((prev) => {
-                            const existing = prev[col.field] || [];
+                            const key = col.headerNamesingle; // use consistent key
+                            const existing = prev[key] || [];
+
+                            const updated = checked
+                              ? Array.from(new Set([...existing, value])) // append if checked, remove duplicates
+                              : existing.filter((v) => v !== value); // remove if unchecked
+
                             return {
                               ...prev,
-                              [col.headerNamesingle]: checked
-                                ? [...existing, value] // add
-                                : existing.filter((v) => v !== value), // remove
+                              [key]: updated,
                             };
                           });
                         }}
@@ -664,7 +668,6 @@ const FilterDrawer = ({
         }
       }
     }
-
     document.addEventListener("mousedown", handleClickOutside);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
@@ -908,7 +911,7 @@ const FilterDrawer = ({
 
       <div className="sidebar_filter_main_div">
         {columnsHide
-          .filter((col) => col.filterable)
+          .filter((col) => col.filterable && col.IsOnScreenFilter != "True")
           .map((col) => (
             <div key={col.FieldName} style={{ display: "flex", gap: "10px" }}>
               {renderServerSideFilter(col)}
@@ -916,7 +919,7 @@ const FilterDrawer = ({
           ))}
 
         {columnsHide
-          .filter((col) => col.filterable)
+          .filter((col) => col.filterable && col.IsOnScreenFilter != "True")
           .map((col) => (
             <div key={col.FieldName}>
               {col.filterTypes?.includes("MultiSelection") &&
@@ -925,29 +928,31 @@ const FilterDrawer = ({
           ))}
 
         {columnsHide
-          .filter((col) => col.filterable)
+          .filter((col) => col.filterable && col.IsOnScreenFilter != "True")
           .map((col) => (
             <div key={col.FieldName}>{renderFilterRange(col)}</div>
           ))}
 
         {columnsHide
-          .filter((col) => col.filterable)
+          .filter((col) => col.filterable && col.IsOnScreenFilter != "True")
           .map((col) => (
             <div key={col.FieldName} style={{ display: "flex", gap: "10px" }}>
               {renderFilterDropDown(col)}
             </div>
           ))}
 
-        {columnsHide
-          .filter((col) => col.filterable)
-          .map((col) => (
-            <div key={col.FieldName} style={{ display: "flex", gap: "10px" }}>
-              {renderFilter(col)}
-            </div>
-          ))}
+        <div style={{ margin: '0px 20px', display: 'flex', gap: '5px', flexDirection: 'column' }}>
+          {columnsHide
+            .filter(col => col.filterable && col.IsOnScreenFilter != "True")
+            .map((col) => (
+              <div key={col.FieldName} style={{ display: "flex", gap: "10px" }}>
+                {renderFilter(col, draftFilters, setDraftFilters, setFiltersShowDraf)}
+              </div>
+            ))}
+        </div>
 
         {columnsHide
-          .filter((col) => col.filterable)
+          .filter((col) => col.filterable && col.IsOnScreenFilter != "True")
           .map((col) => (
             <div key={col.FieldName} style={{ display: "flex", gap: "10px" }}>
               {renderSuggestionFilter(col)}
