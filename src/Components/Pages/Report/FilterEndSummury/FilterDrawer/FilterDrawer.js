@@ -2,6 +2,7 @@ import {
   Accordion,
   AccordionDetails,
   AccordionSummary,
+  alpha,
   FormControl,
   IconButton,
   InputAdornment,
@@ -17,6 +18,15 @@ import { FaFilter } from "react-icons/fa";
 import { MdExpandMore, MdOutlineFilterAltOff } from "react-icons/md";
 import { useSearchParams } from "react-router-dom";
 import { renderFilter } from "../FilterFunction/FilterFunction";
+import {
+  Box,
+  Button,
+  Stack,
+} from "@mui/material";
+import CloseIcon from "@mui/icons-material/Close";
+import FilterListIcon from "@mui/icons-material/FilterList";
+import FilterAltOffIcon from "@mui/icons-material/FilterAltOff";
+import FirstPageRoundedIcon from '@mui/icons-material/FirstPageRounded';
 
 const FilterDrawer = ({
   setSideFilterOpen,
@@ -342,6 +352,7 @@ const FilterDrawer = ({
             onChange={handleChange}
             onKeyDown={handleEnter}
           />
+
         </div>,
       ];
     });
@@ -743,45 +754,81 @@ const FilterDrawer = ({
 
   return (
     <div>
-      <div
-        style={{
-          padding: "10px 20px",
-          fontSize: "25px",
+      <Box
+        sx={(theme) => ({
+          position: "sticky",
+          top: 0,
+          zIndex: theme.zIndex.drawer + 1,
           display: "flex",
-          justifyContent: "space-between",
           alignItems: "center",
-          position: 'sticky',
-          top: '0px',
-          zIndex: '9999999999',
-          backgroundColor: 'rgb(245 240 240)',
-          margin: '10px',
-          borderRadius: '50px'
-        }}
+          justifyContent: "space-between",
+          px: 1,
+          py: 1.6,
+          borderBottom: '1px solid #ddd'
+        })}
       >
-        <CircleX
-          style={{
-            cursor: "pointer",
-            height: "30px",
-            width: "30px",
-            color: '#ff2d2d'
-          }}
-          onClick={() => setSideFilterOpen(false)}
-        />
+        {/* Left Side */}
+        <Stack direction="row" alignItems="center" spacing={0.5}>
+          <IconButton
+            onClick={() => setSideFilterOpen(false)}
+            size="small"
+            sx={{ 
+              bgcolor:'#c1c1c142'
+             }}
+          >
+            <FirstPageRoundedIcon />
+          </IconButton>
 
-        <div style={{ display: "flex" }}>
-          <button onClick={handleClearFilter} className="btn_ClearFilterButton">
-            <MdOutlineFilterAltOff style={{ fontSize: "25px" }} />
+          <Typography variant="h6" fontWeight={600}>
+            Filters
+          </Typography>
+        </Stack>
+
+        {/* Right Side */}
+        <Stack direction="row" spacing={1}>
+          <Button
+            variant="outlined"
+            color="inherit"
+            startIcon={<FilterAltOffIcon />}
+            onClick={handleClearFilter}
+            size="small"
+            sx={(theme) => ({
+              borderRadius: "30px",
+              textTransform: "none",
+              fontWeight: 500,
+              px: 2,
+              color: theme.palette.grey[700],
+              borderColor: alpha(theme.palette.grey[500], 0.4),
+            })}
+          >
             Clear
-          </button>
+          </Button>
 
-          <button className="btn_FilterButton" onClick={handleApplyFilter}>
-            <FaFilter style={{ fontSize: "20px" }} />
+          <Button
+            variant="contained"
+            startIcon={<FilterListIcon />}
+            onClick={handleApplyFilter}
+            sx={(theme) => ({
+              borderRadius: "30px",
+              textTransform: "none",
+              fontWeight: 600,
+              px: 2.5,
+
+              background: `linear-gradient(
+      135deg,
+      ${theme.palette.primary.main},
+      ${theme.palette.primary.dark}
+    )`,
+            })}
+            size="small"
+          >
             Apply
-          </button>
-        </div>
-      </div>
-
-      <div className="sidebar_filter_main_div">
+          </Button>
+        </Stack>
+      </Box>
+      <div className="sidebar_filter_main_div" style={{
+        paddingTop: '22px'
+      }}>
         {/* {columnsHide
           .filter((col) => col.filterable && col.IsOnScreenFilter != "True")
           .map((col) => (

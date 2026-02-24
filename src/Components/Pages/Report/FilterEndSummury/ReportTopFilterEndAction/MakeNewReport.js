@@ -5,12 +5,47 @@ import {
     DialogActions,
     Menu,
     TextField,
+    alpha
 } from "@mui/material";
 import React, { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { CallApi } from "../../../../../API/CallApi/CallApi";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import IconButton from "@mui/material/IconButton";
+import ReusableConfirmModal from "../../../../ui/Modal";
+
+const reportBtnStyle = (active) => (theme) => ({
+  textTransform: "none",            // no uppercase, cleaner look
+  fontWeight: 600,                  // bold but not too heavy
+  fontSize: "0.95rem",
+  borderRadius: "5px",             // soft rounded corners
+  px: 3, py: 1.25,                  // comfortable padding
+  minWidth: 140,
+  transition: "all 0.3s ease",      // smooth hover/focus
+
+  color: active ? theme.palette.primary.contrastText : theme.palette.text.primary,
+  background: active
+    ? `linear-gradient(135deg, ${theme.palette.primary.light}, ${theme.palette.primary.main})`
+    : alpha(theme.palette.grey[200], 0.7),
+
+  boxShadow: active
+    ? `0px 6px 16px ${alpha(theme.palette.primary.main, 0.25)}`
+    : "none",
+
+  "&:hover": {
+    background: active
+      ? `linear-gradient(135deg, ${theme.palette.primary.light}, ${theme.palette.primary.dark})`
+      : alpha(theme.palette.grey[300], 0.9),
+    transform: "translateY(-2px)",   // subtle lift
+    boxShadow: active
+      ? `0px 8px 20px ${alpha(theme.palette.primary.main, 0.35)}`
+      : `0px 4px 12px ${alpha(theme.palette.grey[500], 0.15)}`,
+  },
+  "&:focus-visible": {
+    outline: `2px solid ${theme.palette.primary.main}`,
+    outlineOffset: "2px",
+  },
+});
 
 const MakeNewReport = ({
     setAllColumData,
@@ -108,7 +143,7 @@ const MakeNewReport = ({
     const reportBtnStyle = (active) => ({
         whiteSpace: "nowrap",
         border: "1px solid #6f53ff",
-        borderRadius: "10px",
+        borderRadius: "5px",
         px: 2,
         py: 0.7,
         minWidth: "fit-content",
@@ -244,27 +279,14 @@ const MakeNewReport = ({
 
     return (
         <div>
-            <Dialog
+
+            <ReusableConfirmModal
                 open={deleteDialogOpen}
                 onClose={() => setDeleteDialogOpen(false)}
-            >
-                <div style={{ padding: 20, width: 350 }}>
-                    <p style={{ fontSize: 16, fontWeight: 600 }}>
-                        Are you sure you want to delete{" "}
-                        {selectedDeleteReport?.SubReportName} report?
-                    </p>
-                    <p style={{ color: "#666" }}></p>
-                    <DialogActions>
-                        <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
-                        <Button
-                            onClick={handleConfirmDelete}
-                            style={{ background: "#fc4141", color: "#fff" }}
-                        >
-                            Delete
-                        </Button>
-                    </DialogActions>
-                </div>
-            </Dialog>
+                onConfirm={handleConfirmDelete}
+                msg={`Are you sure you want to delete ${selectedDeleteReport?.SubReportName} report?`}
+                type="deleteStatus"
+            />
 
             <Dialog open={openSaveModal} onClose={() => setOpenSaveModal(false)}>
                 <div
@@ -397,7 +419,7 @@ const MakeNewReport = ({
             <Box
                 sx={{
                     display: "flex",
-                    gap: "10px",
+                    gap: "5px",
                     padding: "6px",
                     justifyContent: "flex-end",
                 }}
@@ -465,6 +487,7 @@ const MakeNewReport = ({
                                 sx: {
                                     borderRadius: "12px",
                                     width: "400px",
+                                    marginTop:1
                                 },
                             }}
                         >
@@ -550,3 +573,33 @@ const MakeNewReport = ({
 };
 
 export default MakeNewReport;
+
+
+
+
+
+
+
+
+
+{/* <Dialog
+                open={deleteDialogOpen}
+                onClose={() => setDeleteDialogOpen(false)}
+            >
+                <div style={{ padding: 20, width: 350 }}>
+                    <p style={{ fontSize: 16, fontWeight: 600 }}>
+                        Are you sure you want to delete{" "}
+                        {selectedDeleteReport?.SubReportName} report?
+                    </p>
+                    <p style={{ color: "#666" }}></p>
+                    <DialogActions>
+                        <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
+                        <Button
+                            onClick={handleConfirmDelete}
+                            style={{ background: "#fc4141", color: "#fff" }}
+                        >
+                            Delete
+                        </Button>
+                    </DialogActions>
+                </div>
+            </Dialog> */}

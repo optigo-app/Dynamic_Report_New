@@ -5,11 +5,19 @@ import {
   Alert,
   Button,
   Checkbox,
+  DialogActions,
+  DialogTitle,
   FormControlLabel,
+  IconButton,
   Snackbar,
+  Typography,
+  Box
 } from "@mui/material";
 import { Draggable, Droppable } from "@hello-pangea/dnd";
 import { GripHorizontal } from "lucide-react";
+import CloseIcon from "@mui/icons-material/Close";
+
+
 
 const DraggableColumn = ({
   col,
@@ -20,52 +28,138 @@ const DraggableColumn = ({
   return (
     <Draggable draggableId={col.FieldName.toString()} index={index}>
       {(provided, snapshot) => (
-        <div
+        <Box
           ref={provided.innerRef}
           {...provided.draggableProps}
           {...provided.dragHandleProps}
           className="banner_card"
-          style={{
-            opacity: snapshot.isDragging ? 0.5 : 1,
-            cursor: "grab",
-            transition: "opacity 0.2s ease",
+          sx={{
             ...provided.draggableProps.style,
-            boxShadow:
-              "rgba(60, 64, 67, 0.3) 0px 1px 2px 0px, rgba(60, 64, 67, 0.15) 0px 2px 6px 2px",
-            padding: "5px 10px",
             display: "flex",
+            alignItems: "center",
             justifyContent: "space-between",
-            borderRadius: '7px'
+            padding: "8px 16px",
+            borderRadius: "8px",
+            cursor: snapshot.isDragging ? "grabbing" : "grab",
+            backgroundColor: snapshot.isDragging ? "#FFFFFF" : "#FAFAFA",
+            border: "1px solid",
+            borderColor: snapshot.isDragging ? "rgb(115, 103, 240, 0.4)" : "#E5E7EB",
+            boxShadow: snapshot.isDragging
+              ? "0px 12px 24px rgba(0, 0, 0, 0.08)" 
+              : "0px 1px 2px rgba(0, 0, 0, 0.02)", 
+            transition: "box-shadow 0.2s ease, border-color 0.2s ease, background-color 0.2s ease",
+            
+            "&:hover": {
+              backgroundColor: "#FFFFFF",
+              borderColor: snapshot.isDragging ? "rgb(115, 103, 240, 0.4)" : "#D1D5DB",
+            },
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
-            {/* <Grip color="#5c62dc"/> */}
-            <GripHorizontal color="#aeadad " />
-            <p style={{ margin: "0px" }}>{col.HeaderName}</p>
-          </div>
+          <Box sx={{ display: "flex", alignItems: "center", gap: "12px" }}>
+            <GripHorizontal 
+              size={18} 
+              color={snapshot.isDragging ? "rgb(115, 103, 240)" : "#9CA3AF"} 
+              style={{
+                transform :'rotate(-15deg)'
+              }}
+            />
+            <Typography
+              sx={{
+                margin: 0,
+                color: "#374151",
+                fontWeight: 500,
+                fontSize: "0.95rem",
+                userSelect: "none", 
+              }}
+            >
+              {col.HeaderName}
+            </Typography>
+          </Box>
           <FormControlLabel
             control={
               <Checkbox
                 checked={!!checkedColumns[col.FieldName]}
                 onChange={() => handleCheckboxChange(col.FieldName)}
                 sx={{
+                  color: "#D1D5DB", 
+                  padding: "4px", 
                   "&.Mui-checked": {
                     color: "rgb(115, 103, 240)",
                   },
                 }}
               />
             }
+            label=""
             sx={{
-              "& .MuiCheckbox-sizeSmall": {
-                display: "none!important",
-              },
+              marginRight: -1, 
             }}
           />
-        </div>
+        </Box>
       )}
     </Draggable>
   );
 };
+
+
+// const DraggableColumn = ({
+//   col,
+//   index,
+//   handleCheckboxChange,
+//   checkedColumns,
+// }) => {
+//   return (
+//     <Draggable draggableId={col.FieldName.toString()} index={index}>
+//       {(provided, snapshot) => (
+//         <div
+//           ref={provided.innerRef}
+//           {...provided.draggableProps}
+//           {...provided.dragHandleProps}
+//           className="banner_card"
+//           style={{
+//             opacity: snapshot.isDragging ? 0.5 : 1,
+//             cursor: "grab",
+//             transition: "opacity 0.2s ease",
+//             ...provided.draggableProps.style,
+//             boxShadow:
+//               "rgba(60, 64, 67, 0.3) 0px 1px 2px 0px, rgba(60, 64, 67, 0.15) 0px 2px 6px 2px",
+//             padding: "5px 10px",
+//             display: "flex",
+//             justifyContent: "space-between",
+//             borderRadius: '7px'
+//           }}
+//         >
+//           <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
+//             {/* <Grip color="#5c62dc"/> */}
+//             <GripHorizontal color="#aeadad " />
+//             <p style={{ margin: "0px" }}>{col.HeaderName}</p>
+//           </div>
+//           <FormControlLabel
+          
+//             control={
+//               <Checkbox
+//                 checked={!!checkedColumns[col.FieldName]}
+//                 onChange={() => handleCheckboxChange(col.FieldName)}
+//                 sx={{
+//                   "&.Mui-checked": {
+//                     color: "rgb(115, 103, 240)",
+//                   },
+//                 }}
+//               />
+//             }
+//             sx={{
+//               "& .MuiCheckbox-sizeSmall": {
+//                 display: "none!important",
+//               },
+//               "&.MuiFormControlLabel-root": {
+//                 marginRight: 0,
+//               },
+//             }}
+//           />
+//         </div>
+//       )}
+//     </Draggable>
+//   );
+// };
 
 const ColumnRearrange = ({
   setOpenPopup,
@@ -284,75 +378,110 @@ const ColumnRearrange = ({
   }, []);
 
   return (
-    <div className="colum_setting_model_main">
-      <div className="filterDrawer">
-        <p className="title">Column Rearrange</p>
-
-        <Droppable droppableId="columns-list" type="COLUMN">
-          {(provided) => (
-            <div
-              ref={provided.innerRef}
-              {...provided.droppableProps}
-              className="columns-list"
-            >
-              {tempColumns
-                .filter((col) => col.HideColumn !== "True")
-                .map((col, index) => (
-                  <DraggableColumn
-                    key={col.FieldName}
-                    col={col}
-                    index={index}
-                    checkedColumns={checkedColumns}
-                    handleCheckboxChange={handleCheckboxChange}
-                  />
-                ))}
-              {provided.placeholder}
-            </div>
-          )}
-        </Droppable>
-        <div className="btn-container">
-          <Button
-            variant="contained"
-            color="primary"
-            className="btn_SaveColumModel"
-            onClick={handleSaveSettings}
-            disabled={columSaveLoding}
-          >
-            {columSaveLoding ? (
-              <span className="loading-text">
-                {"Loading...".split("").map((char, index) => (
-                  <span key={index} style={{ "--i": index }}>
-                    {char}
-                  </span>
-                ))}
-              </span>
-            ) : (
-              "Save"
-            )}
-          </Button>
-
-          <Button
-            variant="contained"
-            color="primary"
-            className="btn_CancelColumModel"
-            onClick={handleClosePopup}
-          >
-            cancel
-          </Button>
-        </div>
-      </div>
-
-      <Snackbar
-        open={openSnackbar}
-        autoHideDuration={3000}
-        onClose={() => setOpenSnackbar(false)}
-        anchorOrigin={{ vertical: "top", horizontal: "center" }}
+    <>
+      <DialogTitle
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          borderBottom: "1px solid #F0F0F0",
+          padding: '10px 24px'
+        }}
       >
-        <Alert severity="success" onClose={() => setOpenSnackbar(false)}>
-          Column Rearrange Successfully!
-        </Alert>
-      </Snackbar>
-    </div>
+        <Typography variant="h6" sx={{ fontWeight: 600, color: "#1A1A1A", fontSize: "1.1rem" }}>
+          Column Rearrange
+        </Typography>
+        <IconButton
+          aria-label="close"
+          onClick={handleClosePopup}
+          sx={{
+            color: "#8C8C8C",
+            "&:hover": { backgroundColor: "#F5F5F5", color: "#1A1A1A" },
+          }}
+        >
+          <CloseIcon />
+        </IconButton>
+      </DialogTitle>
+      <div className="colum_setting_model_main">
+        <div className="filterDrawer">
+          <Droppable droppableId="columns-list" type="COLUMN">
+            {(provided) => (
+              <div
+                ref={provided.innerRef}
+                {...provided.droppableProps}
+                className="columns-list"
+              >
+                {tempColumns
+                  .filter((col) => col.HideColumn !== "True")
+                  .map((col, index) => (
+                    <DraggableColumn
+                      key={col.FieldName}
+                      col={col}
+                      index={index}
+                      checkedColumns={checkedColumns}
+                      handleCheckboxChange={handleCheckboxChange}
+                    />
+                  ))}
+                {provided.placeholder}
+              </div>
+            )}
+          </Droppable>
+        </div>
+
+        <Snackbar
+          open={openSnackbar}
+          autoHideDuration={3000}
+          onClose={() => setOpenSnackbar(false)}
+          anchorOrigin={{ vertical: "top", horizontal: "center" }}
+        >
+          <Alert severity="success" onClose={() => setOpenSnackbar(false)}>
+            Column Rearrange Successfully!
+          </Alert>
+        </Snackbar>
+      </div>
+        <DialogActions
+          sx={{
+            borderTop: "1px solid #F0F0F0",
+            padding: '10px 24px',
+          }}
+        >
+           <Button
+              variant="contained"
+              color="primary"
+              className="btn_SaveColumModel"
+              onClick={handleSaveSettings}
+              disabled={columSaveLoding}
+              sx={{
+                minWidth:100
+              }}
+            >
+              {columSaveLoding ? (
+                <span className="loading-text">
+                  {"Loading...".split("").map((char, index) => (
+                    <span key={index} style={{ "--i": index }}>
+                      {char}
+                    </span>
+                  ))}
+                </span>
+              ) : (
+                "Save"
+              )}
+            </Button>
+
+
+          <Button
+              variant="contained"
+              color="error"
+              className="btn_CancelColumModel"
+              onClick={handleClosePopup}
+              sx={{
+                minWidth:100
+              }}
+            >
+              cancel
+            </Button>
+        </DialogActions>
+    </>
   );
 };
 

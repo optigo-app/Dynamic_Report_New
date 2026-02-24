@@ -1626,7 +1626,7 @@ const ReportTopFilterEndAction = ({
               </div>
             )}
           </div>
-          <div style={{ display: "flex", alignItems: "end", gap: "10px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
             {masterKeyData?.CurrencyMaster == "True" && (
               <FormControl
                 size="small"

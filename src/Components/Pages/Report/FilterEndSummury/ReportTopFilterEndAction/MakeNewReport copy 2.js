@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router-dom';
 import { CallApi } from '../../../../../API/CallApi/CallApi';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import IconButton from '@mui/material/IconButton';
+import ReusableConfirmModal from '../../../../ui/Modal';
 
 const MakeNewReport = ({
     setAllColumData,
@@ -224,7 +225,7 @@ const MakeNewReport = ({
 
     return (
         <div>
-            <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
+            {/* <Dialog open={deleteDialogOpen} onClose={() => setDeleteDialogOpen(false)}>
                 <div style={{ padding: 20, width: 350 }}>
                     <p style={{ fontSize: 16, fontWeight: 600 }}>
                         Are you sure you want to delete {selectedDeleteReport?.SubReportName} report?
@@ -244,7 +245,13 @@ const MakeNewReport = ({
                         </Button>
                     </DialogActions>
                 </div>
-            </Dialog>
+            </Dialog> */}
+            <ReusableConfirmModal
+             open={deleteDialogOpen}
+             onClose={() => setDeleteDialogOpen(false)}
+             onConfirm={handleConfirmDelete}
+             type="deleteStatus"
+            />
 
             <Dialog open={openSaveModal} onClose={() => setOpenSaveModal(false)}>
                 <div

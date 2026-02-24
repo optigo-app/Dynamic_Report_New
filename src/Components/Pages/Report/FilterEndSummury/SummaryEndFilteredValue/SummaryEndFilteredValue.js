@@ -1,8 +1,10 @@
-import { Button, Dialog, IconButton, Tooltip } from "@mui/material";
+import { Button, Dialog, IconButton, Tooltip,Box, Typography ,Grid  } from "@mui/material";
 import { ArrowLeft, CircleArrowRight, CircleChevronLeft, CircleChevronRight } from "lucide-react";
 import React, { useEffect, useRef, useState } from "react";
 import { AiFillSetting } from "react-icons/ai";
 import ColumnRearrange from "../../ColumnRearrange/ColumnRearrange";
+import { AiOutlineSetting } from "react-icons/ai"; // Swapped to Outline for a cleaner modern look
+
 
 const SummaryEndFilteredValue = ({
   setSummaryColumns,
@@ -70,6 +72,113 @@ const SummaryEndFilteredValue = ({
       return Number(aOrder) - Number(bOrder);
     });
 
+    return <>
+      <Box sx={{ padding: "16px", width: "100%", boxSizing: "border-box" }}>
+        <Grid container spacing={2}>
+          {sortedSummaryColumns.map((col) => {
+            const columnMeta = Object.values(allColumData)?.find(
+              (data) => data.FieldName === col.field
+            );
+            const isUniq = String(columnMeta?.IsUniqueCount).toLowerCase() === "true";
+
+            let calculatedValue = 0;
+            if (isUniq) {
+              const allValues = filteredRows?.map((row) => row[col.field]) || [];
+              const uniqueValues = [...new Set(allValues)];
+              calculatedValue = uniqueValues.length;
+            } else {
+              calculatedValue =
+                filteredRows?.reduce(
+                  (sum, row) => sum + (parseFloat(row[col.field]) || 0),
+                  0
+                ) || 0;
+            }
+            return (
+              <Grid 
+                item 
+                xs={6}  
+                sm={4}  
+                md={3}  
+                lg={1.5}  
+                key={col.field}
+              >
+                <Box
+                  sx={{
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "center",
+                    padding: "14px",
+                    borderRadius: "16px",
+                    background: "linear-gradient(301deg, #F4F7FE 0%, #FFFFFF 100%)",
+                    border: "1px solid",
+                    borderColor: "#E2E8F0",
+                    boxShadow: "0px 4px 12px rgba(112, 144, 176, 0.08)",
+                    transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                    cursor: "default",
+                  }}
+                >
+                  <Box sx={{ display: "flex", alignItems: "baseline", gap: "4px", mb: 0.5 }}>
+                    <Typography
+                      sx={{
+                        fontSize: "22px",
+                        fontWeight: 700,
+                        color: "#2B3674", 
+                        lineHeight: 1.2,
+                        letterSpacing: "-0.5px"
+                      }}
+                    >
+                      {isUniq
+                        ? calculatedValue
+                        : col?.SummaryValueFormated == 1
+                          ? Number(calculatedValue).toLocaleString("en-IN", {
+                            minimumFractionDigits: col?.SummaryValueKey,
+                            maximumFractionDigits: col?.SummaryValueKey,
+                          })
+                          : calculatedValue.toFixed(Number(col?.SummaryValueKey))}
+                    </Typography>
+                    
+                    {col?.SummaryUnit && (
+                      <Typography
+                        component="span"
+                        sx={{
+                          fontSize: "14px",
+                          fontWeight: 700,
+                          color: "#4318FF", 
+                        }}
+                      >
+                        {col?.SummaryUnit}
+                      </Typography>
+                    )}
+                  </Box>
+
+                  <Typography
+                    sx={{
+                      fontSize: "12px",
+                      fontWeight: 600,
+                      color: "#A3AED0",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.5px",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                    title={
+                      columnMeta?.SummaryTitle == null || columnMeta?.SummaryTitle == ""
+                        ? col?.headerNameSub
+                        : columnMeta?.SummaryTitle
+                    }
+                  >
+                    {columnMeta?.SummaryTitle == null || columnMeta?.SummaryTitle == ""
+                      ? col?.headerNameSub
+                      : columnMeta?.SummaryTitle}
+                  </Typography>
+                </Box>
+              </Grid>
+            );
+          })}
+        </Grid>
+      </Box>
+    </>
     return (
       <div
         className="summaryBox"
@@ -152,16 +261,8 @@ const SummaryEndFilteredValue = ({
     });
   };
   return (
-    <div>
-      <div
-        style={{
-          display: "flex",
-          padding: "5px 10px 0px 10px",
-          justifyContent: 'space-between',
-          gap: '20px'
-        }}
-      >
-        <Dialog
+    <>
+    <Dialog
           open={openPopup}
           onClose={() => setOpenPopup(false)}
           disablePortal
@@ -180,6 +281,170 @@ const SummaryEndFilteredValue = ({
             setOtherReprot={setOtherReprot}
           />
         </Dialog>
+        
+   <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "12px 14px",
+          gap: 2,
+          width: "100%",
+          boxSizing: "border-box",
+        }}
+      >
+        <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, flexGrow: 1, minWidth: 0 }}>
+          {showReportMaster && (
+            <Tooltip title="Go Back">
+              <IconButton
+                onClick={onBack}
+                size="small"
+                sx={{
+                  border: "1px solid",
+                  borderColor: "#E4E4E7",
+                  borderRadius: "10px",
+                  color: "#52525B",
+                  width: "40px",
+                  height: "40px",
+                  bgcolor: "#FAFAFA",
+                  "&:hover": { bgcolor: "#F4F4F5", color: "#18181B" },
+                }}
+              >
+                <ArrowLeft size={18} strokeWidth={2.5} />
+              </IconButton>
+            </Tooltip>
+          )}
+
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              flexGrow: 1,
+              minWidth: 0,
+              height: "40px",
+            }}
+          >
+            {showScroll && (
+              <IconButton
+                onClick={() => scroll("left")}
+                size="small"
+                sx={{ color: "#A1A1AA", mr: 0.5, "&:hover": { color: "#18181B", bgcolor: "#F4F4F5" } }}
+              >
+                <CircleChevronLeft size={20} />
+              </IconButton>
+            )}
+
+            <Box
+              ref={containerRef}
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                gap: 1.25,
+                width: "100%",
+                overflowX: "auto",
+                whiteSpace: "nowrap",
+                scrollbarWidth: "none",
+                "&::-webkit-scrollbar": { display: "none" },
+              }}
+            >
+              {filteredValueState && filteredValueState.length > 0 ? (
+                filteredValueState.map((data, i) => (
+                  <Box
+                    key={i}
+                    sx={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 0.75,
+                      bgcolor: "#F4F4F5", 
+                      borderRadius: "999px",
+                      px: 1.5,
+                      py: 0.5,
+                      border: "1px solid",
+                      borderColor: "rgba(0, 0, 0, 0.04)", 
+                    }}
+                  >
+                    <Typography
+                      variant="caption"
+                      sx={{ fontWeight: 500, color: "#71717A", fontSize: "13px", letterSpacing: "-0.01em" }}
+                    >
+                      {data.name}
+                    </Typography>
+                    
+                    {/* Modern tiny separator dot */}
+                    <Box sx={{ width: "3px", height: "3px", borderRadius: "50%", bgcolor: "#D4D4D8" }} />
+                    
+                    <Typography
+                      variant="caption"
+                      sx={{ fontWeight: 600, color: "#18181B", fontSize: "13px", letterSpacing: "-0.01em" }}
+                    >
+                      {Array.isArray(data.value) ? data.value.join(", ") : data.value}
+                    </Typography>
+                  </Box>
+                ))
+              ) : (
+                <Typography
+                  variant="body2"
+                  sx={{
+                    color: "#A1A1AA",
+                    fontSize: "13px",
+                    fontWeight: 500,
+                  }}
+                >
+                  No filters applied
+                </Typography>
+              )}
+            </Box>
+
+            {showScroll && (
+              <IconButton
+                onClick={() => scroll("right")}
+                size="small"
+                sx={{ color: "#A1A1AA", ml: 0.5, "&:hover": { color: "#18181B", bgcolor: "#F4F4F5" } }}
+              >
+                <CircleChevronRight size={20} />
+              </IconButton>
+            )}
+          </Box>
+        </Box>
+        <Box sx={{ flexShrink: 0, display: "flex", alignItems: "center" }}>
+          {masterKeyData?.ColumnSettingModel === "True" && (
+            <Tooltip title="Column Rearrange" disablePortal PopperProps={{ container: gridContainerRef.current }}>
+              <IconButton
+                onClick={handleClickOpenPoup}
+                sx={{
+                  background: "#cdd5ff",
+                  color: "#6f53ff",
+                  height: "38px",
+                  width: "38px",
+                  borderRadius:3,
+                  transition: "all .2s ease",
+                  "&:hover": {
+                    backgroundColor: "#cdd5ff",
+                  },
+                }}
+              >
+                <AiOutlineSetting size={20} strokeWidth={10} />
+              </IconButton>
+            </Tooltip>
+          )}
+        </Box>
+      </Box>
+      
+      <div>{renderSummary()}</div>
+    </>
+  );
+
+
+  return <>
+  {/* Old code replce */}
+<div
+        style={{
+          display: "flex",
+          padding: "5px 10px 0px 10px",
+          justifyContent: 'space-between',
+          gap: '20px'
+        }}
+      >
         <div style={{ display: "flex", gap: "15px", width: '96.5%' }}>
           {showReportMaster && (
             <Button
@@ -280,9 +545,8 @@ const SummaryEndFilteredValue = ({
           )}
         </div>
       </div>
-      <div>{renderSummary()}</div>
-    </div>
-  );
+
+  </>
 };
 
 export default SummaryEndFilteredValue;
