@@ -110,7 +110,7 @@
   justify-content: center;
   align-items: center;
   padding: 10px;
-  
+
   .filterDrawer {
     width: 450px;
     border-radius: 8px;
@@ -176,6 +176,7 @@
 
     .columns-list {
       max-height: 450px;
+      min-height: 350px;
       overflow-y: auto;
       padding: 5px;
       display: flex;
@@ -308,7 +309,9 @@
 .fade-slide-enter-active {
   opacity: 1;
   transform: translateY(0);
-  transition: opacity 600ms ease, transform 600ms ease;
+  transition:
+    opacity 600ms ease,
+    transform 600ms ease;
 }
 .fade-slide-exit {
   opacity: 1;
@@ -317,7 +320,9 @@
 .fade-slide-exit-active {
   opacity: 0;
   transform: translateY(-30px);
-  transition: opacity 600ms ease, transform 600ms ease;
+  transition:
+    opacity 600ms ease,
+    transform 600ms ease;
 }
 
 .Show_Report_Btn {
@@ -385,7 +390,9 @@
 }
 .btn_ClearFilterButton:hover {
   background-color: rgb(238, 37, 37);
-  transition: transform 0.3s ease, background-color 0.3s ease;
+  transition:
+    transform 0.3s ease,
+    background-color 0.3s ease;
 }
 
 .btn_FiletrBtnOpen {
@@ -420,7 +427,9 @@
 }
 .btn_FilterButton:hover {
   background-color: #16c216;
-  transition: transform 0.3s ease, background-color 0.3s ease;
+  transition:
+    transform 0.3s ease,
+    background-color 0.3s ease;
 }
 
 .btn_Action_FiletrBtnOpen {
@@ -442,6 +451,10 @@
   padding-bottom: 100px;
   height: 77vh;
   overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 10px;
 
   &::-webkit-scrollbar {
     width: 5px;

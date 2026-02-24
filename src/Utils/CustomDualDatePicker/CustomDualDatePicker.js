@@ -147,39 +147,36 @@ const formatDate = (date) => {
     const d = typeof date === "string" ? new Date(date + "T00:00:00") : date;
     return d instanceof Date && !isNaN(d) ? d.toLocaleDateString("en-GB") : "";
 };
-
-const CustomDualDatePicker = ({ value = {}, dateColumnOptions,
-    withountDateFilter = true, setFilterState,
-    filterState, dateTypeShow,
+const CustomDualDatePicker = ({
+    value = {},
+    dateColumnOptions,
+    withountDateFilter = true,
+    setFilterState,
+    filterState,
+    dateTypeShow,
     clearDateFilter,
     setSelectedDateColumn,
-    selectedDateColumn
+    selectedDateColumn,
+    showReportMaster
 }) => {
     const [anchorEl, setAnchorEl] = useState(null);
     const [anchorElStatus, setAnchorElStatus] = useState(null);
     const open = Boolean(anchorEl);
     const [error, setError] = useState("");
     const [tempRange, setTempRange] = useState({
-        startDate: value.startDate || "",
-        endDate: value.endDate || "",
-        status: "" // temporarily empty
+        startDate: showReportMaster ? "" : (value.startDate || ""),
+        endDate: showReportMaster ? "" : (value.endDate || ""),
+        status: ""
     });
 
     useEffect(() => {
         if (selectedDateColumn) {
-            setTempRange((prev) => ({
-                ...prev,
-                status: selectedDateColumn
-            }));
+            setTempRange((prev) => ({ ...prev, status: selectedDateColumn }));
         } else if (dateColumnOptions?.length) {
-            setTempRange((prev) => ({
-                ...prev,
-                status: dateColumnOptions[0].field
-            }));
+            setTempRange((prev) => ({ ...prev, status: dateColumnOptions[0].field }));
             setSelectedDateColumn(dateColumnOptions[0].field);
         }
     }, [selectedDateColumn, dateColumnOptions, setSelectedDateColumn]);
-
 
     useEffect(() => {
         setTimeout(() => {
@@ -196,24 +193,23 @@ const CustomDualDatePicker = ({ value = {}, dateColumnOptions,
                 }
             });
         }, 100);
-    }, [])
+    }, []);
 
     useEffect(() => {
         if (!tempRange.status && dateColumnOptions?.length) {
-            setTempRange((prev) => ({
-                ...prev,
-                status: dateColumnOptions[0].field
-            }));
+            setTempRange((prev) => ({ ...prev, status: dateColumnOptions[0].field }));
         }
     }, [dateColumnOptions]);
 
-
+    // Modified: Only update from filterState if showReportMaster is false
     useEffect(() => {
-        setTempRange({
-            startDate: filterState?.dateRange.startDate || "",
-            endDate: filterState?.dateRange.endDate || "",
-        });
-    }, [value]);
+        if (!showReportMaster) {
+            setTempRange({
+                startDate: filterState?.dateRange.startDate || "",
+                endDate: filterState?.dateRange.endDate || "",
+            });
+        }
+    }, [value, showReportMaster, filterState]);
 
     const handleOpen = (event) => setAnchorEl(event.currentTarget);
     const handleClose = () => setAnchorEl(null);
@@ -232,7 +228,6 @@ const CustomDualDatePicker = ({ value = {}, dateColumnOptions,
         }
     }, [clearDateFilter]);
 
-
     const handleApply = () => {
         const { startDate, endDate } = tempRange;
         const today = new Date();
@@ -250,11 +245,8 @@ const CustomDualDatePicker = ({ value = {}, dateColumnOptions,
         if (!withountDateFilter) {
             const diffInMs = endDate.getTime() - startDate.getTime();
             const diffInDays = diffInMs / (1000 * 60 * 60 * 24);
-            // if (diffInDays > validDay) {
-            //     setError(`You can select a maximum range of ${validMonth} month.`);
-            //     return;
-            // }
         }
+
         setError("");
         setFilterState({
             ...filterState,
@@ -271,165 +263,99 @@ const CustomDualDatePicker = ({ value = {}, dateColumnOptions,
     };
 
     const handleStatusSelect = (selectedStatus) => {
-        setTempRange((prev) => ({
-            ...prev,
-            status: selectedStatus
-        }));
+        setTempRange((prev) => ({ ...prev, status: selectedStatus }));
         setSelectedDateColumn(selectedStatus);
         setAnchorElStatus(null);
     };
 
-    const displayValue = tempRange?.startDate && tempRange?.endDate ? `${formatDate(tempRange.startDate)} - ${formatDate(tempRange.endDate)}` : "";
+    // Modified: Show blank if showReportMaster is true and no dates selected yet
+    const displayValue =
+        showReportMaster && !tempRange?.startDate && !tempRange?.endDate
+            ? ""
+            : tempRange?.startDate && tempRange?.endDate
+                ? `${formatDate(tempRange.startDate)} - ${formatDate(tempRange.endDate)}`
+                : "";
 
     return (
         <ThemeProvider theme={Datetheme}>
-            <Box display="flex" alignItems="center" sx={{ zIndex: 999 }}>
-                <TextField
-                    label="Date Range"
-                    value={displayValue}
-                    onClick={handleOpen}
-                    fullWidth
-                    size="small"
-                    sx={{
-                        "& .MuiInputBase-input": {
-                            padding: "8.5px 12px",
-                            fontSize: "14px",
-                            borderRadius: "15px"
-                        },
-                        width: dateTypeShow == "True" ? "350px" : "300px",
-                        borderRadius: "15px"
-                    }}
-                    placeholder="Select Date Range"
-                    readOnly
-                    InputProps={{
-                        startAdornment: (
-                            <>
-                                {dateTypeShow === "True" ? (
-                                    <Chip
-                                        label={
-                                            dateColumnOptions.find(o => o.field === selectedDateColumn)?.label
-                                            || "Date Type"
-                                        }
-                                        size="small"
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            setAnchorElStatus(e.currentTarget);
-                                        }}
-                                    />
-                                ) : (
-                                    <InputAdornment position="start">
-                                        <CalendarDays />
-                                    </InputAdornment>
-                                )}
-
-                                <MenuList
-                                    options={dateColumnOptions}
-                                    anchorEl={anchorElStatus}
-                                    open={Boolean(anchorElStatus)}
-                                    handleClose={() => setAnchorElStatus(null)}
-                                    handleSelect={handleStatusSelect}
-                                    selectedValue={tempRange.status}
+            <TextField
+                size="small"
+                placeholder="Select date range"
+                value={displayValue}
+                onClick={handleOpen}
+                InputProps={{
+                    readOnly: true,
+                    startAdornment: (
+                        <>
+                            {dateTypeShow === "True" ? (
+                                <Chip
+                                    label={
+                                        dateColumnOptions?.find((o) => o.field === selectedDateColumn)?.label || "Date Type"
+                                    }
+                                    size="small"
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setAnchorElStatus(e.currentTarget);
+                                    }}
                                 />
-                            </>
-                        ),
-                        endAdornment: displayValue && (
-                            <InputAdornment position="end">
-                                <IconButton aria-label="ClearIcon" onClick={handleClear} color="default" size="small">
-                                    <ClearIcon fontSize="small" />
-                                </IconButton>
-                            </InputAdornment>
-                        ),
-                    }}
-                />
-
-                <Popover open={open} anchorEl={anchorEl} onClose={handleClose} anchorOrigin={{ vertical: "bottom", horizontal: "left" }} transformOrigin={{ vertical: "top", horizontal: "left" }}>
-                    <Box p={2}>
-                        <DateRangePicker
-                            open
-                            toggle={handleClose}
-                            onChange={handleDateChange}
-                            minDate={new Date("1990-01-01")}
-                            wrapperClassName="DatePickerMain"
-                            definedRanges={[
-                                { label: "Today", startDate: new Date(), endDate: new Date() },
-                                {
-                                    label: "Yesterday",
-                                    startDate: new Date(
-                                        new Date().setDate(new Date().getDate() - 1)
-                                    ),
-                                    endDate: new Date(
-                                        new Date().setDate(new Date().getDate() - 1)
-                                    ),
-                                },
-                                {
-                                    label: "This Week",
-                                    startDate: new Date(
-                                        new Date().setDate(
-                                            new Date().getDate() - new Date().getDay()
-                                        )
-                                    ),
-                                    endDate: new Date(),
-                                },
-                                {
-                                    label: "Last Week",
-                                    startDate: new Date(
-                                        new Date().setDate(
-                                            new Date().getDate() - new Date().getDay() - 7
-                                        )
-                                    ),
-                                    endDate: new Date(
-                                        new Date().setDate(
-                                            new Date().getDate() - new Date().getDay() - 1
-                                        )
-                                    ),
-                                },
-                                {
-                                    label: "Last 7 Days",
-                                    startDate: new Date(
-                                        new Date().setDate(new Date().getDate() - 6)
-                                    ),
-                                    endDate: new Date(),
-                                },
-                                {
-                                    label: "This Month",
-                                    startDate: new Date(
-                                        new Date().getFullYear(),
-                                        new Date().getMonth(),
-                                        1
-                                    ),
-                                    endDate: new Date(),
-                                },
-                                {
-                                    label: "Last Month",
-                                    startDate: new Date(
-                                        new Date().getFullYear(),
-                                        new Date().getMonth() - 1,
-                                        1
-                                    ),
-                                    endDate: new Date(
-                                        new Date().getFullYear(),
-                                        new Date().getMonth(),
-                                        0
-                                    ),
-                                },
-                            ]}
-                        />
-                        <Stack direction="row" justifyContent="flex-end" mt={2} spacing={1}>
-
-                            {error && (
-                                <p style={{ color: "red", fontSize: "14px", display: 'flex', alignItems: 'center' }}>{error}</p>
+                            ) : (
+                                <CalendarDays />
                             )}
+                        </>
+                    ),
+                    endAdornment: displayValue && (
+                        <InputAdornment position="end">
+                            <IconButton size="small" onClick={handleClear}>
+                                <ClearIcon fontSize="small" />
+                            </IconButton>
+                        </InputAdornment>
+                    ),
+                }}
+                sx={{
+                    '& .MuiInputBase-input': {
+                        padding: '7px 14px'
+                    }
+                }}
+            />
 
-                            <Button onClick={handleClose} color="secondary">
-                                Cancel
-                            </Button>
-                            <Button onClick={handleApply} variant="contained" color="primary">
-                                Apply
-                            </Button>
-                        </Stack>
-                    </Box>
-                </Popover>
-            </Box>
+            <MenuList
+                options={dateColumnOptions}
+                anchorEl={anchorElStatus}
+                open={Boolean(anchorElStatus)}
+                handleClose={() => setAnchorElStatus(null)}
+                handleSelect={handleStatusSelect}
+                selectedValue={tempRange.status}
+            />
+
+            <Popover
+                open={open}
+                anchorEl={anchorEl}
+                onClose={handleClose}
+                anchorOrigin={{ vertical: "bottom", horizontal: "left" }}
+            >
+                <Box sx={{ p: 2 }}>
+                    <DateRangePicker
+                        open={open}
+                        toggle={handleClose}
+                        onChange={handleDateChange}
+                        initialDateRange={{
+                            startDate: tempRange.startDate || undefined,
+                            endDate: tempRange.endDate || undefined,
+                        }}
+                    />
+                    <Stack direction="row" justifyContent="flex-end" mt={2} spacing={1}>
+                        {error && (
+                            <p style={{ color: "red", fontSize: "14px", display: 'flex', alignItems: 'center' }}>{error}</p>
+                        )}
+                        <Button onClick={handleClose} color="secondary">
+                            Cancel
+                        </Button>
+                        <Button onClick={handleApply} variant="contained" color="primary">
+                            Apply
+                        </Button>
+                    </Stack>
+                </Box>
+            </Popover>
         </ThemeProvider>
     );
 };

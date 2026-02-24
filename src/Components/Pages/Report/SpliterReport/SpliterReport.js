@@ -119,9 +119,6 @@ export default function SpliterReport({
   const clientIpAddress = sessionStorage.getItem("clientIpAddress");
   const [IsDragging,setIsDragging] = useState(false)
 
-
-  console.log(IsDragging , "IsDragging")
-
   useEffect(() => {
     const now = new Date();
     setFilterState({

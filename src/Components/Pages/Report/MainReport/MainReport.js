@@ -11,6 +11,7 @@ import {
   Checkbox,
   Dialog,
   Drawer,
+  Grid,
   IconButton,
   Paper,
   Tooltip,
@@ -29,13 +30,17 @@ import {
 } from "../../../../Utils/globalFunc";
 import ImageView from "../ImageView/ImageView";
 import ActionFilter from "../ActionFilter/ActionFilter";
-import ColumnRearrange from "../ColumnRearrange/ColumnRearrange";
 import IframAction from "../IframAction/IframAction";
 import BarChartView from "../ChartView/BarChartView";
 import PieChartView from "../ChartView/PieChartView";
 import FilterDrawer from "../FilterEndSummury/FilterDrawer/FilterDrawer";
 import ReportTopFilterEndAction from "../FilterEndSummury/ReportTopFilterEndAction/ReportTopFilterEndAction";
 import SummaryEndFilteredValue from "../FilterEndSummury/SummaryEndFilteredValue/SummaryEndFilteredValue";
+import AreaChart from "../ChartView/AreaChart";
+import AreaChartView from "../ChartView/AreaChart";
+import { ChartCard } from "../ChartView/Customstyled";
+import PersonWiseDailyCallCount from "../ChartView/PersonWiseDailyCallCount";
+import LongCallChart from "../ChartView/LongCallChart";
 
 export default function MainReport({
   OtherKeyData,
@@ -52,13 +57,13 @@ export default function MainReport({
   colorMaster,
   currencyMaster,
 }) {
-  console.log('filteredValue: ', filteredValue);
   const [isLoading, setIsLoading] = useState(isLoadingChek);
   const [showImageView, setShowImageView] = useState(false);
-  const [openPopup, setOpenPopup] = useState(false);
+  // const [openPopup, setOpenPopup] = useState(false);
   const [columns, setColumns] = useState([]);
   const [columnsHide, setColumnsHide] = useState([]);
   const [allColumData, setAllColumData] = useState();
+  const [allColumDataBack, setAllColumDataBack] = useState();
   const [masterKeyData, setMasterKeyData] = useState();
   const [allColumIdWiseName, setAllColumIdWiseName] = useState();
   const [allRowData, setAllRowData] = useState();
@@ -97,8 +102,7 @@ export default function MainReport({
   const [chartView, setChartView] = useState(false);
   const [previewImg, setPreviewImg] = useState(null);
   const [openImgModal, setOpenImgModal] = useState(false);
-
-
+  const [otherReport, setOtherReport] = useState([]);
   const gridContainerRef = useRef(null);
   const fullscreenContainer = gridContainerRef.current || document.body;
   const apiRef = useGridApiRef();
@@ -117,17 +121,45 @@ export default function MainReport({
   });
   const startDate = filterState?.dateRange?.startDate;
   const endDate = filterState?.dateRange?.endDate;
+  const [homeType, setHomeType] = useState(null);
+  const [currentOpenReport, setCurrentOpenReport] = useState("mainreport");
 
+  const isOldHome = window.location.pathname
+    .toLowerCase()
+    .endsWith("/home1.do");
+
+  const isNewHome =
+    window.location.pathname
+      .toLowerCase()
+      .endsWith("/home.do") && !isOldHome;
+
+  function getCurrentBrowserUrl() {
+    try {
+      return window.top.location.href;
+    } catch (e) {
+      return window.location.href;
+    }
+  }
+  function getHomePageTypeFromBrowser() {
+    const url = getCurrentBrowserUrl().toLowerCase();
+    if (url.includes("/home1.do")) {
+      return "OLD";
+    }
+
+    if (url.includes("/home.do")) {
+      return "NEW";
+    }
+    return "UNKNOWN";
+  }
+
+  useEffect(() => {
+    setHomeType(getHomePageTypeFromBrowser());
+  }, []);
 
   const toggleDrawer = (newOpen) => () => {
     setSideFilterOpen(newOpen);
   };
 
-  useEffect(() => {
-    if (openPopup) {
-      setTempColumns(JSON.parse(JSON.stringify(allColumData)));
-    }
-  }, [openPopup, allColumData]);
 
   useEffect(() => {
     setSelectedGroups(grupEnChekBox); // update internal state when prop changes
@@ -289,16 +321,11 @@ export default function MainReport({
       setAllRowData(OtherKeyData?.rd3);
       setAllColumIdWiseName(OtherKeyData?.rd2);
       setMasterKeyData(OtherKeyData?.rd[0]);
-      let saved = sessionStorage.getItem("savedColumns_" + reportName);
       let rd1;
-      if (saved) {
-        rd1 = JSON.parse(saved);
-      } else {
-        rd1 = OtherKeyData?.rd1 ? [...OtherKeyData.rd1] : [];
-      }
-      // let rd1 = OtherKeyData?.rd1 ? [...OtherKeyData.rd1] : [];
+      rd1 = OtherKeyData?.rd1 ? [...OtherKeyData.rd1] : [];
       rd1.sort((a, b) => (a.DisplayOrder ?? 999) - (b.DisplayOrder ?? 999));
       setAllColumData(rd1);
+      setAllColumDataBack(rd1);
       const grupCheckboxMap = (rd1 || [])
         .filter((col) => col?.GrupChekBox == "True")
         .reduce((acc, col) => {
@@ -399,7 +426,40 @@ export default function MainReport({
       window.removeEventListener("keydown", handleKeyPress);
     };
   }, []);
+  const [iframeModelData, setIframeModelData] = useState();
 
+  const getIframeUrlParams = async () => {
+    const keyPrefix = `${pid}_`;
+    const matchingKey = Object.keys(sessionStorage).find((key) =>
+      key.startsWith(keyPrefix)
+    );
+    if (!matchingKey) {
+      console.warn("No ReportId found in sessionStorage for pid", pid);
+      return;
+    }
+    const reportId = matchingKey.split("_")[1];
+    try {
+      let AllData = JSON.parse(sessionStorage.getItem("reportVarible"));
+      const body = {
+        con: JSON.stringify({
+          mode: "getIframeUrlParams",
+          appuserid: AllData?.LUId,
+          IPAddress: clientIpAddress,
+        }),
+        p: JSON.stringify({
+          ReportId: reportId,
+        }),
+        f: "get iframe list (get url data)",
+      };
+      const response = await CallApi(body);
+      setIframeModelData(response);
+    } catch (error) {
+      console.error("Error fetching report data:", error);
+    }
+  };
+  useEffect(() => {
+    getIframeUrlParams();
+  }, []);
   const getSafeImageSrc = (src) => {
     const cleanSrc = String(src ?? "").trim();
     return cleanSrc ? cleanSrc : noFoundImg;
@@ -488,11 +548,11 @@ export default function MainReport({
               let formattedDate = "-";
               if (
                 params.value &&
+                params.value != null &&
                 params.value !== "-" &&
                 !isNaN(new Date(params.value).getTime())
               ) {
                 const dateObj = new Date(params.value);
-
                 if (col.IsShowDateWithTime == "True") {
                   const datePart = dateObj.toLocaleDateString("en-GB", {
                     day: "2-digit",
@@ -538,7 +598,6 @@ export default function MainReport({
 
             if (col?.ImageColumn === "True") {
               const src = getSafeImageSrc(params?.row?.ImgUrl);
-
               return (
                 <div
                   style={{
@@ -570,15 +629,12 @@ export default function MainReport({
             }
 
             if (col?.IframeTypeId) {
-              return <IframAction params={params} col={col} />;
+              return <IframAction params={params} col={col} iframeModelData={iframeModelData} />;
             }
 
             if (col?.IsPositiveNagativeColor === "True") {
-              console.log('col: ', col);
               const value = Number(params.value);
-
               const isPositive = value >= 0;
-
               const fontColor = isPositive
                 ? col.PvFColor
                 : col.NvFColor;
@@ -1298,7 +1354,7 @@ export default function MainReport({
       }
     }
 
-    setTempColumns(newTempColumns); // ✅ only temp changes
+    setTempColumns(newTempColumns);
   };
 
   const groupRows = (rows, groupCheckBox) => {
@@ -1451,7 +1507,8 @@ export default function MainReport({
   }
 
   return (
-    <DragDropContext key={openPopup ? "open" : "closed"} onDragEnd={onDragEnd}>
+    // <DragDropContext key={openPopup ? "open" : "closed"} onDragEnd={onDragEnd}>
+    <DragDropContext onDragEnd={onDragEnd}>
       {showPrintView ? (
         <div ref={printRef}>
           <Print1JewelleryBook visibleItemsMain={printData} />
@@ -1462,35 +1519,18 @@ export default function MainReport({
           style={{
             display: "flex",
             flexDirection: "column",
+            height: "100dvh",
             position: isExpanded ? "fixed" : "relative",
             top: isExpanded ? 0 : "auto",
             left: isExpanded ? 0 : "auto",
             right: isExpanded ? 0 : "auto",
             bottom: isExpanded ? 0 : "auto",
             zIndex: isExpanded ? 9999 : "auto",
-            // backgroundColor: isExpanded ? "#fff" : "transparent",
             overflow: isExpanded ? "auto" : "visible",
             padding: isExpanded ? "10px" : "0",
           }}
           ref={gridContainerRef}
         >
-          <Dialog
-            open={openPopup}
-            onClose={() => setOpenPopup(false)}
-            disablePortal
-            sx={{
-              borderRadius: '20px'
-            }}
-          >
-            <ColumnRearrange
-              setOpenPopup={setOpenPopup}
-              tempColumns={tempColumns}
-              setAllColumData={setAllColumData}
-              reportName={reportName}
-              allColumData={allColumData}
-            />
-          </Dialog>
-
           <Drawer
             open={sideFilterOpen}
             onClose={toggleDrawer(false)}
@@ -1553,7 +1593,7 @@ export default function MainReport({
               />
             </Dialog>
           </LocalizationProvider>
-          <div>
+          <div style={{ flexShrink: 0 }}>
             <SummaryEndFilteredValue
               setSummaryColumns={setSummaryColumns}
               setFinalSummaryColumns={setFinalSummaryColumns}
@@ -1565,11 +1605,14 @@ export default function MainReport({
               filteredValueState={filteredValueState}
               masterKeyData={masterKeyData}
               gridContainerRef={gridContainerRef}
-              setOpenPopup={setOpenPopup}
-              selectedGroups={selectedGroups}
-              setDraftFilters={setDraftFilters}
-              setFiltersShowDraf={setFiltersShowDraf}
-              setFilteredValue={setFilteredValue}
+              reportName={reportName}
+              setAllColumData={setAllColumData}
+              tempColumns={tempColumns}
+              setTempColumns={setTempColumns}
+              currentOpenReport={currentOpenReport}
+              otherReport={otherReport}
+              setOtherReprot={setOtherReport}
+            // setOpenPopup={setOpenPopup}
             />
           </div>
           <ReportTopFilterEndAction
@@ -1626,24 +1669,20 @@ export default function MainReport({
             suggestionVisibility={suggestionVisibility}
             highlightedIndex={highlightedIndex}
             setHighlightedIndex={setHighlightedIndex}
+            filtersShowDraf={filtersShowDraf}
+            setOtherReprot={setOtherReport}
+            otherReport={otherReport}
+            setAllColumData={setAllColumData}
+            allColumDataBack={allColumDataBack}
+            setAllColumDataBack={setAllColumDataBack}
+            setCurrentOpenReport={setCurrentOpenReport}
+            currentOpenReport={currentOpenReport}
           />
           <div
             ref={gridRef}
             style={{
-              height: showImageView
-                ? finalSummaryColumns?.length == 0
-                  ? "77vh"
-                  : "70vh"
-                : finalSummaryColumns?.length == 0
-                  ? masterKeyData?.ColumnSettingModel == "True"
-                    ? "calc(100vh - 130px)"
-                    : "calc(100vh - 130px)"
-                  : finalSummaryColumns?.length > 9
-                    ? finalSummaryColumns?.length > 18
-                      ? "calc(100vh - 320px)"
-                      : "calc(100vh - 260px)"
-                    : "calc(100vh - 195px)",
-              margin: "5px 10px",
+              height: "100%",
+              margin: homeType == "NEW" ? "5px 10px 5px 10px" : "5px 10px 50px 10px",
               overflow: "auto",
               transition: "opacity 0.3s",
               opacity: isPageChanging ? 0.5 : 1,
@@ -1659,19 +1698,52 @@ export default function MainReport({
                 />
               </div>
             ) : chartView ? (
-              <div>
-                <BarChartView
-                  filteredRows={filteredRows}
-                  sortModel={sortModel}
-                  columns={columns}
-                />
+              <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                <Grid item md={12} xs={12}>
+                  <ChartCard>
+                    <AreaChartView
+                      filteredRows={filteredRows}
+                      sortModel={sortModel}
+                      columns={columns} />
+                  </ChartCard>
+                </Grid>
 
-                <PieChartView
-                  filteredRows={filteredRows}
-                  sortModel={sortModel}
-                  columns={columns}
-                />
+                <Grid item md={12} xs={12}>
+                  <ChartCard>
+                    <BarChartView
+                      filteredRows={filteredRows}
+                      sortModel={sortModel}
+                      columns={columns}
+                    />
+                  </ChartCard>
+                </Grid>
+                <Grid container spacing={3}>
+                  <Grid item md={8} xs={12}>
+                    <ChartCard>
+                      <PersonWiseDailyCallCount
+                        filteredRows={filteredRows}
+                        sortModel={sortModel}
+                        columns={columns}
+                      />
+                    </ChartCard>
+                  </Grid>
 
+                  <Grid item md={4} xs={12}>
+                    <ChartCard>
+                      <PieChartView
+                        filteredRows={filteredRows}
+                        sortModel={sortModel}
+                        columns={columns}
+                      />
+
+                      <LongCallChart
+                        filteredRows={filteredRows}
+                        sortModel={sortModel}
+                        columns={columns}
+                      />
+                    </ChartCard>
+                  </Grid>
+                </Grid>
               </div>
             ) : (
               <Warper>
@@ -1730,6 +1802,8 @@ export default function MainReport({
                   className="simpleGridView"
                   pagination
                   sx={{
+                    height: "100%",    // ✅ fills the flex parent
+                    width: "100%",
                     "& .MuiDataGrid-menuIcon": {
                       display: "none",
                     },

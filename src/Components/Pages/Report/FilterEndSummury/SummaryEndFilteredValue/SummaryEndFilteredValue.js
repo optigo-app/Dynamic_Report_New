@@ -1,7 +1,8 @@
-import { Button, IconButton, Tooltip } from "@mui/material";
+import { Button, Dialog, IconButton, Tooltip } from "@mui/material";
 import { ArrowLeft, CircleArrowRight, CircleChevronLeft, CircleChevronRight } from "lucide-react";
 import React, { useEffect, useRef, useState } from "react";
 import { AiFillSetting } from "react-icons/ai";
+import ColumnRearrange from "../../ColumnRearrange/ColumnRearrange";
 
 const SummaryEndFilteredValue = ({
   setSummaryColumns,
@@ -14,12 +15,22 @@ const SummaryEndFilteredValue = ({
   filteredValueState,
   masterKeyData,
   gridContainerRef,
-  setOpenPopup,
-  selectedGroups,
-  setDraftFilters,
-  setFiltersShowDraf,
-  setFilteredValue
+  reportName,
+  setAllColumData,
+  tempColumns,
+  setTempColumns,
+  currentOpenReport,
+  otherReport,
+  setOtherReprot
 }) => {
+
+  const [openPopup, setOpenPopup] = useState(false);
+  useEffect(() => {
+    if (openPopup) {
+      setTempColumns(JSON.parse(JSON.stringify(allColumData)));
+    }
+  }, [openPopup, allColumData]);
+
   const handleClickOpenPoup = () => {
     setOpenPopup(true);
   };
@@ -140,7 +151,6 @@ const SummaryEndFilteredValue = ({
       behavior: "smooth",
     });
   };
-
   return (
     <div>
       <div
@@ -151,6 +161,25 @@ const SummaryEndFilteredValue = ({
           gap: '20px'
         }}
       >
+        <Dialog
+          open={openPopup}
+          onClose={() => setOpenPopup(false)}
+          disablePortal
+          sx={{
+            borderRadius: '20px'
+          }}
+        >
+          <ColumnRearrange
+            setOpenPopup={setOpenPopup}
+            tempColumns={tempColumns}
+            setAllColumData={setAllColumData}
+            reportName={reportName}
+            allColumData={allColumData}
+            currentOpenReport={currentOpenReport}
+            otherReport={otherReport}
+            setOtherReprot={setOtherReprot}
+          />
+        </Dialog>
         <div style={{ display: "flex", gap: "15px", width: '96.5%' }}>
           {showReportMaster && (
             <Button

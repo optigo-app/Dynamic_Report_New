@@ -1,53 +1,53 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { ResponsiveContainer, BarChart, XAxis, YAxis, Bar, Tooltip, LabelList } from "recharts";
 import { Typography } from "@mui/material";
-import { format } from "date-fns";
 
-const MONTHS = [
-  { label: "All", value: null },
-  ...Array.from({ length: 12 }, (_, i) => ({
-    label: format(new Date(2021, i), "MMMM"),
-    value: i,
-  }))
-];
+const BarChartView = ({ filteredRows, selectedMonth = null }) => {
 
-const BarChartView = ({ Top10CustomersData, month }) => {
+  const chartData = useMemo(() => {
+    const map = {};
 
-  const data = [
-    { name: "Vendor A", sales: 400 },
-    { name: "Vendor B", sales: 300 },
-    { name: "Vendor C", sales: 200 },
-    { name: "Vendor D", sales: 100 },
-    { name: "Vendor E", sales: 50 },
-    { name: "Vendor F", sales: 25 },
-    { name: "Vendor G", sales: 15 },
-    { name: "Vendor H", sales: 10 },
-    { name: "Vendor I", sales: 5 },
-    { name: "Vendor J", sales: 2 },
-  ];
+    filteredRows.forEach((row) => {
+      const date = new Date(row.date);
+      const month = date.getMonth();
 
-  console.log('data: ', data);
+      // month filter (if applied)
+      if (selectedMonth !== null && month !== selectedMonth) return;
+
+      const company = row.company || "Unknown";
+
+      map[company] = (map[company] || 0) + 1;
+    });
+
+    return Object.entries(map)
+      .map(([name, callCount]) => ({
+        name,
+        callCount,
+      }))
+      .sort((a, b) => b.callCount - a.callCount)
+      .slice(0, 10);
+  }, [filteredRows, selectedMonth]);
+
   return (
     <>
       <Typography variant="h6" sx={{ fontWeight: 500, color: "#0f172a", mb: 2 }}>
-        Top 10 Sales of Customers 
-         {/* – {MONTHS?.find(m => m.value === month)?.label} {Top10CustomersData?.[0]?.year} */}
+        Most Call By Customer
       </Typography>
 
       <ResponsiveContainer width="100%" height={260}>
-        <BarChart data={data} margin={{ top: 20, right: 20, left: 0, bottom: -10 }}>
+        <BarChart data={chartData} margin={{ top: 20, right: 20, left: 0, bottom: -10 }}>
           <XAxis
             dataKey="name"
             interval={0}
-            tick={{
-              fontSize: 11,
-              fill: "#475569",
-            }}
-            tickFormatter={(name) => (name.length > 14 ? name.slice(0, 12) + "…" : name)}
+            tick={{ fontSize: 11, fill: "#475569" }}
+            tickFormatter={(name) =>
+              name.length > 14 ? name.slice(0, 12) + "…" : name
+            }
           />
           <YAxis hide />
 
           <Tooltip
+            formatter={(value) => [`${value}`, "Calls"]}
             contentStyle={{
               backgroundColor: "#fff",
               borderRadius: 8,
@@ -55,20 +55,17 @@ const BarChartView = ({ Top10CustomersData, month }) => {
               fontSize: 12,
               boxShadow: "0 4px 12px rgba(0,0,0,0.06)",
             }}
-            labelStyle={{ color: "#475569", fontWeight: 600 }}
-            itemStyle={{ color: "#0f172a" }}
           />
 
-          <Bar dataKey="sales" fill="url(#gradientCustomer)" radius={[6, 6, 0, 0]}>
+          <Bar dataKey="callCount" fill="url(#gradientCustomer)" radius={[6, 6, 0, 0]}>
             <LabelList
-              dataKey="sales"
+              dataKey="callCount"
               position="top"
               style={{
                 fill: "#6b7280",
                 fontWeight: 500,
                 fontSize: 12,
               }}
-              formatter={(value) => (value > 0 ? value : "")}
             />
           </Bar>
 

@@ -2,14 +2,22 @@ import {
   Accordion,
   AccordionDetails,
   AccordionSummary,
+  Alert,
   alpha,
+  Box,
   Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   FormControl,
   IconButton,
   InputAdornment,
   InputLabel,
+  Menu,
   MenuItem,
   Select,
+  Snackbar,
   TextField,
   Tooltip,
   Typography,
@@ -22,6 +30,8 @@ import { FaPrint } from "react-icons/fa";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import CustomDualDatePicker from "../../../../../Utils/CustomDualDatePicker/CustomDualDatePicker";
+import { CallApi } from "../../../../../API/CallApi/CallApi";
+import MakeNewReport from "./MakeNewReport";
 
 const EXCEL_TYPE =
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8";
@@ -79,7 +89,15 @@ const ReportTopFilterEndAction = ({
   setSuggestionVisibility,
   suggestionVisibility,
   highlightedIndex,
-  setHighlightedIndex
+  setHighlightedIndex,
+  filtersShowDraf,
+  setOtherReprot,
+  otherReport,
+  setAllColumData,
+  allColumDataBack,
+  setAllColumDataBack,
+  setCurrentOpenReport,
+  currentOpenReport
 }) => {
   const [searchParams] = useSearchParams();
   const pid = searchParams.get("pid");
@@ -89,7 +107,13 @@ const ReportTopFilterEndAction = ({
     endDate: "",
     status: "",
   });
+  const [applyAfterChange, setApplyAfterChange] = useState(false);
   const serverFiltersRef = useRef({});
+  const [openSaveModal, setOpenSaveModal] = useState(false);
+  const clientIpAddress = sessionStorage.getItem("clientIpAddress");
+  const [openSnackbar, setOpenSnackbar] = useState(false);
+  const [errorMessageColor, setErrorMessageColor] = useState("error");
+
   useEffect(() => {
     if (window.self !== window.top) {
       console.warn("Page is embedded in iframe - fullscreen may be restricted");
@@ -116,10 +140,11 @@ const ReportTopFilterEndAction = ({
     if (masterKeyData?.MultiDateFilter == "True") {
       setSelectedDateColumn();
     }
+    setFilteredValue({});
+    setFiltersShowDraf({});
     setFiltersShow({});
     setFilters({});
     setDraftFilters({});
-    setFilteredValue([]);
     const keyPrefix = `${pid}_`;
     const matchingKey = Object.keys(sessionStorage).find((key) =>
       key.startsWith(keyPrefix)
@@ -222,7 +247,77 @@ const ReportTopFilterEndAction = ({
     };
   }, []);
 
+  const getActionOnFromField = (field) => {
+    const column = apiRef.current?.getColumn(field);
+    return column?.headerName || field;
+  };
 
+  const buildFilterActivityDetails = (currentFilters) => {
+    const activities = [];
+    Object.entries(currentFilters || {}).forEach(([field, value]) => {
+      if (value === "" || value === null || value === undefined) return;
+
+      const actionOn = getActionOnFromField(field);
+
+      if (Array.isArray(value)) {
+        value.forEach((v) => {
+          activities.push({
+            ActionName: "FILTER",
+            ActionOn: actionOn,
+            ActionValue: String(v),
+          });
+        });
+      } else {
+        activities.push({
+          ActionName: "FILTER",
+          ActionOn: actionOn, // ✅ headerName
+          ActionValue: String(value),
+        });
+      }
+    });
+
+    Object.entries(serverFiltersRef.current || {}).forEach(([field, value]) => {
+      activities.push({
+        ActionName: "FILTER",
+        ActionOn: getActionOnFromField(field), // ✅ headerName
+        ActionValue: String(value),
+      });
+    });
+
+    if (commonSearch?.trim()) {
+      activities.push({
+        ActionName: "SEARCH",
+        ActionOn: "Common Search",
+        ActionValue: commonSearch.trim(),
+      });
+    }
+    return activities;
+  };
+
+  const handleApplyFilter = () => {
+    const keyPrefix = `${pid}_`;
+    const matchingKey = Object.keys(sessionStorage).find((key) =>
+      key.startsWith(keyPrefix)
+    );
+    if (!matchingKey) {
+      console.warn("No ReportId found in sessionStorage for pid", pid);
+      return;
+    }
+    const reportId = matchingKey.split("_")[1];
+    setFilters(draftFilters);
+    setFiltersShow(filtersShowDraf);
+    const filterActivities = buildFilterActivityDetails(draftFilters);
+    if (filterActivities.length > 0) {
+      saveReportActivity(reportId, filterActivities);
+    }
+  };
+
+  useEffect(() => {
+    if (!applyAfterChange) return;
+
+    handleApplyFilter();
+    setApplyAfterChange(false);
+  }, [draftFilters, applyAfterChange]);
 
   const toggleFullScreen = async () => {
     try {
@@ -443,9 +538,6 @@ const ReportTopFilterEndAction = ({
     saveAs(data, fileName);
   };
 
-
-
-
   const SERVER_SEP = "###";
   const currentReportFiltersRef = useRef({ FilterHeader: "", FilterValue: "" });
   const buildFilterStrings = () => {
@@ -588,108 +680,161 @@ const ReportTopFilterEndAction = ({
       );
     });
   };
+  const [openFilter, setOpenFilter] = useState(null);
 
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (!e.target.closest(".filter-accordion-wrapper")) {
+        setOpenFilter(null);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () =>
+      document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   const renderFilterMulti = (col) => {
     if (!col.filterTypes || col.filterTypes.length === 0) return null;
     const filtersToRender = col.filterTypes;
+
     return filtersToRender?.map((filterType) => {
       switch (filterType) {
         case "MultiSelection":
           const uniqueValues = [
             ...new Set(originalRows?.map((row) => row[col.field])),
           ];
-          const headerName = col.headerNameSub;
           return (
             <div
               key={col.field}
-              style={{
-                position: "relative",
-                display: "inline-block",
-              }}
+              className="filter-accordion-wrapper"
+              style={{ position: "relative", display: "inline-block" }}
             >
+
               <Accordion
                 elevation={0}
+                disableGutters
+                expanded={openFilter === col.field}
                 sx={{
+                  width: 200,
                   border: "1px solid #ccc",
                   borderRadius: "6px",
-                  minWidth: 220,
+                  position: "relative",
+                  "&::before": { display: "none" },
                 }}
               >
                 <AccordionSummary
                   expandIcon={<MdExpandMore />}
-                  aria-controls={`${col.field}-content`}
-                  id={`${col.field}-header`}
+                  onClick={(e) => {
+                    e.stopPropagation(); // prevents outside handler
+                    setOpenFilter((prev) =>
+                      prev === col.field ? null : col.field
+                    );
+                  }}
                   sx={{
-                    minHeight: "38px",
+                    height: 40,
+                    minHeight: "40px !important",
+                    padding: "0 12px",
+                    cursor: "pointer",
                     "& .MuiAccordionSummary-content": {
                       margin: 0,
+                      alignItems: "center",
                     },
                   }}
                 >
-                  <Typography fontSize={14}>
+                  <p style={{ margin: 0, fontSize: 14 }}>
                     {col.headerNameSub}
-                  </Typography>
+                  </p>
                 </AccordionSummary>
 
-                {/* 🔽 DROPDOWN STYLE */}
                 <AccordionDetails
+                  onClick={(e) => e.stopPropagation()}
+                  onMouseDown={(e) => e.stopPropagation()}
                   className="gridMetalComboMain"
                   sx={{
                     position: "absolute",
                     top: "100%",
                     left: 0,
                     width: "100%",
-                    background: "#fff",
+                    backgroundColor: "#fff",
                     border: "1px solid #ddd",
+                    borderTop: "none",
                     boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
                     zIndex: 1300,
-                    maxHeight: 250,
-                    overflowY: "auto",
+                    padding: 0,
                   }}
                 >
-                  {uniqueValues.map((value) => (
-                    <label
-                      key={value}
+                  <div
+                    style={{
+                      position: "sticky",
+                      top: 0,
+                      zIndex: 2,
+                      background: "#fff",
+                      display: "flex",
+                      justifyContent: "flex-end",
+                      padding: "6px 8px",
+                      borderBottom: "1px solid #eee",
+                      flexDirection: 'column'
+                    }}
+                  >
+                    <Button size="small" variant="outlined" onClick={handleApplyFilter}
                       style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "6px",
-                        padding: "4px 0",
+                        borderColor: 'rgb(115, 103, 240)',
+                        color: 'rgb(115, 103, 240)'
+                      }}>
+                      Search
+                    </Button>
+                    <div
+                      style={{
+                        maxHeight: 220,
+                        overflowY: "auto",
+                        padding: "6px 10px",
                       }}
                     >
-                      <input
-                        type="checkbox"
-                        value={value}
-                        checked={(draftFilters[col.field] || []).includes(value)}
-                        onChange={(e) => {
-                          const checked = e.target.checked;
+                      {uniqueValues.map((value) => (
+                        <label
+                          key={value}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 6,
+                            padding: "4px 0",
+                            fontSize: "13px"
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={(draftFilters[col.field] || []).includes(value)}
+                            onChange={(e) => {
+                              const checked = e.target.checked;
 
-                          setDraftFilters((prev) => {
-                            const existing = prev[col.field] || [];
-                            return {
-                              ...prev,
-                              [col.field]: checked
-                                ? [...existing, value]
-                                : existing.filter((v) => v !== value),
-                            };
-                          });
+                              setDraftFilters((prev) => {
+                                const existing = prev[col.field] || [];
+                                return {
+                                  ...prev,
+                                  [col.field]: checked
+                                    ? [...existing, value]
+                                    : existing.filter((v) => v !== value),
+                                };
+                              });
 
-                          setFiltersShowDraf((prev) => {
-                            const key = col.headerNamesingle;
-                            const existing = prev[key] || [];
-                            return {
-                              ...prev,
-                              [key]: checked
-                                ? [...new Set([...existing, value])]
-                                : existing.filter((v) => v !== value),
-                            };
-                          });
-                        }}
-                      />
-                      {value}
-                    </label>
-                  ))}
+                              setFiltersShowDraf((prev) => {
+                                const key = col.headerNamesingle;
+                                const existing = prev[key] || [];
+                                return {
+                                  ...prev,
+                                  [key]: checked
+                                    ? [...new Set([...existing, value])]
+                                    : existing.filter((v) => v !== value),
+                                };
+                              });
+                            }}
+                          />
+                          {value}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
                 </AccordionDetails>
               </Accordion>
             </div>
@@ -836,14 +981,14 @@ const ReportTopFilterEndAction = ({
               key={`filter-${col.field}-selectDropdownFilter`}
               style={{ width: "100%", margin: "0px" }}
             >
-              <FormControl fullWidth size="small">
+              <FormControl fullWidth size="small" style={{ width: '200px' }}>
                 <InputLabel id="demo-simple-select-label">{`Select ${col.headerNameSub}`}</InputLabel>
                 <Select
                   labelId="demo-simple-select-label"
                   id="demo-simple-select"
                   label={`Select ${col.headerNameSub}`}
                   name={`Select ${col.headerNameSub}`}
-                  value={draftFilters[col.field] || ""} // use draftFilters
+                  value={draftFilters[col.field] || ""}
                   onChange={(e) => {
                     setDraftFilters((prev) => ({
                       ...prev,
@@ -853,10 +998,12 @@ const ReportTopFilterEndAction = ({
                       ...prev,
                       [`${col.headerNamesingle}`]: e.target.value,
                     }))
+
+                    setApplyAfterChange(true); // 🔥 trigger apply
                   }}
                   style={{
                     height: 40,
-                    fontSize: 16,
+                    fontSize: 14,
                   }}
                   MenuProps={{
                     PaperProps: {
@@ -866,13 +1013,14 @@ const ReportTopFilterEndAction = ({
                     },
                   }}
                 >
-                  <MenuItem value="">
+                  <MenuItem value="" style={{ fontSize: '14px' }}>
                     <em>{`Select ${col?.headerNameSub}`}</em>
                   </MenuItem>
                   {uniqueValues.map((value) => (
                     <MenuItem
                       key={`select-${col.field}-${value}`}
                       value={value}
+                      style={{ fontSize: "13px" }}
                     >
                       {value}
                     </MenuItem>
@@ -906,7 +1054,6 @@ const ReportTopFilterEndAction = ({
                   style={{ width: "100%" }}
                   onChange={(e) => {
                     const value = e.target.value.replace(/^\s+/, ""); // remove leading spaces
-
                     setDraftFilters((prev) => ({
                       ...prev,
                       [col.FieldName]: value,
@@ -916,6 +1063,21 @@ const ReportTopFilterEndAction = ({
                       ...prev,
                       [col.headerNamesingle]: value,
                     }));
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      const value = e.target.value.trim();
+                      setDraftFilters((prev) => ({
+                        ...prev,
+                        [col.FieldName]: value,
+                      }));
+                      setFiltersShowDraf((prev) => ({
+                        ...prev,
+                        [col.headerNamesingle]: value,
+                      }));
+                      setApplyAfterChange(true);
+                    }
                   }}
                   onBlur={(e) => {
                     const value = e.target.value.trim(); // final trim
@@ -1019,6 +1181,39 @@ const ReportTopFilterEndAction = ({
     });
   }, [highlightedIndex]);
 
+  useEffect(() => {
+    const getReport = async () => {
+      let AllData = JSON.parse(sessionStorage.getItem("reportVarible"));
+      const keyPrefix = `${pid}_`;
+      const matchingKey = Object.keys(sessionStorage).find((key) =>
+        key.startsWith(keyPrefix)
+      );
+      if (!matchingKey) {
+        console.warn("No ReportId found in sessionStorage for pid", pid);
+        return;
+      }
+      const reportId = matchingKey.split("_")[1];
+
+      const body = {
+        con: JSON.stringify({
+          mode: "getSubReportData",
+          appuserid: AllData?.LUId,
+          IPAddress: clientIpAddress,
+        }),
+        p: JSON.stringify({
+          ReportId: reportId,
+        }),
+        f: "DynamicReport ( getSubReportData )",
+      };
+      const response = await CallApi(body);
+      if (response) {
+        setOtherReprot(response?.rd);
+      }
+    }
+
+    getReport();
+  }, [])
+
   const renderSuggestionFilter = (col) => {
     const field = col.field;
     if (masterKeyData?.GroupCheckBox === "True") {
@@ -1078,6 +1273,8 @@ const ReportTopFilterEndAction = ({
         }))
         setSuggestionVisibility((prev) => ({ ...prev, [field]: false }));
         setHighlightedIndex((prev) => ({ ...prev, [field]: 0 }));
+
+        setApplyAfterChange(true);
       };
 
       const handleKeyDown = (e) => {
@@ -1180,6 +1377,8 @@ const ReportTopFilterEndAction = ({
     });
   };
 
+
+
   return (
     <div
       style={{
@@ -1188,308 +1387,487 @@ const ReportTopFilterEndAction = ({
         padding: "5px 10px",
       }}
     >
-      <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-          <Button onClick={toggleDrawer(true)} className="btn_FiletrBtnOpen">
-            <MdOutlineFilterAlt style={{ height: "30px", width: "30px" }} />
-          </Button>
-          {spliterReportShow != true &&
-            (masterKeyData?.MainDateFilter == "True" ||
-              masterKeyData?.AllDataButton == "True")
-            &&
-            <div style={{
-              display: "flex", gap: '5px',
-              backgroundColor: masterKeyData?.MainDateFilter == "True" && 'rgb(247 243 243)',
-              borderRadius: '10px',
-              padding: masterKeyData?.MainDateFilter == "True" && '10px'
-            }}>
-              {
-                masterKeyData?.MainDateFilter == "True" &&
-                <CustomDualDatePicker
-                  value={selectedDateColumn}
-                  dateColumnOptions={dateColumnOptions}
-                  setFilterState={setFilterState}
-                  filterState={filterState}
-                  dateTypeShow={masterKeyData?.MultiDateFilter}
-                  clearDateFilter={clearDateFilter}
-                  setSelectedDateColumn={setSelectedDateColumn}
-                  selectedDateColumn={selectedDateColumn}
-                />
+      <div style={{ width: '100%' }}>
+        {masterKeyData?.MakeNewReport == "True" &&
+          <MakeNewReport
+            setAllColumData={setAllColumData}
+            allColumDataBack={allColumDataBack}
+            allColumData={allColumData}
+            otherReport={otherReport}
+            setOtherReprot={setOtherReprot}
+            setAllColumDataBack={setAllColumDataBack}
+            setOpenSnackbar={setOpenSnackbar}
+            setErrorMessageColor={setErrorMessageColor}
+            openSaveModal={openSaveModal}
+            setOpenSaveModal={setOpenSaveModal}
+            currentOpenReport={currentOpenReport}
+            setCurrentOpenReport={setCurrentOpenReport}
+          />}
+        <div style={{ width: '100%', justifyContent: 'space-between', display: 'flex' }}>
+          <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <Button onClick={toggleDrawer(true)} className="btn_FiletrBtnOpen">
+                <MdOutlineFilterAlt style={{ height: "30px", width: "30px" }} />
+              </Button>
+              {spliterReportShow != true &&
+                (masterKeyData?.MainDateFilter == "True" ||
+                  masterKeyData?.AllDataButton == "True")
+                &&
+                <div style={{
+                  display: "flex", gap: '5px',
+                  backgroundColor: masterKeyData?.MainDateFilter == "True" && 'rgb(247 243 243)',
+                  borderRadius: '10px',
+                  padding: masterKeyData?.MainDateFilter == "True" && '10px'
+                }}>
+                  {
+                    masterKeyData?.MainDateFilter == "True" &&
+                    <CustomDualDatePicker
+                      value={selectedDateColumn}
+                      dateColumnOptions={dateColumnOptions}
+                      setFilterState={setFilterState}
+                      filterState={filterState}
+                      dateTypeShow={masterKeyData?.MultiDateFilter}
+                      clearDateFilter={clearDateFilter}
+                      setSelectedDateColumn={setSelectedDateColumn}
+                      selectedDateColumn={selectedDateColumn}
+                      showReportMaster={showReportMaster}
+                    />
+                  }
+                  {
+                    masterKeyData?.AllDataButton == "True" && (
+                      <Button
+                        onClick={handleAllDataShow}
+                        className="btn_FiletrBtnAll"
+                      >
+                        All
+                      </Button>
+                    )
+                  }
+                </div>
               }
-              {
-                masterKeyData?.AllDataButton == "True" && (
-                  <Button
-                    onClick={handleAllDataShow}
-                    className="btn_FiletrBtnAll"
-                  >
-                    All
-                  </Button>
-                )
-              }
+
+              <TextField
+                type="text"
+                placeholder="Search..."
+                value={commonSearch}
+                onChange={(e) => setCommonSearch(e.target.value)}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Search size={18} color="#888" />
+                    </InputAdornment>
+                  ),
+                  endAdornment: commonSearch ? (
+                    <InputAdornment position="end">
+                      <IconButton
+                        edge="end"
+                        size="small"
+                        onClick={() => setCommonSearch("")}
+                        aria-label="clear"
+                      >
+                        <X size={18} color="#888" />
+                      </IconButton>
+                    </InputAdornment>
+                  ) : null,
+                }}
+                sx={{
+                  width: "280px",
+                  "& .MuiOutlinedInput-root": {
+                    height: "40px",
+                    paddingRight: "4px",
+                  },
+                  "& .MuiInputBase-input": {
+                    padding: "6px 8px !important",
+                  },
+                }}
+                className="txt_commonSearch"
+              />
+
+              {columnsHide
+                .filter(col => col.filterable && col.IsOnScreenFilter === "True")
+                .map((col) => {
+                  if (!col.filterTypes?.includes("ServerSideFilter")) {
+                    return null;
+                  }
+                  return (
+                    <div key={col.FieldName}>
+                      {renderServerSideFilter(col)}
+                    </div>
+                  );
+                })}
+
+              {columnsHide
+                .filter(col => col.filterable && col.IsOnScreenFilter === "True")
+                .map((col) => {
+                  if (!col.filterTypes?.includes("MultiSelection")) {
+                    return null;
+                  }
+                  return (
+                    <div key={col.FieldName} style={{ display: 'flex' }}>
+                      {renderFilterMulti(col)}
+                    </div>
+                  );
+                })}
+
+              {columnsHide
+                .filter(col => col.filterable && col.IsOnScreenFilter === "True")
+                .map((col) => {
+                  if (!col.filterTypes?.includes("RangeFilter")) {
+                    return null;
+                  }
+                  return (
+                    <div key={col.FieldName}>
+                      {renderFilterRange(col)}
+                    </div>
+                  );
+                })}
+
+              {columnsHide
+                .filter(col => col.filterable && col.IsOnScreenFilter === "True")
+                .map((col) => {
+                  if (!col.filterTypes?.includes("selectDropdownFilter")) {
+                    return null;
+                  }
+                  return (
+                    <div key={col.FieldName}>
+                      {renderFilterDropDown(col)}
+                    </div>
+                  );
+                })}
+
+
+              {columnsHide
+                .filter(col => col.filterable && col.IsOnScreenFilter === "True")
+                .map((col) => {
+                  if (!col.filterTypes?.includes("NormalFilter")) {
+                    return null;
+                  }
+                  return (
+                    <div key={col.FieldName}>
+                      {renderFilter(col)}
+                    </div>
+                  );
+                })}
+
+              {columnsHide
+                .filter(col => col.filterable && col.IsOnScreenFilter === "True")
+                .map((col) => {
+                  if (!col.filterTypes?.includes("suggestionFilter")) {
+                    return null;
+                  }
+                  return (
+                    <div key={col.FieldName}>
+                      {renderSuggestionFilter(col)}
+                    </div>
+                  );
+                })}
             </div>
-          }
 
-          <TextField
-            type="text"
-            placeholder="Search..."
-            value={commonSearch}
-            onChange={(e) => setCommonSearch(e.target.value)}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <Search size={18} color="#888" />
-                </InputAdornment>
-              ),
-              endAdornment: commonSearch ? (
-                <InputAdornment position="end">
-                  <IconButton
-                    edge="end"
-                    size="small"
-                    onClick={() => setCommonSearch("")}
-                    aria-label="clear"
-                  >
-                    <X size={18} color="#888" />
-                  </IconButton>
-                </InputAdornment>
-              ) : null,
-            }}
-            sx={{
-              width: "280px",
-              "& .MuiOutlinedInput-root": {
-                height: "40px",
-                paddingRight: "4px",
-              },
-              "& .MuiInputBase-input": {
-                padding: "6px 8px !important",
-              },
-            }}
-            className="txt_commonSearch"
-          />
+            <div style={{ display: "flex", gap: "8px" }}>
+              {allColumData &&
+                Object.values(allColumData).map((col) =>
+                  col.ActionFilter == "True" ? (
+                    <Button
+                      key={col.field}
+                      variant="outlined"
+                      size="small"
+                      className="btn_Action_FiletrBtnOpen"
+                      onClick={() => {
+                        setActiveActionColumn(col);
+                        setTempValue("");
+                      }}
+                    >
+                      <Pencil style={{ height: '18px', width: '18px' }} /> {col.HeaderName}
+                    </Button>
+                  ) : null
+                )}
+            </div>
+            {masterKeyData?.PriorityMaster == "True" && (
+              <div style={{ display: "flex", gap: "12px" }}>
+                {!isLoading &&
+                  colorMaster?.map((data, index) => {
+                    const isSelected = selectedColors.includes(data.id);
+                    return (
+                      <Tooltip
+                        title={data.code}
+                        key={index}
+                        disablePortal
+                        PopperProps={{
+                          container: gridContainerRef.current,
+                        }}
+                      >
+                        <div
+                          onClick={() => handleColorClick(data.id)}
+                          style={{
+                            backgroundColor: alpha(data.colorcode, 0.75),
 
-          {columnsHide
-            .filter(col => col.filterable && col.IsOnScreenFilter === "True")
-            .map((col) => {
-              if (!col.filterTypes?.includes("ServerSideFilter")) {
-                return null;
-              }
-              return (
-                <div key={col.FieldName}>
-                  {renderServerSideFilter(col)}
-                </div>
-              );
-            })}
+                            height: isSelected ? 28 : 30,
+                            width: isSelected ? 28 : 30,
+                            borderRadius: 15,
 
-          {columnsHide
-            .filter(col => col.filterable && col.IsOnScreenFilter === "True")
-            .map((col) => {
-              if (!col.filterTypes?.includes("MultiSelection")) {
-                return null;
-              }
-              return (
-                <div key={col.FieldName}>
-                  {renderFilterMulti(col)}
-                </div>
-              );
-            })}
-
-          {columnsHide
-            .filter(col => col.filterable && col.IsOnScreenFilter === "True")
-            .map((col) => {
-              if (!col.filterTypes?.includes("RangeFilter")) {
-                return null;
-              }
-              return (
-                <div key={col.FieldName}>
-                  {renderFilterRange(col)}
-                </div>
-              );
-            })}
-
-          {columnsHide
-            .filter(col => col.filterable && col.IsOnScreenFilter === "True")
-            .map((col) => {
-              if (!col.filterTypes?.includes("selectDropdownFilter")) {
-                return null;
-              }
-              return (
-                <div key={col.FieldName}>
-                  {renderFilterDropDown(col)}
-                </div>
-              );
-            })}
-
-
-          {columnsHide
-            .filter(col => col.filterable && col.IsOnScreenFilter === "True")
-            .map((col) => {
-              if (!col.filterTypes?.includes("NormalFilter")) {
-                return null;
-              }
-              return (
-                <div key={col.FieldName}>
-                  {renderFilter(col)}
-                </div>
-              );
-            })}
-
-          {columnsHide
-            .filter(col => col.filterable && col.IsOnScreenFilter === "True")
-            .map((col) => {
-              if (!col.filterTypes?.includes("suggestionFilter")) {
-                return null;
-              }
-              return (
-                <div key={col.FieldName}>
-                  {renderSuggestionFilter(col)}
-                </div>
-              );
-            })}
-        </div>
-
-        <div style={{ display: "flex", gap: "8px" }}>
-          {allColumData &&
-            Object.values(allColumData).map((col) =>
-              col.ActionFilter == "True" ? (
-                <Button
-                  key={col.field}
-                  variant="outlined"
-                  size="small"
-                  className="btn_Action_FiletrBtnOpen"
-                  onClick={() => {
-                    setActiveActionColumn(col);
-                    setTempValue("");
-                  }}
-                >
-                  <Pencil style={{ height: '18px', width: '18px' }} /> {col.HeaderName}
-                </Button>
-              ) : null
-            )}
-        </div>
-        {masterKeyData?.PriorityMaster == "True" && (
-          <div style={{ display: "flex", gap: "12px" }}>
-            {!isLoading &&
-              colorMaster?.map((data, index) => {
-                const isSelected = selectedColors.includes(data.id);
-                return (
-                  <Tooltip
-                    title={data.code}
-                    key={index}
-                    disablePortal
-                    PopperProps={{
-                      container: gridContainerRef.current,
-                    }}
-                  >
-                    <div
-                      onClick={() => handleColorClick(data.id)}
-                      style={{
-                        backgroundColor: alpha(data.colorcode, 0.75),
-
-                        height: isSelected ? 28 : 30,
-                        width: isSelected ? 28 : 30,
-                        borderRadius: 15,
-
-                        cursor: 'pointer',
-                        boxShadow: isSelected
-                          ? `
+                            cursor: 'pointer',
+                            boxShadow: isSelected
+                              ? `
                               0 0 0 2px ${alpha('#fff', 0.9)},
                               0 0 0 4px ${alpha(data.colorcode, 0.55)},
                               0 8px 16px ${alpha(data.colorcode, 0.35)}
                             `
-                          : `
+                              : `
                               inset 0 0 0 1px ${alpha('#000', 0.12)},
                               0 4px 10px ${alpha('#000', 0.08)}
                             `,
-                        transition: 'all 0.25s ease',
-                      }}
-                    />
-                  </Tooltip>
+                            transition: 'all 0.25s ease',
+                          }}
+                        />
+                      </Tooltip>
 
-                );
-              })}
+                    );
+                  })}
+              </div>
+            )}
           </div>
-        )}
-      </div>
-      <div style={{ display: "flex", alignItems: "end", gap: "10px" }}>
-        {masterKeyData?.CurrencyMaster == "True" && (
-          <FormControl
-            size="small"
-            sx={{ width: 150, margin: "0px" }}
-            className="dropDownMainClass"
-          >
-            <Select
-              value={selectedCurrency}
-              onChange={(e) => setSelectedCurrency(e.target.value)}
-              MenuProps={{
-                disablePortal: true,
-                PaperProps: {
-                  style: {
-                    maxHeight: 300,
-                    overflowY: "auto",
-                  },
-                },
-              }}
-              style={{
-                fontSize: "14px",
-                display: "flex",
-                alignItems: "center",
-              }}
-              sx={{
-                "& .MuiSelect-select": {
-                  padding: "10px !important",
-                },
-              }}
-              className="dropDownListFont"
-            >
-              {currencyMaster?.map((col) => (
-                <MenuItem
-                  key={col?.id}
-                  value={col?.Currencycode}
+          <div style={{ display: "flex", alignItems: "end", gap: "10px" }}>
+            {masterKeyData?.CurrencyMaster == "True" && (
+              <FormControl
+                size="small"
+                sx={{ width: 150, margin: "0px" }}
+                className="dropDownMainClass"
+              >
+                <Select
+                  value={selectedCurrency}
+                  onChange={(e) => setSelectedCurrency(e.target.value)}
+                  MenuProps={{
+                    disablePortal: true,
+                    PaperProps: {
+                      style: {
+                        maxHeight: 300,
+                        overflowY: "auto",
+                      },
+                    },
+                  }}
                   style={{
                     fontSize: "14px",
+                    display: "flex",
+                    alignItems: "center",
+                  }}
+                  sx={{
+                    "& .MuiSelect-select": {
+                      padding: "10px !important",
+                    },
                   }}
                   className="dropDownListFont"
                 >
-                  {col?.Currencycode}
-                </MenuItem>
+                  {currencyMaster?.map((col) => (
+                    <MenuItem
+                      key={col?.id}
+                      value={col?.Currencycode}
+                      style={{
+                        fontSize: "14px",
+                      }}
+                      className="dropDownListFont"
+                    >
+                      {col?.Currencycode}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            )}
+
+            {masterKeyData?.PrintButton == "True" && (
+              <Tooltip
+                title="Print"
+                isablePortal
+                PopperProps={{
+                  container: gridContainerRef.current,
+                }}
+              >
+                <IconButton
+                  onClick={handleOpenPrintPreview}
+                  sx={{
+                    background: "#e8f5e9",
+                    color: "#2e7d32",
+                    height: "42px",
+                    width: "42px",
+                    borderRadius: "6px",
+                    transition: "all .2s ease",
+                    "&:hover": {
+                      backgroundColor: "#c8e6c9",
+                      transform: "translateY(-2px)",
+                    },
+                  }}
+                  size="medium"
+                >
+                  <FaPrint size={22} />
+                </IconButton>
+              </Tooltip>
+            )}
+
+            {masterKeyData?.ImageView === "True" &&
+              (grupEnChekBoxImage?.length > 0 ? (
+                grupEnChekBoxImage.every(
+                  (item) => item.DefaultGrupChekBox === true
+                ) ? (
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    {showImageView ? (
+                      <Tooltip
+                        title="Report View"
+                        isablePortal
+                        PopperProps={{
+                          container: gridContainerRef.current,
+                        }}
+                      >
+                        <IconButton
+                          onClick={() => setShowImageView(false)}
+                          sx={{
+                            background: "#e3f2fd",
+                            color: "#1976d2",
+                            height: "42px",
+                            width: "42px",
+                            borderRadius: "6px",
+                            transition: "all .2s ease",
+                            "&:hover": {
+                              backgroundColor: "#bbdefb",
+                              transform: "translateY(-2px)",
+                            },
+                          }}
+                          size="medium"
+                        >
+                          <LayoutGrid size={22} />
+                        </IconButton>
+                      </Tooltip>
+                    ) : (
+                      <Tooltip
+                        title="Image View"
+                        isablePortal
+                        PopperProps={{
+                          container: gridContainerRef.current,
+                        }}
+                      >
+                        <IconButton
+                          onClick={() => setShowImageView(true)}
+                          sx={{
+                            background: "#e3f2fd",
+                            color: "#1976d2",
+                            height: "42px",
+                            width: "42px",
+                            borderRadius: "6px",
+                            transition: "all .2s ease",
+                            "&:hover": {
+                              backgroundColor: "#bbdefb",
+                              transform: "translateY(-2px)",
+                            },
+                          }}
+                          size="medium"
+                        >
+                          <Image size={22} />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                  </div>
+                ) : null
+              ) : (
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  {showImageView ? (
+                    <Tooltip
+                      title="Report View"
+                      isablePortal
+                      PopperProps={{
+                        container: gridContainerRef.current,
+                      }}
+                    >
+                      <IconButton
+                        onClick={() => setShowImageView(false)}
+                        sx={{
+                          background: "#e3f2fd",
+                          color: "#1976d2",
+                          height: "42px",
+                          width: "42px",
+                          borderRadius: "6px",
+                          transition: "all .2s ease",
+                          "&:hover": {
+                            backgroundColor: "#bbdefb",
+                            transform: "translateY(-2px)",
+                          },
+                        }}
+                        size="medium"
+                      >
+                        <LayoutGrid size={22} />
+                      </IconButton>
+                    </Tooltip>
+                  ) : (
+                    <Tooltip
+                      title="Image View"
+                      isablePortal
+                      PopperProps={{
+                        container: gridContainerRef.current,
+                      }}
+                    >
+                      <IconButton
+                        onClick={() => setShowImageView(true)}
+                        sx={{
+                          background: "#e3f2fd",
+                          color: "#1976d2",
+                          height: "42px",
+                          width: "42px",
+                          borderRadius: "6px",
+                          transition: "all .2s ease",
+                          "&:hover": {
+                            backgroundColor: "#bbdefb",
+                            transform: "translateY(-2px)",
+                          },
+                        }}
+                        size="medium"
+                      >
+                        <Image size={22} />
+                      </IconButton>
+                    </Tooltip>
+                  )}
+                </div>
               ))}
-            </Select>
-          </FormControl>
-        )}
 
-        {masterKeyData?.PrintButton == "True" && (
-          <Tooltip
-            title="Print"
-            isablePortal
-            PopperProps={{
-              container: gridContainerRef.current,
-            }}
-          >
-            <IconButton
-              onClick={handleOpenPrintPreview}
-              sx={{
-                background: "#e8f5e9",
-                color: "#2e7d32",
-                height: "42px",
-                width: "42px",
-                borderRadius: "6px",
-                transition: "all .2s ease",
-                "&:hover": {
-                  backgroundColor: "#c8e6c9",
-                  transform: "translateY(-2px)",
-                },
-              }}
-              size="medium"
-            >
-              <FaPrint size={22} />
-            </IconButton>
-          </Tooltip>
-        )}
+            {masterKeyData?.ExcelExport == "True" && (
+              <Tooltip
+                title="Export to Excel"
+                disablePortal
+                PopperProps={{
+                  container: gridContainerRef.current,
+                }}
+              >
+                <IconButton
+                  onClick={exportToExcel}
+                  sx={{
+                    background: "#e8f5e9",
+                    color: "#2e7d32",
+                    height: "42px",
+                    width: "42px",
+                    borderRadius: "6px",
+                    transition: "all .2s ease",
+                    "&:hover": {
+                      backgroundColor: "#c8e6c9",
+                      transform: "translateY(-2px)",
+                    },
+                  }}
+                  size="medium"
+                >
+                  <FileSpreadsheet size={22} />
+                </IconButton>
+              </Tooltip>
+            )}
 
-        {masterKeyData?.ImageView === "True" &&
-          (grupEnChekBoxImage?.length > 0 ? (
-            grupEnChekBoxImage.every(
-              (item) => item.DefaultGrupChekBox === true
-            ) ? (
+
+            {pid == 18418 &&
               <div
                 style={{
                   display: "flex",
@@ -1497,7 +1875,7 @@ const ReportTopFilterEndAction = ({
                   justifyContent: "center",
                 }}
               >
-                {showImageView ? (
+                {chartView ? (
                   <Tooltip
                     title="Report View"
                     isablePortal
@@ -1506,7 +1884,7 @@ const ReportTopFilterEndAction = ({
                     }}
                   >
                     <IconButton
-                      onClick={() => setShowImageView(false)}
+                      onClick={() => setChartView(false)}
                       sx={{
                         background: "#e3f2fd",
                         color: "#1976d2",
@@ -1526,14 +1904,14 @@ const ReportTopFilterEndAction = ({
                   </Tooltip>
                 ) : (
                   <Tooltip
-                    title="Image View"
+                    title="Chart View"
                     isablePortal
                     PopperProps={{
                       container: gridContainerRef.current,
                     }}
                   >
                     <IconButton
-                      onClick={() => setShowImageView(true)}
+                      onClick={() => setChartView(true)}
                       sx={{
                         background: "#e3f2fd",
                         color: "#1976d2",
@@ -1548,175 +1926,25 @@ const ReportTopFilterEndAction = ({
                       }}
                       size="medium"
                     >
-                      <Image size={22} />
+                      <ChartNoAxesCombined size={22} />
                     </IconButton>
                   </Tooltip>
                 )}
               </div>
-            ) : null
-          ) : (
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              {showImageView ? (
-                <Tooltip
-                  title="Report View"
-                  isablePortal
-                  PopperProps={{
-                    container: gridContainerRef.current,
-                  }}
-                >
-                  <IconButton
-                    onClick={() => setShowImageView(false)}
-                    sx={{
-                      background: "#e3f2fd",
-                      color: "#1976d2",
-                      height: "42px",
-                      width: "42px",
-                      borderRadius: "6px",
-                      transition: "all .2s ease",
-                      "&:hover": {
-                        backgroundColor: "#bbdefb",
-                        transform: "translateY(-2px)",
-                      },
-                    }}
-                    size="medium"
-                  >
-                    <LayoutGrid size={22} />
-                  </IconButton>
-                </Tooltip>
-              ) : (
-                <Tooltip
-                  title="Image View"
-                  isablePortal
-                  PopperProps={{
-                    container: gridContainerRef.current,
-                  }}
-                >
-                  <IconButton
-                    onClick={() => setShowImageView(true)}
-                    sx={{
-                      background: "#e3f2fd",
-                      color: "#1976d2",
-                      height: "42px",
-                      width: "42px",
-                      borderRadius: "6px",
-                      transition: "all .2s ease",
-                      "&:hover": {
-                        backgroundColor: "#bbdefb",
-                        transform: "translateY(-2px)",
-                      },
-                    }}
-                    size="medium"
-                  >
-                    <Image size={22} />
-                  </IconButton>
-                </Tooltip>
-              )}
-            </div>
-          ))}
+            }
 
-        {masterKeyData?.ExcelExport == "True" && (
-          <Tooltip
-            title="Export to Excel"
-            disablePortal
-            PopperProps={{
-              container: gridContainerRef.current,
-            }}
-          >
-            <IconButton
-              onClick={exportToExcel}
-              sx={{
-                background: "#e8f5e9",
-                color: "#2e7d32",
-                height: "42px",
-                width: "42px",
-                borderRadius: "6px",
-                transition: "all .2s ease",
-                "&:hover": {
-                  backgroundColor: "#c8e6c9",
-                  transform: "translateY(-2px)",
-                },
-              }}
-              size="medium"
-            >
-              <FileSpreadsheet size={22} />
-            </IconButton>
-          </Tooltip>
-        )}
+            {masterKeyData?.MakeNewReport == "True" &&
+              <Button onClick={() => setOpenSaveModal(true)}
+                style={{
+                  width: '180px',
+                  backgroundColor: '#4439f7',
+                  color: 'white'
+                }}>
+                Make New report
+              </Button>
+            }
 
-
-        {pid == 18333 &&
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            {chartView ? (
-              <Tooltip
-                title="Report View"
-                isablePortal
-                PopperProps={{
-                  container: gridContainerRef.current,
-                }}
-              >
-                <IconButton
-                  onClick={() => setChartView(false)}
-                  sx={{
-                    background: "#e3f2fd",
-                    color: "#1976d2",
-                    height: "42px",
-                    width: "42px",
-                    borderRadius: "6px",
-                    transition: "all .2s ease",
-                    "&:hover": {
-                      backgroundColor: "#bbdefb",
-                      transform: "translateY(-2px)",
-                    },
-                  }}
-                  size="medium"
-                >
-                  <LayoutGrid size={22} />
-                </IconButton>
-              </Tooltip>
-            ) : (
-              <Tooltip
-                title="Chart View"
-                isablePortal
-                PopperProps={{
-                  container: gridContainerRef.current,
-                }}
-              >
-                <IconButton
-                  onClick={() => setChartView(true)}
-                  sx={{
-                    background: "#e3f2fd",
-                    color: "#1976d2",
-                    height: "42px",
-                    width: "42px",
-                    borderRadius: "6px",
-                    transition: "all .2s ease",
-                    "&:hover": {
-                      backgroundColor: "#bbdefb",
-                      transform: "translateY(-2px)",
-                    },
-                  }}
-                  size="medium"
-                >
-                  <ChartNoAxesCombined size={22} />
-                </IconButton>
-              </Tooltip>
-            )}
-          </div>
-        }
-
-        {/* {masterKeyData?.FullScreenGridButton == "True" && (
+            {/* {masterKeyData?.FullScreenGridButton == "True" && (
           <Tooltip
             title={isFullscreen ? "Exit Full Screen" : "Full Screen Report"}
             isablePortal
@@ -1744,7 +1972,19 @@ const ReportTopFilterEndAction = ({
             </IconButton>
           </Tooltip>
         )} */}
+          </div>
+        </div>
       </div>
+      <Snackbar
+        open={openSnackbar}
+        autoHideDuration={3000}
+        onClose={() => setOpenSnackbar(false)}
+        anchorOrigin={{ vertical: "top", horizontal: "center" }}
+      >
+        <Alert severity={errorMessageColor} onClose={() => setOpenSnackbar(false)}>
+          Save Report Successfully!
+        </Alert>
+      </Snackbar>
     </div>
   );
 };

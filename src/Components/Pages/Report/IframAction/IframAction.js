@@ -4,50 +4,11 @@ import { useSearchParams } from "react-router-dom";
 import { CallApi } from "../../../../API/CallApi/CallApi";
 import { MessageCircle, NotebookPen, Printer, X } from "lucide-react";
 
-const IframAction = ({ params, col }) => {
+const IframAction = ({ params, col , iframeModelData}) => {
   const [searchParams] = useSearchParams();
-  const pid = searchParams.get("pid");
-  const clientIpAddress = sessionStorage.getItem("clientIpAddress");
-  const [iframeModelData, setIframeModelData] = useState();
   const [iframeTitle, setIframeTitle] = useState();
   const [iframeUrl, setIframeUrl] = useState("");
   const [openHrefModel, setOpenHrefModel] = useState(false);
-
-
-  useEffect(() => {
-    getIframeUrlParams();
-  }, []);
-
-  const keyPrefix = `${pid}_`;
-  const matchingKey = Object.keys(sessionStorage).find((key) =>
-    key.startsWith(keyPrefix)
-  );
-  if (!matchingKey) {
-    console.warn("No ReportId found in sessionStorage for pid", pid);
-    return;
-  }
-  const reportId = matchingKey.split("_")[1];
-  const getIframeUrlParams = async () => {
-    try {
-      let AllData = JSON.parse(sessionStorage.getItem("reportVarible"));
-      const body = {
-        con: JSON.stringify({
-          mode: "getIframeUrlParams",
-          appuserid: AllData?.LUId,
-          IPAddress: clientIpAddress,
-        }),
-        p: JSON.stringify({
-          ReportId: reportId,
-        }),
-        f: "get iframe list (get url data)",
-      };
-      const response = await CallApi(body);
-      setIframeModelData(response);
-    } catch (error) {
-      console.error("Error fetching report data:", error);
-    }
-  };
-
 
 
 

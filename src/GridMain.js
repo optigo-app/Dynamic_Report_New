@@ -68,6 +68,7 @@ const GridMain = ({
   }
 
   if (!ready) return null;
+
   return (
     <Routes>
       {spliterReportShow ? (

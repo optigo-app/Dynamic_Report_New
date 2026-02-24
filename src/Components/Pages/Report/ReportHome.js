@@ -196,6 +196,7 @@ export default function ReportHome({
   const [filteredValue, setFilteredValue] = useState();
   const [selectedDateOption, setSelectedDateOption] = useState("");
   const clientIpAddress = sessionStorage.getItem("clientIpAddress");
+  
   useEffect(() => {
     setShowReportMaster(largeData);
   }, [largeData]);
@@ -556,11 +557,9 @@ export default function ReportHome({
 
     activeSelections.forEach(([header, values]) => {
       FilterHeaders.push(header);
-
       const fieldGroup = Object.values(masterFields)
         .flat()
         .filter((obj) => obj.MasterType === header);
-
       const displayValues = values
         .map((val) => {
           const match = fieldGroup.find((obj) => {
@@ -584,10 +583,8 @@ export default function ReportHome({
           return val;
         })
         .filter(Boolean);
-
       FilterValues.push(values.join(","));
       const friendlyName = fieldGroup?.[0]?.FriendlyName || header;
-
       formattedSelections.push({
         name: friendlyName?.trim() || header,
         value: displayValues.join(","),
@@ -607,11 +604,7 @@ export default function ReportHome({
 
     const FilterHeader = FilterHeaders.join("#");
     const FilterValue = FilterValues.join("#");
-
-    // 🔹 Update display filter list
     setFilteredValue(formattedSelections);
-
-    // 🔹 Call API (normal filters only)
     fetchReportData(
       {
         FilterHeader,

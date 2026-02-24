@@ -148,7 +148,6 @@ const FilterDrawer = ({
     }
     const reportId = matchingKey.split("_")[1];
     setFilters(draftFilters);
-    console.log('filtersShowDraf: ', filtersShowDraf);
     setFiltersShow(filtersShowDraf);
     const filterActivities = buildFilterActivityDetails(draftFilters);
     if (filterActivities.length > 0) {
@@ -242,14 +241,13 @@ const FilterDrawer = ({
 
   const [tempInput, setTempInput] = useState({});
   const renderServerSideFilter = (col) => {
-    if (!col.filterTypes || col.filterTypes.length === 0) return null;
-
-    return col.filterTypes.map((filterType) => {
-      if (filterType !== "ServerSideFilter") return null;
-
+    if (!col.filterTypes || col.filterTypes.length === 0) return []; // return empty array
+    return col.filterTypes.flatMap((filterType) => {
+      if (filterType !== "ServerSideFilter") return []; // empty array for non-matching types
       const filterItem = filteredValueState?.find(
         (f) => f.name === col.headerNamesingle
       );
+
       const handleChange = (e) => {
         const newValue = e.target.value;
         setTempInput((prev) => ({
@@ -262,13 +260,12 @@ const FilterDrawer = ({
         if (e.key !== "Enter") return;
         const enteredValue = tempInput[col.headerNamesingle]?.trim();
         if (!enteredValue) return;
+
         setFilteredValue((prev = []) => {
           const exists = prev.find((f) => f.name === col.headerNamesingle);
           return exists
             ? prev.map((f) =>
-              f.name === col.headerNamesingle
-                ? { ...f, value: enteredValue }
-                : f
+              f.name === col.headerNamesingle ? { ...f, value: enteredValue } : f
             )
             : [...prev, { name: col.headerNamesingle, value: enteredValue }];
         });
@@ -282,13 +279,10 @@ const FilterDrawer = ({
         const mergedPayload = {
           ...(parts.FilterHeader && { FilterHeader: parts.FilterHeader }),
           ...(parts.FilterValue && { FilterValue: parts.FilterValue }),
-          ...(parts.ServerFilterHeader && {
-            ServerFilterHeader: parts.ServerFilterHeader,
-          }),
-          ...(parts.ServerFilterValue && {
-            ServerFilterValue: parts.ServerFilterValue,
-          }),
+          ...(parts.ServerFilterHeader && { ServerFilterHeader: parts.ServerFilterHeader }),
+          ...(parts.ServerFilterValue && { ServerFilterValue: parts.ServerFilterValue }),
         };
+
         toggleDrawer(false);
         onSearchFilter?.([mergedPayload], "-1");
       };
@@ -312,20 +306,16 @@ const FilterDrawer = ({
         const mergedPayload = {
           ...(parts.FilterHeader && { FilterHeader: parts.FilterHeader }),
           ...(parts.FilterValue && { FilterValue: parts.FilterValue }),
-          ...(parts.ServerFilterHeader && {
-            ServerFilterHeader: parts.ServerFilterHeader,
-          }),
-          ...(parts.ServerFilterValue && {
-            ServerFilterValue: parts.ServerFilterValue,
-          }),
+          ...(parts.ServerFilterHeader && { ServerFilterHeader: parts.ServerFilterHeader }),
+          ...(parts.ServerFilterValue && { ServerFilterValue: parts.ServerFilterValue }),
         };
 
         onSearchFilter?.([mergedPayload], "0");
       };
 
-      return (
+      return [
         <div
-          style={{ width: "100%", margin: "10px 20px" }}
+          style={{ width: "100%", margin: "0px" }}
           key={col.headerNamesingle}
         >
           <TextField
@@ -344,287 +334,204 @@ const FilterDrawer = ({
               ) : null,
             }}
             sx={{
-              "& .MuiInputLabel-root": {
-                top: "-8px",
-              },
-              "& .MuiInputLabel-root.Mui-focused": {
-                top: "0px",
-              },
-              "& .MuiInputLabel-root.MuiInputLabel-shrink": {
-                top: "0px",
-              },
+              "& .MuiInputLabel-root": { top: "-8px" },
+              "& .MuiInputLabel-root.Mui-focused": { top: "0px" },
+              "& .MuiInputLabel-root.MuiInputLabel-shrink": { top: "0px" },
             }}
             value={tempInput[col.headerNamesingle] || ""}
             onChange={handleChange}
             onKeyDown={handleEnter}
           />
-        </div>
-      );
+        </div>,
+      ];
     });
   };
+
 
   const renderFilterMulti = (col) => {
-    if (!col.filterTypes || col.filterTypes.length === 0) return null;
-    const filtersToRender = col.filterTypes;
-    return filtersToRender?.map((filterType) => {
-      switch (filterType) {
-        case "MultiSelection":
-          const uniqueValues = [
-            ...new Set(originalRows?.map((row) => row[col.field])),
-          ];
-          const headerName = col.headerNameSub;
-          return (
-            <div key={col.field} style={{ margin: "10px 20px" }}>
-              <Accordion>
-                <AccordionSummary
-                  expandIcon={<MdExpandMore />}
-                  aria-controls={`${col.field}-content`}
-                  id={`${col.field}-header`}
-                  sx={{
-                    "& .MuiButtonBase-root": {
-                      display: "none",
-                    },
-                  }}
-                >
-                  <Typography>{col.headerNameSub}</Typography>
-                </AccordionSummary>
-                <AccordionDetails className="gridMetalComboMain">
-                  {uniqueValues.map((value) => (
-                    <label key={value} style={{ display: "flex", gap: "6px" }}>
-                      <input
-                        type="checkbox"
-                        value={value}
-                        checked={(draftFilters[col.field] || []).includes(
-                          value
-                        )}
-                        onChange={(e) => {
-                          const checked = e.target.checked;
-                          setDraftFilters((prev) => {
-                            const existing = prev[col.field] || [];
-                            return {
-                              ...prev,
-                              [col.field]: checked
-                                ? [...existing, value] // add
-                                : existing.filter((v) => v !== value), // remove
-                            };
-                          });
+    if (!col.filterTypes || col.filterTypes.length === 0) return []; // return empty array
 
-                          setFiltersShowDraf((prev) => {
-                            const key = col.headerNamesingle; // use consistent key
-                            const existing = prev[key] || [];
+    return col.filterTypes.flatMap((filterType) => {
+      if (filterType !== "MultiSelection") return []; // return empty array for non-matching types
 
-                            const updated = checked
-                              ? Array.from(new Set([...existing, value])) // append if checked, remove duplicates
-                              : existing.filter((v) => v !== value); // remove if unchecked
+      const uniqueValues = [...new Set(originalRows?.map((row) => row[col.field]))];
+      const headerName = col.headerNameSub;
 
-                            return {
-                              ...prev,
-                              [key]: updated,
-                            };
-                          });
-                        }}
-                      />
-                      {value}
-                    </label>
-                  ))}
-                </AccordionDetails>
-              </Accordion>
-            </div>
-          );
+      return [
+        <div key={col.field} style={{ margin: "0px", width: '100%' }}>
+          <Accordion>
+            <AccordionSummary
+              expandIcon={<MdExpandMore />}
+              aria-controls={`${col.field}-content`}
+              id={`${col.field}-header`}
+              sx={{ "& .MuiButtonBase-root": { display: "none" } }}
+            >
+              <Typography>{headerName}</Typography>
+            </AccordionSummary>
+            <AccordionDetails className="gridMetalComboMain">
+              {uniqueValues.map((value) => (
+                <label key={value} style={{ display: "flex", gap: "6px" }}>
+                  <input
+                    type="checkbox"
+                    value={value}
+                    checked={(draftFilters[col.field] || []).includes(value)}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
 
-        default:
-          return null;
-      }
+                      // Update draftFilters
+                      setDraftFilters((prev) => {
+                        const existing = prev[col.field] || [];
+                        return {
+                          ...prev,
+                          [col.field]: checked
+                            ? [...existing, value] // add
+                            : existing.filter((v) => v !== value), // remove
+                        };
+                      });
+
+                      // Update filtersShowDraf
+                      setFiltersShowDraf((prev) => {
+                        const key = col.headerNamesingle;
+                        const existing = prev[key] || [];
+                        const updated = checked
+                          ? Array.from(new Set([...existing, value])) // add if checked
+                          : existing.filter((v) => v !== value); // remove if unchecked
+                        return { ...prev, [key]: updated };
+                      });
+                    }}
+                  />
+                  {value}
+                </label>
+              ))}
+            </AccordionDetails>
+          </Accordion>
+        </div>,
+      ];
     });
   };
 
+
   const renderFilterRange = (col) => {
-    if (!col.filterTypes || col.filterTypes.length === 0) return null;
-    const filtersToRender = col.filterTypes;
-    return filtersToRender.map((filterType) => {
-      switch (filterType) {
-        case "RangeFilter":
-          return (
-            <div
-              key={`filter-${col.FieldName}-RangeFilter`}
-              style={{ margin: "10px 20px", display: "flex", gap: "10px" }}
-            >
-              <TextField
-                type="number"
-                key={`filter-${col.headerNamesingle}-MinFilter`}
-                name={`filter-${col.headerNamesingle}-MinFilter`}
-                label={`${col.headerNamesingle} Min`}
-                variant="outlined"
-                value={draftFilters[`${col.FieldName}_min`] || ""}
-                onChange={(e) => {
-                  const value = e.target.value
-                    ? parseFloat(e.target.value)
-                    : "";
-                  setDraftFilters((prev) => ({
-                    ...prev,
-                    [`${col.FieldName}_min`]: value,
-                  }));
+    if (!col.filterTypes || col.filterTypes.length === 0) return []; // return empty array
+    return col.filterTypes.flatMap((filterType) => {
+      if (filterType !== "RangeFilter") return []; // return empty array for non-matching type
+      return [
+        <div
+          key={`filter-${col.FieldName}-RangeFilter`}
+          style={{ margin: "0px", display: "flex", gap: "10px" }}
+        >
+          {/* Min Input */}
+          <TextField
+            type="number"
+            key={`filter-${col.headerNamesingle}-MinFilter`}
+            name={`filter-${col.headerNamesingle}-MinFilter`}
+            label={`${col.headerNamesingle} Min`}
+            variant="outlined"
+            value={draftFilters[`${col.FieldName}_min`] || ""}
+            onChange={(e) => {
+              const value = e.target.value ? parseFloat(e.target.value) : "";
+              setDraftFilters((prev) => ({ ...prev, [`${col.FieldName}_min`]: value }));
+              setFiltersShowDraf((prev) => ({ ...prev, [`${col.headerNamesingle}_min`]: value }));
+            }}
+            style={{ width: "50%" }}
+            InputLabelProps={{ style: { fontFamily: "Poppins, sans-serif" } }}
+            InputProps={{ style: { height: 40, fontSize: 16 } }}
+            sx={{
+              "& .MuiInputLabel-root": { top: "-5px" },
+              "& .MuiInputLabel-root.Mui-focused": { top: "0px" },
+              "& .MuiInputLabel-root.MuiInputLabel-shrink": { top: "0px" },
+            }}
+          />
 
-                  setFiltersShowDraf((prev) => ({
-                    ...prev,
-                    [`${col.headerNamesingle}_min`]: value,
-                  }));
-                }}
-                style={{ width: "50%" }}
-                InputLabelProps={{
-                  style: {
-                    fontFamily: "Poppins, sans-serif",
-                  },
-                }}
-                InputProps={{
-                  style: {
-                    height: 40,
-                    fontSize: 16,
-                  },
-                }}
-                sx={{
-                  "& .MuiInputLabel-root": {
-                    top: "-5px",
-                  },
-                  "& .MuiInputLabel-root.Mui-focused": {
-                    top: "0px",
-                  },
-                  "& .MuiInputLabel-root.MuiInputLabel-shrink": {
-                    top: "0px",
-                  },
-                }}
-              />
-
-              <TextField
-                type="number"
-                key={`filter-${col.headerNamesingle}-MaxFilter`}
-                name={`filter-${col.headerNamesingle}-MaxFilter`}
-                label={`${col.headerNamesingle} Max`}
-                variant="outlined"
-                value={draftFilters[`${col.FieldName}_max`] || ""}
-                onChange={(e) => {
-                  const value = e.target.value
-                    ? parseFloat(e.target.value)
-                    : "";
-                  setDraftFilters((prev) => ({
-                    ...prev,
-                    [`${col.FieldName}_max`]: value,
-                  }));
-
-                  setFiltersShowDraf((prev) => ({
-                    ...prev,
-                    [`${col.headerNamesingle}_max`]: value,
-                  }));
-                }}
-                style={{ width: "50%" }}
-                InputLabelProps={{
-                  style: {
-                    fontFamily: "Poppins, sans-serif",
-                  },
-                }}
-                InputProps={{
-                  style: {
-                    height: 40,
-                    fontSize: 16,
-                  },
-                }}
-                sx={{
-                  "& .MuiInputLabel-root": {
-                    top: "-5px",
-                  },
-                  "& .MuiInputLabel-root.Mui-focused": {
-                    top: "0px",
-                  },
-                  "& .MuiInputLabel-root.MuiInputLabel-shrink": {
-                    top: "0px",
-                  },
-                }}
-              />
-            </div>
-          );
-        default:
-          return null;
-      }
+          {/* Max Input */}
+          <TextField
+            type="number"
+            key={`filter-${col.headerNamesingle}-MaxFilter`}
+            name={`filter-${col.headerNamesingle}-MaxFilter`}
+            label={`${col.headerNamesingle} Max`}
+            variant="outlined"
+            value={draftFilters[`${col.FieldName}_max`] || ""}
+            onChange={(e) => {
+              const value = e.target.value ? parseFloat(e.target.value) : "";
+              setDraftFilters((prev) => ({ ...prev, [`${col.FieldName}_max`]: value }));
+              setFiltersShowDraf((prev) => ({ ...prev, [`${col.headerNamesingle}_max`]: value }));
+            }}
+            style={{ width: "50%" }}
+            InputLabelProps={{ style: { fontFamily: "Poppins, sans-serif" } }}
+            InputProps={{ style: { height: 40, fontSize: 16 } }}
+            sx={{
+              "& .MuiInputLabel-root": { top: "-5px" },
+              "& .MuiInputLabel-root.Mui-focused": { top: "0px" },
+              "& .MuiInputLabel-root.MuiInputLabel-shrink": { top: "0px" },
+            }}
+          />
+        </div>,
+      ];
     });
   };
 
   const renderFilterDropDown = (col) => {
     const field = col.field;
-    if (masterKeyData?.GroupCheckBox === "True") {
-      if (col?.GrupChekBox == "True") {
-        if (!selectedGroups[field]) return null;
-      }
+    if (masterKeyData?.GroupCheckBox === "True" && col?.GrupChekBox === "True" && !selectedGroups[field]) {
+      return []; // return empty array instead of null
     }
-    if (!col.filterTypes || col.filterTypes.length === 0) return null;
-    const filtersToRender = col.filterTypes;
+    if (!col.filterTypes || col.filterTypes.length === 0) return [];
+    return col.filterTypes?.flatMap((filterType) => {
+      if (filterType !== "selectDropdownFilter") return []; // empty array for non-matching types
+      let uniqueValues = [
+        ...new Set(
+          originalRows
+            ?.map((row) => row[field])
+            .filter((v) => v !== null && v !== undefined)
+            .map((v) => String(v).trim())
+            .filter((v) => v !== "")
+        ),
+      ];
 
-    return filtersToRender.map((filterType) => {
-      switch (filterType) {
-        case "selectDropdownFilter": {
-          let uniqueValues = [
-            ...new Set(originalRows?.map((row) => row[col.field])),
-          ];
-          uniqueValues = uniqueValues.filter((v) => v && v.trim() !== "");
-          uniqueValues.sort((a, b) =>
-            a.localeCompare(b, undefined, { sensitivity: "base" })
-          );
-          return (
-            <div
-              key={`filter-${col.field}-selectDropdownFilter`}
-              style={{ width: "100%", margin: "10px 20px" }}
+      // Now sorting is 100% safe
+      uniqueValues.sort((a, b) =>
+        a.localeCompare(b, undefined, { sensitivity: "base" })
+      );
+
+      return [
+        <div
+          key={`filter-${field}-selectDropdownFilter`}
+          style={{ width: "100%", margin: "0px" }}
+        >
+          <FormControl fullWidth size="small">
+            <InputLabel id={`select-label-${field}`}>{`Select ${col.headerNameSub}`}</InputLabel>
+            <Select
+              labelId={`select-label-${field}`}
+              id={`select-${field}`}
+              label={`Select ${col.headerNameSub}`}
+              name={`Select ${col.headerNameSub}`}
+              value={draftFilters[field] || ""}
+              onChange={(e) => {
+                const value = e.target.value;
+                setDraftFilters((prev) => ({ ...prev, [field]: value }));
+                setFiltersShowDraf((prev) => ({ ...prev, [col.headerNamesingle]: value }));
+              }}
+              style={{ height: 40, fontSize: 16 }}
+              MenuProps={{
+                container: fullscreenContainer,
+                PaperProps: { style: { maxHeight: 300 } },
+              }}
             >
-              <FormControl fullWidth size="small">
-                <InputLabel id="demo-simple-select-label">{`Select ${col.headerNameSub}`}</InputLabel>
-                <Select
-                  labelId="demo-simple-select-label"
-                  id="demo-simple-select"
-                  label={`Select ${col.headerNameSub}`}
-                  name={`Select ${col.headerNameSub}`}
-                  value={draftFilters[col.field] || ""} // use draftFilters
-                  onChange={(e) => {
-                    setDraftFilters((prev) => ({
-                      ...prev,
-                      [col.field]: e.target.value,
-                    }));
-                    setFiltersShowDraf((prev) => ({
-                      ...prev,
-                      [`${col.headerNamesingle}`]: e.target.value,
-                    }))
-                  }}
-                  style={{
-                    height: 40,
-                    fontSize: 16,
-                  }}
-                  MenuProps={{
-                    container: fullscreenContainer,
-                    PaperProps: {
-                      style: {
-                        maxHeight: 300,
-                      },
-                    },
-                  }}
-                >
-                  <MenuItem value="">
-                    <em>{`Select ${col?.headerNameSub}`}</em>
-                  </MenuItem>
-                  {uniqueValues.map((value) => (
-                    <MenuItem
-                      key={`select-${col.field}-${value}`}
-                      value={value}
-                    >
-                      {value}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-            </div>
-          );
-        }
-        default:
-          return null;
-      }
+              <MenuItem value="">
+                <em>{`Select ${col.headerNameSub}`}</em>
+              </MenuItem>
+              {uniqueValues.map((value) => (
+                <MenuItem key={`select-${field}-${value}`} value={value}>
+                  {value}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </div>,
+      ];
     });
   };
+
 
   const suggestionRefs = useRef({});
   const suggestionItemRefs = useRef({});
@@ -701,17 +608,16 @@ const FilterDrawer = ({
 
   const renderSuggestionFilter = (col) => {
     const field = col.field;
-    if (masterKeyData?.GroupCheckBox === "True") {
-      if (col?.GrupChekBox == "True") {
-        if (!selectedGroups[field]) return null;
-      }
+
+    if (masterKeyData?.GroupCheckBox === "True" && col?.GrupChekBox === "True" && !selectedGroups[field]) {
+      return []; // return empty array instead of null
     }
-    if (!col.filterTypes || col.filterTypes.length === 0) return null;
 
-    return col.filterTypes.map((filterType) => {
-      if (filterType !== "suggestionFilter") return null;
+    if (!col.filterTypes || col.filterTypes.length === 0) return [];
 
-      const field = col.field;
+    return col.filterTypes.flatMap((filterType) => {
+      if (filterType !== "suggestionFilter") return []; // return empty array instead of null
+
       const headerName = col.headerNameSub;
 
       if (!suggestionItemRefs.current[field]) {
@@ -721,41 +627,19 @@ const FilterDrawer = ({
       const inputValue = draftFilters[field]?.toString().toLowerCase() || "";
       const suggestions =
         inputValue.length > 0
-          ? [
-            ...new Set(
-              originalRows
-                .map((row) => row[field])
-                .filter(
-                  (val) =>
-                    val && val.toString().toLowerCase().includes(inputValue)
-                )
-            ),
-          ]
+          ? [...new Set(originalRows.map((row) => row[field]).filter((val) => val && val.toString().toLowerCase().includes(inputValue)))]
           : [];
 
       const handleInputChange = (value) => {
-        setDraftFilters((prev) => ({
-          ...prev,
-          [field]: value,
-        }));
-
-        setFiltersShowDraf((prev) => ({
-          ...prev,
-          [`${col.headerNamesingle}`]: value,
-        }))
+        setDraftFilters((prev) => ({ ...prev, [field]: value }));
+        setFiltersShowDraf((prev) => ({ ...prev, [col.headerNamesingle]: value }));
         setSuggestionVisibility((prev) => ({ ...prev, [field]: true }));
         setHighlightedIndex((prev) => ({ ...prev, [field]: 0 }));
       };
 
       const handleSelectSuggestion = (value) => {
-        setDraftFilters((prev) => ({
-          ...prev,
-          [field]: value,
-        }));
-        setFiltersShowDraf((prev) => ({
-          ...prev,
-          [`${col.headerNamesingle}`]: value,
-        }))
+        setDraftFilters((prev) => ({ ...prev, [field]: value }));
+        setFiltersShowDraf((prev) => ({ ...prev, [col.headerNamesingle]: value }));
         setSuggestionVisibility((prev) => ({ ...prev, [field]: false }));
         setHighlightedIndex((prev) => ({ ...prev, [field]: 0 }));
       };
@@ -765,16 +649,10 @@ const FilterDrawer = ({
 
         if (e.key === "ArrowDown") {
           e.preventDefault();
-          setHighlightedIndex((prev) => ({
-            ...prev,
-            [field]: Math.min((prev[field] ?? 0) + 1, suggestions.length - 1),
-          }));
+          setHighlightedIndex((prev) => ({ ...prev, [field]: Math.min((prev[field] ?? 0) + 1, suggestions.length - 1) }));
         } else if (e.key === "ArrowUp") {
           e.preventDefault();
-          setHighlightedIndex((prev) => ({
-            ...prev,
-            [field]: Math.max((prev[field] ?? 0) - 1, 0),
-          }));
+          setHighlightedIndex((prev) => ({ ...prev, [field]: Math.max((prev[field] ?? 0) - 1, 0) }));
         } else if (e.key === "Enter") {
           e.preventDefault();
           const current = suggestions[highlightedIndex[field] ?? 0];
@@ -783,20 +661,16 @@ const FilterDrawer = ({
       };
 
       const refCallback = (node) => {
-        if (node) {
-          suggestionRefs.current[field] = node;
-        }
+        if (node) suggestionRefs.current[field] = node;
       };
 
-      const { openUpward, maxHeight } = getSafeDropdownStyle(
-        suggestionRefs.current[field]
-      );
+      const { openUpward, maxHeight } = getSafeDropdownStyle(suggestionRefs.current[field]);
 
-      return (
+      return [
         <div
           key={`filter-${field}-suggestionFilter`}
           ref={refCallback}
-          style={{ margin: "10px 20px", position: "relative", width: "100%" }}
+          style={{ margin: "0px", position: "relative", width: "100%" }}
         >
           <TextField
             label={`Search ${headerName}`}
@@ -844,10 +718,7 @@ const FilterDrawer = ({
                     cursor: "pointer",
                     borderBottom: "1px solid #eee",
                     fontSize: "0.8125rem",
-                    background:
-                      index === highlightedIndex[field]
-                        ? "#eee"
-                        : "transparent",
+                    background: index === highlightedIndex[field] ? "#eee" : "transparent",
                   }}
                 >
                   {value}
@@ -855,10 +726,11 @@ const FilterDrawer = ({
               ))}
             </div>
           )}
-        </div>
-      );
+        </div>,
+      ];
     });
   };
+
 
   const handleClearFilter = () => {
     setFilteredValue();
@@ -910,54 +782,127 @@ const FilterDrawer = ({
       </div>
 
       <div className="sidebar_filter_main_div">
-        {columnsHide
+        {/* {columnsHide
           .filter((col) => col.filterable && col.IsOnScreenFilter != "True")
           .map((col) => (
             <div key={col.FieldName} style={{ display: "flex", gap: "10px" }}>
               {renderServerSideFilter(col)}
             </div>
-          ))}
+          ))} */}
 
-        {columnsHide
+        {/* {columnsHide
           .filter((col) => col.filterable && col.IsOnScreenFilter != "True")
           .map((col) => (
             <div key={col.FieldName}>
               {col.filterTypes?.includes("MultiSelection") &&
                 renderFilterMulti(col)}
             </div>
-          ))}
+          ))} */}
 
-        {columnsHide
+        {/* {columnsHide
           .filter((col) => col.filterable && col.IsOnScreenFilter != "True")
           .map((col) => (
             <div key={col.FieldName}>{renderFilterRange(col)}</div>
-          ))}
+          ))} */}
 
-        {columnsHide
+        {/* {columnsHide
           .filter((col) => col.filterable && col.IsOnScreenFilter != "True")
           .map((col) => (
             <div key={col.FieldName} style={{ display: "flex", gap: "10px" }}>
               {renderFilterDropDown(col)}
             </div>
-          ))}
-
-        <div style={{ margin: '0px 20px', display: 'flex', gap: '5px', flexDirection: 'column' }}>
+          ))} */}
+        <div style={{ margin: '0px 20px', display: 'flex', gap: '10px', flexDirection: 'column' }}>
           {columnsHide
-            .filter(col => col.filterable && col.IsOnScreenFilter != "True")
-            .map((col) => (
-              <div key={col.FieldName} style={{ display: "flex", gap: "10px" }}>
-                {renderFilter(col, draftFilters, setDraftFilters, setFiltersShowDraf)}
-              </div>
-            ))}
+            .filter(col => col.filterable && col.IsOnScreenFilter !== "True")
+            .map((col) => {
+              const filterElements = renderServerSideFilter(col);
+              if (filterElements.length === 0) return null;
+              return (
+                <div key={col.FieldName} style={{ display: "flex", gap: "10px" }}>
+                  {filterElements}
+                </div>
+              );
+            })}
         </div>
 
-        {columnsHide
+        <div style={{ margin: '0px 20px', display: 'flex', gap: '10px', flexDirection: 'column' }}>
+          {columnsHide
+            .filter(col => col.filterable && col.IsOnScreenFilter !== "True")
+            .map((col) => {
+              const filterElements = renderFilterMulti(col);
+              if (filterElements.length === 0) return null;
+              return (
+                <div key={col.FieldName} style={{ display: "flex", gap: "10px" }}>
+                  {filterElements}
+                </div>
+              );
+            })}
+        </div>
+
+        <div style={{ margin: '0px 20px', display: 'flex', gap: '10px', flexDirection: 'column' }}>
+          {columnsHide
+            .filter(col => col.filterable && col.IsOnScreenFilter !== "True")
+            .map((col) => {
+              const filterElements = renderFilterRange(col);
+              if (filterElements.length === 0) return null;
+              return (
+                <div key={col.FieldName} style={{ display: "flex", gap: "10px" }}>
+                  {filterElements}
+                </div>
+              );
+            })}
+        </div>
+
+        <div style={{ margin: '0px 20px', display: 'flex', gap: '10px', flexDirection: 'column' }}>
+          {columnsHide
+            .filter(col => col.filterable && col.IsOnScreenFilter !== "True")
+            .map((col) => {
+              const filterElements = renderFilterDropDown(col);
+              if (filterElements.length === 0) return null;
+              return (
+                <div key={col.FieldName} style={{ display: "flex", gap: "10px" }}>
+                  {filterElements}
+                </div>
+              );
+            })}
+        </div>
+
+        <div style={{ margin: '0px 20px', display: 'flex', gap: '10px', flexDirection: 'column' }}>
+          {columnsHide
+            .filter(col => col.filterable && col.IsOnScreenFilter !== "True")
+            .map((col) => {
+              const filterElements = renderFilter(col, draftFilters, setDraftFilters, setFiltersShowDraf);
+              if (filterElements.length === 0) return null;
+              return (
+                <div key={col.FieldName} style={{ display: "flex", gap: "10px" }}>
+                  {filterElements}
+                </div>
+              );
+            })}
+        </div>
+
+
+        <div style={{ margin: '0px 20px', display: 'flex', gap: '10px', flexDirection: 'column' }}>
+          {columnsHide
+            .filter(col => col.filterable && col.IsOnScreenFilter !== "True")
+            .map((col) => {
+              const filterElements = renderSuggestionFilter(col);
+              if (filterElements.length === 0) return null;
+              return (
+                <div key={col.FieldName} style={{ display: "flex", gap: "10px" }}>
+                  {filterElements}
+                </div>
+              );
+            })}
+        </div>
+        {/* {columnsHide
           .filter((col) => col.filterable && col.IsOnScreenFilter != "True")
           .map((col) => (
             <div key={col.FieldName} style={{ display: "flex", gap: "10px" }}>
               {renderSuggestionFilter(col)}
             </div>
-          ))}
+          ))} */}
       </div>
     </div>
   );

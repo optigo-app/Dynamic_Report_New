@@ -35,7 +35,7 @@ const DraggableColumn = ({
             padding: "5px 10px",
             display: "flex",
             justifyContent: "space-between",
-            borderRadius: '20px'
+            borderRadius: '7px'
           }}
         >
           <div style={{ display: "flex", alignItems: "center", gap: "15px" }}>
@@ -73,6 +73,9 @@ const ColumnRearrange = ({
   setAllColumData,
   reportName,
   allColumData,
+  currentOpenReport,
+  otherReport,
+  setOtherReprot
 }) => {
   const [searchParams] = useSearchParams();
   const pid = searchParams.get("pid");
@@ -96,65 +99,182 @@ const ColumnRearrange = ({
     setOpenPopup(false);
   };
 
+
+  const getReportIdFromSession = () => {
+    const keyPrefix = `${pid}_`;
+    const matchingKey = Object.keys(sessionStorage).find((key) =>
+      key.startsWith(keyPrefix)
+    );
+    if (!matchingKey) return null;
+    return matchingKey.split("_")[1];
+  };
+
+  const mapColumnsForSave = (columns) =>
+    columns.map((col, index) => ({
+      ColId: Number(col.ColId),
+      IsHidden: checkedColumns[col.FieldName] ? "False" : "True",
+      ColumnOrder: index + 1,
+      ColumnAlias: col.FieldName,
+      ColumnWidth: col.ColumnWidth || 120,
+    }));
+
+
   const handleSaveSettings = async () => {
     setColumSaveLoding(true);
     try {
-      let reportId = null;
-      const keyPrefix = `${pid}_`;
-      for (let i = 0; i < sessionStorage.length; i++) {
-        const key = sessionStorage.key(i);
-        if (key?.startsWith(keyPrefix)) {
-          reportId = key.split("_")[1];
-          break;
-        }
-      }
-      if (!reportId) {
-        console.warn("No ReportId found for pid:", pid);
-        return;
-      }
+      const AllData = JSON.parse(sessionStorage.getItem("reportVarible"));
+      const reportId = getReportIdFromSession();
+      if (!reportId) return;
       const updatedData = tempColumns.map((col, index) => ({
         ...col,
         IsVisible: checkedColumns[col.FieldName] ? "True" : "False",
         DisplayOrder: index + 1,
       }));
 
-      const columnsPayload = updatedData.map((col) => ({
-        ColId: Number(col.ColId),
-        IsVisible: col.IsVisible,
-        DisplayOrder: col.DisplayOrder,
-      }));
+      if (currentOpenReport === "mainreport") {
+        const columnsPayload = updatedData.map((col) => ({
+          ColId: Number(col.ColId),
+          IsVisible: col.IsVisible,
+          DisplayOrder: col.DisplayOrder,
+        }));
 
-      const AllData = JSON.parse(sessionStorage.getItem("reportVarible"));
+        const body = {
+          con: JSON.stringify({
+            mode: "updateCompanyReportColumns",
+            appuserid: AllData?.LUId,
+            IPAddress: clientIpAddress,
+          }),
+          p: JSON.stringify({
+            ReportId: reportId,
+            Columns: columnsPayload,
+          }),
+          f: "DynamicReport (update display order)",
+        };
 
-      const body = {
-        con: JSON.stringify({
-          mode: "updateCompanyReportColumns",
-          appuserid: AllData?.LUId,
-          IPAddress: clientIpAddress,
-        }),
-        p: JSON.stringify({
-          ReportId: reportId,
-          Columns: columnsPayload,
-        }),
-        f: "DynamicReport (update display order)",
-      };
-      const response = await CallApi(body);
-      if (response?.rd?.[0]?.stat === 1) {
-        setAllColumData(updatedData);
-        sessionStorage.setItem(
-          `savedColumns_${reportName}`,
-          JSON.stringify(updatedData)
-        );
-        setOpenSnackbar(true);
-      } else {
-        console.warn("Failed to update:", response?.stat_msg);
+        const response = await CallApi(body);
+
+        if (response?.rd?.[0]?.stat === 1) {
+          setAllColumData(updatedData);
+          setOpenSnackbar(true);
+        }
       }
+      else {
+        const selectedSubReport = otherReport?.find(
+          (r) => r.SubReportName === currentOpenReport
+        );
+
+        const subReportId = selectedSubReport?.SubReportId || 0;
+        const subReportName = currentOpenReport;
+
+        const body = {
+          con: JSON.stringify({
+            mode: "SaveSubReportData",
+            appuserid: AllData?.LUId,
+            IPAddress: clientIpAddress,
+          }),
+          p: JSON.stringify({
+            ReportId: reportId,
+            SubReportId: subReportId, // 0 if new
+            SubReportName: subReportName.trim(),
+            Filters: [],
+            Columns: mapColumnsForSave(updatedData),
+          }),
+          f: "DynamicReport ( SaveSubReportData )",
+        };
+
+        const response = await CallApi(body);
+        const statusObj = response?.rd?.find((r) => r.stat === 1);
+
+        if (!statusObj?.SubReportId) return;
+
+        const newSubReportObj = {
+          SubReportId: statusObj.SubReportId,
+          ReportId: reportId,
+          SubReportName: subReportName.trim(),
+          Filters: JSON.stringify([]),
+          Columns: JSON.stringify(mapColumnsForSave(updatedData)),
+        };
+        setOtherReprot((prev) => {
+          const index = prev.findIndex(
+            (r) => r.SubReportId === statusObj.SubReportId
+          );
+
+          if (index !== -1) {
+            const updated = [...prev];
+            updated[index] = newSubReportObj;
+            return updated;
+          }
+
+          return [...prev, newSubReportObj];
+        });
+
+        // Optional but recommended → sync current columns
+        setAllColumData(updatedData);
+
+        setOpenSnackbar(true);
+      }
+
     } catch (error) {
       console.error("handleSaveSettings error:", error);
     } finally {
       setColumSaveLoding(false);
     }
   };
+
+
+  // const handleSaveSettings = async () => {
+  //   setColumSaveLoding(true);
+  //   try {
+  //     let reportId = null;
+  //     const keyPrefix = `${pid}_`;
+  //     for (let i = 0; i < sessionStorage.length; i++) {
+  //       const key = sessionStorage.key(i);
+  //       if (key?.startsWith(keyPrefix)) {
+  //         reportId = key.split("_")[1];
+  //         break;
+  //       }
+  //     }
+  //     if (!reportId) {
+  //       console.warn("No ReportId found for pid:", pid);
+  //       return;
+  //     }
+  //     const updatedData = tempColumns.map((col, index) => ({
+  //       ...col,
+  //       IsVisible: checkedColumns[col.FieldName] ? "True" : "False",
+  //       DisplayOrder: index + 1,
+  //     }));
+
+  //     const columnsPayload = updatedData.map((col) => ({
+  //       ColId: Number(col.ColId),
+  //       IsVisible: col.IsVisible,
+  //       DisplayOrder: col.DisplayOrder,
+  //     }));
+  //     const AllData = JSON.parse(sessionStorage.getItem("reportVarible"));
+  //     const body = {
+  //       con: JSON.stringify({
+  //         mode: "updateCompanyReportColumns",
+  //         appuserid: AllData?.LUId,
+  //         IPAddress: clientIpAddress,
+  //       }),
+  //       p: JSON.stringify({
+  //         ReportId: reportId,
+  //         Columns: columnsPayload,
+  //       }),
+  //       f: "DynamicReport (update display order)",
+  //     };
+  //     const response = await CallApi(body);
+  //     if (response?.rd?.[0]?.stat === 1) {
+  //       setAllColumData(updatedData);
+  //       setOpenSnackbar(true);
+  //     } else {
+  //       console.warn("Failed to update:", response?.stat_msg);
+  //     }
+  //   } catch (error) {
+  //     console.error("handleSaveSettings error:", error);
+  //   } finally {
+  //     setColumSaveLoding(false);
+  //   }
+  // };
 
   const handleCheckboxChange = useCallback((field) => {
     setCheckedColumns((prev) => ({
