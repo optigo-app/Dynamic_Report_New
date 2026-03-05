@@ -12,7 +12,6 @@ import ReportHome from "./Components/Pages/Report/ReportHome";
 import SpliterReport from "./Components/Pages/Report/SpliterReport/SpliterReport";
 import Cookies from "js-cookie";
 
-
 const GridMain = ({
   tokenMissing,
   ready,

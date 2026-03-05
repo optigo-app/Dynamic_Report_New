@@ -547,7 +547,7 @@ export default function ReportHome({
     );
 
     if (!activeSelections.length && !selectedDateOption) {
-      alert("Please select at least one record or date before saving.");
+      alert("Please select at least one filter.");
       return;
     }
 

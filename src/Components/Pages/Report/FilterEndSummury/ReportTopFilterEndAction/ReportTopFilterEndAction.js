@@ -358,7 +358,6 @@ const ReportTopFilterEndAction = ({
       const field = col.FieldName || col.field;
       const isHidden = col.HideColumn === "True";
       const isVisible = col.IsVisible !== "False";
-      const isUsedAsTwoColumn = twoColumnFields.has(field);
       const isImageColumn =
         col.ImageColumn === "True" ||
         field === "ImgUrl" ||
@@ -367,13 +366,22 @@ const ReportTopFilterEndAction = ({
 
       if (isImageColumn) return;
       if (!isVisible) return;
-      if (isHidden && !isUsedAsTwoColumn) return;
+
+      if (isHidden && isValidTwoColumn(col.TwoColumnData)) {
+        return;
+      }
+
+      // 🚀 if column itself hidden
+      if (isHidden) return;
+
       exportColumns.push({ ...col, field });
+
       if (isValidTwoColumn(col.TwoColumnData)) {
         const twoCol = columnMap[col.TwoColumnData];
 
         if (twoCol) {
           const twoField = twoCol.FieldName || twoCol.field;
+
           if (
             twoCol.ImageColumn === "True" ||
             twoField === "ImgUrl" ||
