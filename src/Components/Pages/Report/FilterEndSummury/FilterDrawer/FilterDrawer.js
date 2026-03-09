@@ -500,7 +500,7 @@ const FilterDrawer = ({
       ];
 
       // Now sorting is 100% safe
-      uniqueValues.sort((a, b) =>
+      uniqueValues?.sort((a, b) =>
         a.localeCompare(b, undefined, { sensitivity: "base" })
       );
 

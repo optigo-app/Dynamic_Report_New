@@ -688,8 +688,8 @@ const ReportTopFilterEndAction = ({
       );
     });
   };
+  
   const [openFilter, setOpenFilter] = useState(null);
-
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (!e.target.closest(".filter-accordion-wrapper")) {
@@ -853,7 +853,6 @@ const ReportTopFilterEndAction = ({
     });
   };
 
-
   const renderFilterRange = (col) => {
     if (!col.filterTypes || col.filterTypes.length === 0) return null;
     const filtersToRender = col.filterTypes;
@@ -971,18 +970,19 @@ const ReportTopFilterEndAction = ({
         if (!selectedGroups[field]) return null;
       }
     }
+
     if (!col.filterTypes || col.filterTypes.length === 0) return null;
     const filtersToRender = col.filterTypes;
 
     return filtersToRender.map((filterType) => {
       switch (filterType) {
         case "selectDropdownFilter": {
-          let uniqueValues = [
-            ...new Set(originalRows?.map((row) => row[col.field])),
-          ];
-          uniqueValues = uniqueValues.filter((v) => v && v.trim() !== "");
+          let uniqueValues = [...new Set(originalRows?.map((row) => row[col.field]))];
+          uniqueValues = uniqueValues.filter(
+            (v) => v !== null && v !== undefined && String(v).trim() !== ""
+          );
           uniqueValues.sort((a, b) =>
-            a.localeCompare(b, undefined, { sensitivity: "base" })
+            String(a).localeCompare(String(b), undefined, { sensitivity: "base" })
           );
           return (
             <div
