@@ -157,7 +157,9 @@ const CustomDualDatePicker = ({
     clearDateFilter,
     setSelectedDateColumn,
     selectedDateColumn,
-    showReportMaster
+    showReportMaster,
+    ShowAllbtn,
+    handleAllDataShow
 }) => {
     const [anchorEl, setAnchorEl] = useState(null);
     const [anchorElStatus, setAnchorElStatus] = useState(null);
@@ -289,6 +291,9 @@ const CustomDualDatePicker = ({
                         <>
                             {dateTypeShow === "True" ? (
                                 <Chip
+                                    sx={{
+                                        borderRadius: 1
+                                    }}
                                     label={
                                         dateColumnOptions?.find((o) => o.field === selectedDateColumn)?.label || "Date Type"
                                     }
@@ -303,19 +308,68 @@ const CustomDualDatePicker = ({
                             )}
                         </>
                     ),
-                    endAdornment: displayValue && (
-                        <InputAdornment position="end">
-                            <IconButton size="small" onClick={handleClear}>
-                                <ClearIcon fontSize="small" />
-                            </IconButton>
-                        </InputAdornment>
+                    endAdornment: (
+                        <>
+                            <InputAdornment position="end"
+                                sx={{ gap: 0.5 }}
+                            >
+                                {displayValue && <IconButton size="small" onClick={handleClear}>
+                                    <ClearIcon fontSize="small" />
+                                </IconButton>}
+                                {ShowAllbtn && <Button
+                                    onClick={handleAllDataShow}
+                                    variant="contained"
+                                    size="small"
+                                    sx={{
+                                        minWidth: 'auto',
+                                        padding: '2px 12px',
+                                        fontSize: '0.95rem',
+                                        height: '30px',
+                                        textTransform: 'none',
+                                        borderRadius: '5px',
+                                        bgcolor:'#6f53ff',
+                                        color:'white',
+                                        '&:hover': {
+                                            bgcolor:'#6f53ff',
+                                        }
+                                    }}
+                                >
+                                    All
+                                </Button>}
+                            </InputAdornment>
+                        </>
                     ),
                 }}
                 sx={{
-                    '& .MuiInputBase-input': {
-                        padding: '7px 14px'
+                    minWidth:350,
+                    '& .MuiOutlinedInput-notchedOutline': {
+                        border: 'none',
+                    },
+                    '&:hover .MuiOutlinedInput-notchedOutline': {
+                        border: 'none',
+                    },
+                    '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
+                        border: 'none',
+                    },
+                    // Remove extra right padding caused by endAdornment
+                    '& .MuiOutlinedInput-root': {
+                        paddingRight: '6px !important',
+                        paddingLeft: '8px !important',
+                    },
+
+                    // Adjust input text padding
+                    '& .MuiOutlinedInput-input': {
+                        padding: '8px 0 9.2px 10px',
+                        fontSize: '0.85rem',       // smaller text
+                        letterSpacing: '0.3px',    // control spacing
+                    },
+
+                    // Remove default adornment spacing
+                    '& .MuiInputAdornment-root': {
+                        marginLeft: 0,
                     }
                 }}
+
             />
 
             <MenuList

@@ -32,6 +32,11 @@ import { saveAs } from "file-saver";
 import CustomDualDatePicker from "../../../../../Utils/CustomDualDatePicker/CustomDualDatePicker";
 import { CallApi } from "../../../../../API/CallApi/CallApi";
 import MakeNewReport from "./MakeNewReport";
+import PrintRoundedIcon from '@mui/icons-material/PrintRounded';
+import { ActionButton } from "../../../../ui/Button";
+import AddRoundedIcon from '@mui/icons-material/AddRounded';
+
+
 
 const EXCEL_TYPE =
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet;charset=UTF-8";
@@ -724,9 +729,9 @@ const ReportTopFilterEndAction = ({
                 disableGutters
                 expanded={openFilter === col.field}
                 sx={{
-                  width: 200,
-                  border: "1px solid #ccc",
-                  borderRadius: "6px",
+                  width: 160,
+                  border: "1px solid #d5d5d573",
+                  borderRadius: "8px",
                   position: "relative",
                   "&::before": { display: "none" },
                 }}
@@ -740,13 +745,20 @@ const ReportTopFilterEndAction = ({
                     );
                   }}
                   sx={{
-                    height: 40,
-                    minHeight: "40px !important",
-                    padding: "0 12px",
+                    height: 38,
+                    minHeight: "38px !important",
+                    padding: "0 8px",
                     cursor: "pointer",
+
+
+
                     "& .MuiAccordionSummary-content": {
                       margin: 0,
                       alignItems: "center",
+                    },
+
+                    "&.Mui-expanded": {
+                      minHeight: "38px",
                     },
                   }}
                 >
@@ -899,13 +911,29 @@ const ReportTopFilterEndAction = ({
                 }}
                 sx={{
                   "& .MuiInputLabel-root": {
-                    top: "-5px",
+                    top: "-8px",
                   },
                   "& .MuiInputLabel-root.Mui-focused": {
                     top: "0px",
                   },
                   "& .MuiInputLabel-root.MuiInputLabel-shrink": {
                     top: "0px",
+                  },
+                  "& .MuiOutlinedInput-root": {
+                    borderRadius: "6px",
+                    fontSize: "0.85rem",
+                  },
+
+                  "& .MuiOutlinedInput-notchedOutline": {
+                    borderColor: "#d5d5d573",
+                  },
+
+                  "&:hover .MuiOutlinedInput-notchedOutline": {
+                    borderColor: "#d5d5d573",
+                  },
+
+                  "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+                    borderColor: "#d5d5d573",
                   },
                 }}
               />
@@ -945,13 +973,29 @@ const ReportTopFilterEndAction = ({
                 }}
                 sx={{
                   "& .MuiInputLabel-root": {
-                    top: "-5px",
+                    top: "-8px",
                   },
                   "& .MuiInputLabel-root.Mui-focused": {
                     top: "0px",
                   },
                   "& .MuiInputLabel-root.MuiInputLabel-shrink": {
                     top: "0px",
+                  },
+                  "& .MuiOutlinedInput-root": {
+                    borderRadius: "6px",
+                    fontSize: "0.85rem",
+                  },
+
+                  "& .MuiOutlinedInput-notchedOutline": {
+                    borderColor: "#d5d5d573",
+                  },
+
+                  "&:hover .MuiOutlinedInput-notchedOutline": {
+                    borderColor: "#d5d5d573",
+                  },
+
+                  "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+                    borderColor: "#d5d5d573",
                   },
                 }}
               />
@@ -989,7 +1033,28 @@ const ReportTopFilterEndAction = ({
               key={`filter-${col.field}-selectDropdownFilter`}
               style={{ width: "100%", margin: "0px" }}
             >
-              <FormControl fullWidth size="small" style={{ width: '200px' }}>
+              <FormControl fullWidth size="small" style={{ width: '200px' }}
+                sx={{
+                  width: 200,
+
+                  "& .MuiOutlinedInput-root": {
+                    borderRadius: "6px",
+                    fontSize: "0.85rem",
+                  },
+
+                  "& .MuiOutlinedInput-notchedOutline": {
+                    borderColor: "#d5d5d573",
+                  },
+
+                  "&:hover .MuiOutlinedInput-notchedOutline": {
+                    borderColor: "#d5d5d573",
+                  },
+
+                  "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+                    borderColor: "#d5d5d573",
+                  },
+                }}
+              >
                 <InputLabel id="demo-simple-select-label">{`Select ${col.headerNameSub}`}</InputLabel>
                 <Select
                   labelId="demo-simple-select-label"
@@ -1108,9 +1173,21 @@ const ReportTopFilterEndAction = ({
                     style: { height: 40, fontSize: 16 },
                   }}
                   sx={{
-                    "& .MuiInputLabel-root": { top: "-5px" },
+                    "& .MuiInputLabel-root": { top: "-8px" },
                     "& .MuiInputLabel-root.Mui-focused": { top: "0px" },
                     "& .MuiInputLabel-root.MuiInputLabel-shrink": { top: "0px" },
+
+                    "& .MuiOutlinedInput-notchedOutline": {
+                      borderColor: "#d5d5d573",
+                    },
+
+                    "&:hover .MuiOutlinedInput-notchedOutline": {
+                      borderColor: "#bdbdbd",
+                    },
+
+                    "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+                      borderColor: "#1976d2",
+                    },
                   }}
                 />
               </div>
@@ -1339,6 +1416,19 @@ const ReportTopFilterEndAction = ({
             autoComplete="off"
             InputLabelProps={{ style: { fontFamily: "Poppins, sans-serif" } }}
             InputProps={{ style: { height: 40, fontSize: 16 } }}
+            sx={{
+              "& .MuiOutlinedInput-notchedOutline": {
+                borderColor: "#d5d5d573",
+              },
+
+              "&:hover .MuiOutlinedInput-notchedOutline": {
+                borderColor: "#bdbdbd",
+              },
+
+              "&.Mui-focused .MuiOutlinedInput-notchedOutline": {
+                borderColor: "#1976d2",
+              },
+            }}
           />
 
           {suggestionVisibility[field] && suggestions.length > 0 && (
@@ -1411,21 +1501,31 @@ const ReportTopFilterEndAction = ({
             currentOpenReport={currentOpenReport}
             setCurrentOpenReport={setCurrentOpenReport}
           />}
+        {/* first part */}
         <div style={{ width: '100%', justifyContent: 'space-between', display: 'flex' }}>
           <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
             <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-              <Button onClick={toggleDrawer(true)} className="btn_FiletrBtnOpen">
-                <MdOutlineFilterAlt style={{ height: "30px", width: "30px" }} />
-              </Button>
+              <IconButton
+                onClick={toggleDrawer(true)}
+                sx={{
+                  bgcolor: '#d5d5d573',
+                  borderRadius: 2
+                }}
+              >
+                <FilterIcons
+                  FontSize={25}
+                />
+              </IconButton>
               {spliterReportShow != true &&
                 (masterKeyData?.MainDateFilter == "True" ||
                   masterKeyData?.AllDataButton == "True")
                 &&
-                <div style={{
-                  display: "flex", gap: '5px',
-                  backgroundColor: masterKeyData?.MainDateFilter == "True" && 'rgb(247 243 243)',
-                  borderRadius: '10px',
-                  padding: masterKeyData?.MainDateFilter == "True" && '10px'
+                <Box sx={{
+                  display: "flex",
+                  // backgroundColor: masterKeyData?.MainDateFilter == "True" && '#d5d5d573',
+                  borderRadius: '8px',
+                  paddingBlock: '1.4px',
+                  border: '1px solid #d5d5d573'
                 }}>
                   {
                     masterKeyData?.MainDateFilter == "True" &&
@@ -1439,19 +1539,11 @@ const ReportTopFilterEndAction = ({
                       setSelectedDateColumn={setSelectedDateColumn}
                       selectedDateColumn={selectedDateColumn}
                       showReportMaster={showReportMaster}
+                      ShowAllbtn={masterKeyData?.AllDataButton == "True"}
+                      handleAllDataShow={handleAllDataShow}
                     />
                   }
-                  {
-                    masterKeyData?.AllDataButton == "True" && (
-                      <Button
-                        onClick={handleAllDataShow}
-                        className="btn_FiletrBtnAll"
-                      >
-                        All
-                      </Button>
-                    )
-                  }
-                </div>
+                </Box>
               }
 
               <TextField
@@ -1462,7 +1554,7 @@ const ReportTopFilterEndAction = ({
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
-                      <Search size={18} color="#888" />
+                      <Search size={20} color="#888" />
                     </InputAdornment>
                   ),
                   endAdornment: commonSearch ? (
@@ -1480,13 +1572,21 @@ const ReportTopFilterEndAction = ({
                 }}
                 sx={{
                   width: "280px",
+                  // Remove MUI outline completely
+                  "& .MuiOutlinedInput-notchedOutline": {
+                    border: "none",
+                  },
+
+                  "& .MuiInputBase-input": {
+                    padding: "6px 0px !important",
+
+                  },
                   "& .MuiOutlinedInput-root": {
                     height: "40px",
-                    paddingRight: "4px",
+                    paddingRight: "8px",
+                    border: "1px solid #d5d5d573",
                   },
-                  "& .MuiInputBase-input": {
-                    padding: "6px 8px !important",
-                  },
+
                 }}
                 className="txt_commonSearch"
               />
@@ -1634,7 +1734,9 @@ const ReportTopFilterEndAction = ({
               </div>
             )}
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          {/* end first part */}
+          {/* second part */}
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
             {masterKeyData?.CurrencyMaster == "True" && (
               <FormControl
                 size="small"
@@ -1693,19 +1795,22 @@ const ReportTopFilterEndAction = ({
                   onClick={handleOpenPrintPreview}
                   sx={{
                     background: "#e8f5e9",
-                    color: "#2e7d32",
-                    height: "42px",
-                    width: "42px",
-                    borderRadius: "6px",
-                    transition: "all .2s ease",
+                    height: "41px",
+                    width: "41px",
+                    borderRadius: "25px",
+                    backgroundColor: "#dadada",
+                    border: "1px solid #e0e0e0",
+                    color: "#555",
+
+                    transition: "background-color 0.15s ease",
+
                     "&:hover": {
-                      backgroundColor: "#c8e6c9",
-                      transform: "translateY(-2px)",
+                      backgroundColor: "#f4f4f4",
                     },
                   }}
                   size="medium"
                 >
-                  <FaPrint size={22} />
+                  <PrintRoundedIcon />
                 </IconButton>
               </Tooltip>
             )}
@@ -1735,9 +1840,9 @@ const ReportTopFilterEndAction = ({
                           sx={{
                             background: "#e3f2fd",
                             color: "#1976d2",
-                            height: "42px",
-                            width: "42px",
-                            borderRadius: "6px",
+                            height: "41px",
+                            width: "41px",
+                            borderRadius: "25px",
                             transition: "all .2s ease",
                             "&:hover": {
                               backgroundColor: "#bbdefb",
@@ -1762,9 +1867,9 @@ const ReportTopFilterEndAction = ({
                           sx={{
                             background: "#e3f2fd",
                             color: "#1976d2",
-                            height: "42px",
-                            width: "42px",
-                            borderRadius: "6px",
+                            height: "41px",
+                            width: "41px",
+                            borderRadius: "25px",
                             transition: "all .2s ease",
                             "&:hover": {
                               backgroundColor: "#bbdefb",
@@ -1800,9 +1905,9 @@ const ReportTopFilterEndAction = ({
                         sx={{
                           background: "#e3f2fd",
                           color: "#1976d2",
-                          height: "42px",
-                          width: "42px",
-                          borderRadius: "6px",
+                          height: "41px",
+                          width: "41px",
+                          borderRadius: "25px",
                           transition: "all .2s ease",
                           "&:hover": {
                             backgroundColor: "#bbdefb",
@@ -1825,20 +1930,19 @@ const ReportTopFilterEndAction = ({
                       <IconButton
                         onClick={() => setShowImageView(true)}
                         sx={{
-                          background: "#e3f2fd",
-                          color: "#1976d2",
-                          height: "42px",
-                          width: "42px",
-                          borderRadius: "6px",
+                          background: "#f5f5f5",
+                          height: "41px",
+                          width: "41px",
+                          borderRadius: "25px",
                           transition: "all .2s ease",
+                          border: "1px solid #e0e0e0",
                           "&:hover": {
-                            backgroundColor: "#bbdefb",
-                            transform: "translateY(-2px)",
+                            backgroundColor: "#f4f4f4",
                           },
                         }}
                         size="medium"
                       >
-                        <Image size={22} />
+                        <GalleryIcons />
                       </IconButton>
                     </Tooltip>
                   )}
@@ -1858,9 +1962,9 @@ const ReportTopFilterEndAction = ({
                   sx={{
                     background: "#e8f5e9",
                     color: "#2e7d32",
-                    height: "42px",
-                    width: "42px",
-                    borderRadius: "6px",
+                    height: "41px",
+                    width: "41px",
+                    borderRadius: "25px",
                     transition: "all .2s ease",
                     "&:hover": {
                       backgroundColor: "#c8e6c9",
@@ -1896,9 +2000,9 @@ const ReportTopFilterEndAction = ({
                       sx={{
                         background: "#e3f2fd",
                         color: "#1976d2",
-                        height: "42px",
-                        width: "42px",
-                        borderRadius: "6px",
+                        height: "41px",
+                        width: "41px",
+                        borderRadius: "25px",
                         transition: "all .2s ease",
                         "&:hover": {
                           backgroundColor: "#bbdefb",
@@ -1923,9 +2027,9 @@ const ReportTopFilterEndAction = ({
                       sx={{
                         background: "#e3f2fd",
                         color: "#1976d2",
-                        height: "42px",
-                        width: "42px",
-                        borderRadius: "6px",
+                        height: "41px",
+                        width: "41px",
+                        borderRadius: "25px",
                         transition: "all .2s ease",
                         "&:hover": {
                           backgroundColor: "#bbdefb",
@@ -1942,14 +2046,16 @@ const ReportTopFilterEndAction = ({
             }
 
             {masterKeyData?.MakeNewReport == "True" &&
-              <Button onClick={() => setOpenSaveModal(true)}
+              <ActionButton onClick={() => setOpenSaveModal(true)}
                 style={{
                   width: '180px',
                   backgroundColor: '#4439f7',
                   color: 'white'
-                }}>
+                }}
+              >
+                <AddRoundedIcon />
                 Make New report
-              </Button>
+              </ActionButton>
             }
 
             {/* {masterKeyData?.FullScreenGridButton == "True" && (
@@ -1981,6 +2087,7 @@ const ReportTopFilterEndAction = ({
           </Tooltip>
         )} */}
           </div>
+          {/* end second part */}
         </div>
       </div>
       <Snackbar
@@ -1998,3 +2105,19 @@ const ReportTopFilterEndAction = ({
 };
 
 export default ReportTopFilterEndAction;
+
+
+
+
+
+const FilterIcons = ({ FontSize = 35 }) => {
+  return <>
+    <svg xmlns="http://www.w3.org/2000/svg" width={FontSize} height={FontSize} viewBox="0 0 24 24"><g fill="none" stroke="#6f53ff" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M7 21v-3m10 3v-6m0-9V3M7 9V3"></path><path d="M7 18c-.932 0-1.398 0-1.765-.152a2 2 0 0 1-1.083-1.083C4 16.398 4 15.932 4 15s0-1.398.152-1.765a2 2 0 0 1 1.083-1.083C5.602 12 6.068 12 7 12s1.398 0 1.765.152a2 2 0 0 1 1.083 1.083C10 13.602 10 14.068 10 15s0 1.398-.152 1.765a2 2 0 0 1-1.083 1.083C8.398 18 7.932 18 7 18Zm10-6c-.932 0-1.398 0-1.765-.152a2 2 0 0 1-1.083-1.083C14 10.398 14 9.932 14 9s0-1.398.152-1.765a2 2 0 0 1 1.083-1.083C15.602 6 16.068 6 17 6s1.398 0 1.765.152a2 2 0 0 1 1.083 1.083C20 7.602 20 8.068 20 9s0 1.398-.152 1.765a2 2 0 0 1-1.083 1.083C18.398 12 17.932 12 17 12Z"></path></g></svg>
+  </>
+}
+
+const GalleryIcons = ({ FontSize = 35 }) => {
+  return <>
+    <svg xmlns="http://www.w3.org/2000/svg" width={FontSize} height={FontSize} viewBox="0 0 24 24"><path fill="currentcolor" fillRule="evenodd" d="M11.943 1.25h.114c2.309 0 4.118 0 5.53.19c1.444.194 2.584.6 3.479 1.494c.895.895 1.3 2.035 1.494 3.48c.19 1.411.19 3.22.19 5.529v.114l-.001 1.28a1 1 0 0 1 0 .099c-.007 1.666-.038 3.033-.189 4.15c-.194 1.445-.6 2.585-1.494 3.48c-.895.895-2.035 1.3-3.48 1.494c-.737.1-1.584.147-2.553.17a.75.75 0 0 1-.32.006c-.802.014-1.685.014-2.655.014h-.115c-2.309 0-4.118 0-5.53-.19c-1.444-.194-2.584-.6-3.479-1.494c-.895-.895-1.3-2.035-1.494-3.48c-.19-1.411-.19-3.22-.19-5.529v-.114q-.001-.91.004-1.717a1 1 0 0 1 0-.156c.012-1.445.05-2.651.186-3.656c.194-1.445.6-2.585 1.494-3.48c.895-.895 2.035-1.3 3.48-1.494c1.411-.19 3.22-.19 5.529-.19M2.75 10.804V12c0 2.378 0 4.086.175 5.386c.172 1.279.5 2.05 1.069 2.62c.57.569 1.34.896 2.619 1.068c1.3.174 3.008.176 5.386.176c.804 0 1.532 0 2.193-.007c.543-6.193-4.841-11.387-11.106-10.488zM15.7 21.208a18 18 0 0 0 1.686-.134c1.278-.172 2.049-.5 2.618-1.069c.57-.57.897-1.34 1.069-2.619c.12-.894.158-1.982.17-3.349l-.32-.044c-2.42-.335-4.62.802-5.84 2.643c.507 1.418.735 2.965.617 4.572m-1.314-6.134c-2.141-3.957-6.592-6.51-11.513-5.803l-.11.015c.02-1.056.063-1.93.162-2.672c.172-1.279.5-2.05 1.069-2.62c.57-.569 1.34-.896 2.619-1.068c1.3-.174 3.008-.176 5.386-.176s4.087.002 5.387.176c1.278.172 2.049.5 2.618 1.069c.57.57.897 1.34 1.069 2.619c.174 1.3.176 3.008.176 5.386v.524l-.12-.017c-2.69-.373-5.16.713-6.742 2.567M16 6.75a1.25 1.25 0 1 0 0 2.5a1.25 1.25 0 0 0 0-2.5M13.25 8a2.75 2.75 0 1 1 5.5 0a2.75 2.75 0 0 1-5.5 0" clipRule="evenodd"></path></svg>
+  </>
+}
