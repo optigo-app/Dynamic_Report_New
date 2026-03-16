@@ -102,7 +102,10 @@ const ReportTopFilterEndAction = ({
   allColumDataBack,
   setAllColumDataBack,
   setCurrentOpenReport,
-  currentOpenReport
+  currentOpenReport,
+  filters,
+  setSubReportFilterValue,
+  subReportFilterValue
 }) => {
   const [searchParams] = useSearchParams();
   const pid = searchParams.get("pid");
@@ -118,6 +121,7 @@ const ReportTopFilterEndAction = ({
   const clientIpAddress = sessionStorage.getItem("clientIpAddress");
   const [openSnackbar, setOpenSnackbar] = useState(false);
   const [errorMessageColor, setErrorMessageColor] = useState("error");
+
 
   useEffect(() => {
     if (window.self !== window.top) {
@@ -693,7 +697,7 @@ const ReportTopFilterEndAction = ({
       );
     });
   };
-  
+
   const [openFilter, setOpenFilter] = useState(null);
   useEffect(() => {
     const handleClickOutside = (e) => {
@@ -1500,7 +1504,12 @@ const ReportTopFilterEndAction = ({
             setOpenSaveModal={setOpenSaveModal}
             currentOpenReport={currentOpenReport}
             setCurrentOpenReport={setCurrentOpenReport}
-          />}
+            subReportFilterValue={subReportFilterValue}
+            setCommonSearch={setCommonSearch}
+            filters={filters}
+            setFilters={setFilters}
+          />
+        }
         {/* first part */}
         <div style={{ width: '100%', justifyContent: 'space-between', display: 'flex' }}>
           <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
@@ -1522,26 +1531,46 @@ const ReportTopFilterEndAction = ({
                 &&
                 <Box sx={{
                   display: "flex",
-                  // backgroundColor: masterKeyData?.MainDateFilter == "True" && '#d5d5d573',
                   borderRadius: '8px',
                   paddingBlock: '1.4px',
                   border: '1px solid #d5d5d573'
                 }}>
                   {
-                    masterKeyData?.MainDateFilter == "True" &&
-                    <CustomDualDatePicker
-                      value={selectedDateColumn}
-                      dateColumnOptions={dateColumnOptions}
-                      setFilterState={setFilterState}
-                      filterState={filterState}
-                      dateTypeShow={masterKeyData?.MultiDateFilter}
-                      clearDateFilter={clearDateFilter}
-                      setSelectedDateColumn={setSelectedDateColumn}
-                      selectedDateColumn={selectedDateColumn}
-                      showReportMaster={showReportMaster}
-                      ShowAllbtn={masterKeyData?.AllDataButton == "True"}
-                      handleAllDataShow={handleAllDataShow}
-                    />
+                    masterKeyData?.MainDateFilter == "True" ?
+                      <CustomDualDatePicker
+                        value={selectedDateColumn}
+                        dateColumnOptions={dateColumnOptions}
+                        setFilterState={setFilterState}
+                        filterState={filterState}
+                        dateTypeShow={masterKeyData?.MultiDateFilter}
+                        clearDateFilter={clearDateFilter}
+                        setSelectedDateColumn={setSelectedDateColumn}
+                        selectedDateColumn={selectedDateColumn}
+                        showReportMaster={showReportMaster}
+                        ShowAllbtn={masterKeyData?.AllDataButton == "True"}
+                        handleAllDataShow={handleAllDataShow}
+                      />
+                      :
+                      <Button
+                        onClick={handleAllDataShow}
+                        variant="contained"
+                        size="small"
+                        sx={{
+                          minWidth: 'auto',
+                          padding: '20px 12px',
+                          fontSize: '0.95rem',
+                          height: '30px',
+                          textTransform: 'none',
+                          borderRadius: '5px',
+                          bgcolor: '#6f53ff',
+                          color: 'white',
+                          '&:hover': {
+                            bgcolor: '#6f53ff',
+                          }
+                        }}
+                      >
+                        All
+                      </Button>
                   }
                 </Box>
               }
@@ -1550,7 +1579,16 @@ const ReportTopFilterEndAction = ({
                 type="text"
                 placeholder="Search..."
                 value={commonSearch}
-                onChange={(e) => setCommonSearch(e.target.value)}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setCommonSearch(value);
+                  setSubReportFilterValue([
+                    {
+                      FilterKey: "mainFilter",
+                      FilterValue: value
+                    }
+                  ]);
+                }}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
@@ -1685,7 +1723,7 @@ const ReportTopFilterEndAction = ({
                         setTempValue("");
                       }}
                     >
-                      <Pencil style={{ height: '18px', width: '18px' }} /> {col.HeaderName}
+                      <Pencil style={{ height: '15px', width: '15px' }} /> {col.HeaderName}
                     </Button>
                   ) : null
                 )}
@@ -1978,6 +2016,71 @@ const ReportTopFilterEndAction = ({
               </Tooltip>
             )}
 
+            {masterKeyData?.ChartView == "True" &&
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                {chartView ? (
+                  <Tooltip
+                    title="Report View"
+                    isablePortal
+                    PopperProps={{
+                      container: gridContainerRef.current,
+                    }}
+                  >
+                    <IconButton
+                      onClick={() => setChartView(false)}
+                      sx={{
+                        background: "#e3f2fd",
+                        color: "#1976d2",
+                        height: "41px",
+                        width: "41px",
+                        borderRadius: "25px",
+                        transition: "all .2s ease",
+                        "&:hover": {
+                          backgroundColor: "#bbdefb",
+                          transform: "translateY(-2px)",
+                        },
+                      }}
+                      size="medium"
+                    >
+                      <LayoutGrid size={22} />
+                    </IconButton>
+                  </Tooltip>
+                ) : (
+                  <Tooltip
+                    title="Chart View"
+                    isablePortal
+                    PopperProps={{
+                      container: gridContainerRef.current,
+                    }}
+                  >
+                    <IconButton
+                      onClick={() => setChartView(true)}
+                      sx={{
+                        background: "#e3f2fd",
+                        color: "#1976d2",
+                        height: "41px",
+                        width: "41px",
+                        borderRadius: "25px",
+                        transition: "all .2s ease",
+                        "&:hover": {
+                          backgroundColor: "#bbdefb",
+                          transform: "translateY(-2px)",
+                        },
+                      }}
+                      size="medium"
+                    >
+                      <ChartNoAxesCombined size={22} />
+                    </IconButton>
+                  </Tooltip>
+                )}
+              </div>
+            }
 
             {pid == 18418 &&
               <div
@@ -2049,8 +2152,8 @@ const ReportTopFilterEndAction = ({
               <ActionButton onClick={() => setOpenSaveModal(true)}
                 style={{
                   width: '180px',
-                  backgroundColor: '#4439f7',
-                  color: 'white'
+                  backgroundColor: 'rgb(205 213 255)',
+                  color: '#7d66ff'
                 }}
               >
                 <AddRoundedIcon />
@@ -2105,9 +2208,6 @@ const ReportTopFilterEndAction = ({
 };
 
 export default ReportTopFilterEndAction;
-
-
-
 
 
 const FilterIcons = ({ FontSize = 35 }) => {

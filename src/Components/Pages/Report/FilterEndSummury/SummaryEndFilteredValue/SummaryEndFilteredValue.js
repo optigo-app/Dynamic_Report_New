@@ -161,7 +161,7 @@ const SummaryEndFilteredValue = ({
                       ? col?.headerNameSub
                       : columnMeta?.SummaryTitle}
                   </Typography>
-                  <KpiCardLogo/>
+                  {/* <KpiCardLogo/> */}
                  </Box>
                   <Box sx={{ display: "flex" }}>
                     <Box sx={{ display: "flex", alignItems: "baseline", gap: "2px", maxWidth: "100%" }}>

@@ -177,6 +177,7 @@ export default function ReportHome({
   reportName,
   colorMaster,
   currencyMaster,
+  chartViewData
 }) {
   const [isLoading, setIsLoading] = useState(false);
   const [spData, setSpData] = useState(null);
@@ -786,6 +787,7 @@ export default function ReportHome({
                 reportName={reportName}
                 colorMaster={colorMaster}
                 currencyMaster={currencyMaster}
+                chartViewData={chartViewData}
               />
             </div>
           )}

@@ -7,7 +7,7 @@ import React, {
 } from "react";
 import { useSearchParams } from "react-router-dom";
 import { DragDropContext } from "@hello-pangea/dnd";
-import { Box, Button, IconButton } from "@mui/material";
+import { Box, IconButton } from "@mui/material";
 import "./SpliterReport.scss";
 import { ReportCallApi } from "../../../../API/ReportCommonAPI/ReportCallApi";
 import MainReport from "../MainReport/MainReport";
@@ -89,9 +89,7 @@ export default function SpliterReport({
   otherSpliterSideData1,
   otherSpliterSideData2,
   spliterReportSecondPanelShowAll,
-  spliterReportFirstPanelShowAll,
-  chartViewData,
-  spliterReportAllDataButton
+  spliterReportFirstPanelShowAll
 }) {
   const [isLoading, setIsLoading] = useState(false);
   const [spData, setSpData] = useState(null);
@@ -191,7 +189,7 @@ export default function SpliterReport({
     fetchData();
   }, [pid, reportId, largeData, filterState.dateRange]);
 
-  const fetchReportData = async (filters = {}, Master, allData = false) => {
+  const fetchReportData = async (filters = {}, Master) => {
     try {
       setIsLoading(true);
       let AllData = JSON.parse(sessionStorage.getItem("reportVarible"));
@@ -209,6 +207,7 @@ export default function SpliterReport({
 
       const responseMaster = await ReportCallApi(masterDataBody, spNumber);
       if (responseMaster) setMasterData(responseMaster);
+
       const body = {
         con: JSON.stringify({
           mode: "GetFullReport",
@@ -218,8 +217,8 @@ export default function SpliterReport({
         p: JSON.stringify({
           ReportId: reportId,
           IsMaster: Master,
-          FilterStartDate: allData ? "" : formatToYYYYMMDD(filterState.dateRange.startDate),
-          FilterEndDate: allData ? "" : formatToYYYYMMDD(filterState.dateRange.endDate),
+          FilterStartDate: formatToYYYYMMDD(filterState.dateRange.startDate),
+          FilterEndDate: formatToYYYYMMDD(filterState.dateRange.endDate),
           ...(filters.FilterHeader && { FilterHeader: filters.FilterHeader }),
           ...(filters.FilterValue && { FilterValue: filters.FilterValue }),
         }),
@@ -262,24 +261,35 @@ export default function SpliterReport({
   }, [spData, spliterReportFirstPanel]);
 
   const uniqueValuesForSecondPanel = useMemo(() => {
-    if (!spliterReportSecondPanel || !spData?.rd2 || !spData?.rd3) return [];
+    if (
+      !spliterReportSecondPanel ||
+      !spData?.rd2 ||
+      !spData?.rd3 ||
+      !selectedFirstPanelKey
+    )
+      return [];
 
     const map = spData.rd2[0];
-    const firstKey = Object.keys(map).find((k) => map[k] === spliterReportFirstPanel);
-    const secondKey = Object.keys(map).find((k) => map[k] === spliterReportSecondPanel);
+
+    const firstKey = Object.keys(map).find(
+      (k) => map[k] === spliterReportFirstPanel
+    );
+
+    const secondKey = Object.keys(map).find(
+      (k) => map[k] === spliterReportSecondPanel
+    );
 
     if (!firstKey || !secondKey) return [];
-
-    // ✅ If ALL selected in first panel — don't filter, return all unique second panel values
-    if (selectedFirstPanelKey === "__ALL__") {
-      return [...new Set(spData.rd3.map((r) => r[secondKey]))];
-    }
-
-    // Normal: filter by selected first panel key
-    if (!selectedFirstPanelKey) return [];
-    const filteredRows = spData.rd3.filter((row) => row[firstKey] === selectedFirstPanelKey);
+    const filteredRows = spData.rd3.filter(
+      (row) => row[firstKey] === selectedFirstPanelKey
+    );
     return [...new Set(filteredRows.map((r) => r[secondKey]))];
-  }, [spData, spliterReportSecondPanel, selectedFirstPanelKey, spliterReportFirstPanel]);
+  }, [
+    spData,
+    spliterReportSecondPanel,
+    selectedFirstPanelKey,
+    spliterReportFirstPanel,
+  ]);
 
   useEffect(() => {
     if (
@@ -347,14 +357,6 @@ export default function SpliterReport({
     setSelectedFirstPanelKey(value);
     setSelectedSecondPanelKey(null);
 
-    if (value === "__ALL__") {
-      // ALL selected — pass full rd3 data unfiltered
-      setFilteredReportData({ ...spData });
-      const summary = calculateSummaryForFirstPanel(spData.rd3);
-      setFirstPanelSummary(summary);
-      return;
-    }
-
     const map = spData?.rd2?.[0];
     const key = Object.keys(map).find(
       (k) => map[k] === spliterReportFirstPanel
@@ -363,34 +365,28 @@ export default function SpliterReport({
 
     const rows = spData.rd3.filter((r) => r[key] === value);
     setFilteredReportData({ ...spData, rd3: rows });
+
     const summary = calculateSummaryForFirstPanel(rows);
     setFirstPanelSummary(summary);
   };
 
-
   const handleSecondPanelSelection = (value) => {
     setSelectedSecondPanelKey(value);
-
     const map = spData?.rd2?.[0];
-    const firstKey = Object.keys(map).find((k) => map[k] === spliterReportFirstPanel);
-    const secondKey = Object.keys(map).find((k) => map[k] === spliterReportSecondPanel);
+    const firstKey = Object.keys(map).find(
+      (k) => map[k] === spliterReportFirstPanel
+    );
+    const secondKey = Object.keys(map).find(
+      (k) => map[k] === spliterReportSecondPanel
+    );
     if (!firstKey || !secondKey) return;
 
-    // ✅ If first panel is ALL — don't filter by first key
-    const firstFiltered =
-      selectedFirstPanelKey === "__ALL__"
-        ? spData.rd3
-        : spData.rd3.filter((r) => r[firstKey] === selectedFirstPanelKey);
+    const rows = spData.rd3.filter(
+      (r) => r[firstKey] === selectedFirstPanelKey && r[secondKey] === value
+    );
 
-    if (value === "__ALL__") {
-      // Second panel ALL — show everything from first panel filter
-      setFilteredReportData({ ...spData, rd3: firstFiltered });
-      return;
-    }
-
-    // Normal second panel selection
-    const rows = firstFiltered.filter((r) => r[secondKey] === value);
     setFilteredReportData({ ...spData, rd3: rows });
+    const secondPanelSummary = calculateSummaryForSecondPanel(rows);
   };
 
   const handleDrag = (index, e) => {
@@ -461,7 +457,6 @@ export default function SpliterReport({
 
   const getSummaryForValue = (value) => {
     if (!spData?.rd3 || !spliterReportFirstPanel) return {};
-    if (value === "__ALL__") return calculateSummaryForFirstPanel(spData.rd3);
     const key = Object.keys(spData.rd2[0]).find(
       (k) => spData.rd2[0][k] === spliterReportFirstPanel
     );
@@ -612,49 +607,16 @@ export default function SpliterReport({
                 margin: "5px 0px 5px 5px",
               }}
             >
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <DualDatePicker
-                  filterState={filterState}
-                  setFilterState={setFilterState}
-                  validDay={spliterReportMonthRestiction * 31}
-                  validMonth={spliterReportMonthRestiction}
-                  withountDateFilter={false}
-                  hideDisplay={
-                    filterState.dateRange.startDate?.getFullYear?.() === 1990
-                  }
-                />
-                {
-                  spliterReportAllDataButton &&
-                  <Button
-                    variant="contained"
-                    size="small"
-                    onClick={() => {
-                      setFilterState({
-                        dateRange: {
-                          startDate: "",
-                          endDate: "",
-                        }
-                      });
-                      fetchReportData("" , 0, true);
-                    }}
-                    sx={{
-                      minWidth: 'auto',
-                      padding: '17px 12px',
-                      fontSize: '0.95rem',
-                      height: '30px',
-                      textTransform: 'none',
-                      borderRadius: '5px',
-                      bgcolor: '#6f53ff',
-                      color: 'white',
-                      '&:hover': {
-                        bgcolor: '#6f53ff',
-                      }
-                    }}
-                  >
-                    All
-                  </Button>
+              <DualDatePicker
+                filterState={filterState}
+                setFilterState={setFilterState}
+                validDay={spliterReportMonthRestiction * 31}
+                validMonth={spliterReportMonthRestiction}
+                withountDateFilter={false}
+                hideDisplay={
+                  filterState.dateRange.startDate?.getFullYear?.() === 1990
                 }
-              </div>
+              />
               {hasFirstPanelData && (
                 <p className="reportSpliter_top_headername">
                   {Array.isArray(filteredColumns) &&
@@ -781,84 +743,53 @@ export default function SpliterReport({
                 )}
                 <div className="spliter2_maindiv">
                   {hasSecondPanelData ? (
-                    <>
-                      {spliterReportSecondPanelShowAll && (
+                    filteredSecondPanelValues?.map((v) => {
+                      const rows = spData.rd3.filter(
+                        (r) =>
+                          r[firstKey] === selectedFirstPanelKey &&
+                          r[secondKey] === v
+                      );
+                      const summary = calculateSummaryForSecondPanel(rows);
+                      return (
                         <div
-                          onClick={() => handleSecondPanelSelection("__ALL__")}
+                          key={v}
+                          onClick={() => handleSecondPanelSelection(v)}
                           style={{
                             background:
-                              selectedSecondPanelKey === "__ALL__"
+                              selectedSecondPanelKey === v
                                 ? "linear-gradient(270deg,#7367f0b3,#7367f0)"
                                 : "rgb(244 241 241 / 36%)",
-                            color: selectedSecondPanelKey === "__ALL__" ? "white" : "black",
-                            fontWeight: selectedSecondPanelKey === "__ALL__" ? "600" : "400",
+                            color:
+                              selectedSecondPanelKey === v ? "white" : "black",
+                            fontWeight:
+                              selectedSecondPanelKey === v ? "600" : "400",
                           }}
                           className="spliter1_showname"
                         >
-                          <div className="spliter1_deatil_title">ALL</div>
-                          {/* Optional: show aggregated summary for all second panel values */}
-                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", columnGap: "10px", rowGap: "4px", marginTop: "10px" }}>
-                            {(() => {
-                              const firstFiltered =
-                                selectedFirstPanelKey === "__ALL__"
-                                  ? spData.rd3
-                                  : spData.rd3.filter((r) => r[firstKey] === selectedFirstPanelKey);
-                              return Object.entries(calculateSummaryForSecondPanel(firstFiltered)).map(([label, val]) => (
-                                <div key={label} style={{ fontSize: "11px" }}>{label}: {val}</div>
-                              ));
-                            })()}
+                          <div className="spliter1_deatil_title">
+                            {getDisplayValue(v, spliterReportSecondPanel)}
+                          </div>
+                          <div
+                            style={{
+                              marginTop:
+                                Object.entries(summary).length > 0
+                                  ? "10px"
+                                  : "0px",
+                              display: "grid",
+                              gridTemplateColumns: "1fr 1fr",
+                              columnGap: "10px",
+                              rowGap: "4px",
+                            }}
+                          >
+                            {Object.entries(summary).map(([label, val]) => (
+                              <div key={label} style={{ fontSize: "11px" }}>
+                                {label}: {val}
+                              </div>
+                            ))}
                           </div>
                         </div>
-                      )}
-                      {filteredSecondPanelValues?.map((v) => {
-                        const rows =
-                          selectedFirstPanelKey === "__ALL__"
-                            ? spData.rd3.filter((r) => r[secondKey] === v)
-                            : spData.rd3.filter(
-                              (r) => r[firstKey] === selectedFirstPanelKey && r[secondKey] === v
-                            );
-                        const summary = calculateSummaryForSecondPanel(rows);
-                        return (
-                          <div
-                            key={v}
-                            onClick={() => handleSecondPanelSelection(v)}
-                            style={{
-                              background:
-                                selectedSecondPanelKey === v
-                                  ? "linear-gradient(270deg,#7367f0b3,#7367f0)"
-                                  : "rgb(244 241 241 / 36%)",
-                              color:
-                                selectedSecondPanelKey === v ? "white" : "black",
-                              fontWeight:
-                                selectedSecondPanelKey === v ? "600" : "400",
-                            }}
-                            className="spliter1_showname"
-                          >
-                            <div className="spliter1_deatil_title">
-                              {getDisplayValue(v, spliterReportSecondPanel)}
-                            </div>
-                            <div
-                              style={{
-                                marginTop:
-                                  Object.entries(summary).length > 0
-                                    ? "10px"
-                                    : "0px",
-                                display: "grid",
-                                gridTemplateColumns: "1fr 1fr",
-                                columnGap: "10px",
-                                rowGap: "4px",
-                              }}
-                            >
-                              {Object.entries(summary).map(([label, val]) => (
-                                <div key={label} style={{ fontSize: "11px" }}>
-                                  {label}: {val}
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </>
+                      );
+                    })
                   ) : (
                     <div
                       style={{
@@ -890,10 +821,9 @@ export default function SpliterReport({
             isLoadingChek={isLoading}
             reportName={reportName}
             spliterReportShow={spliterReportShow}
-            chartViewData={chartViewData}
           />
         </div>
       </Box>
-    </DragDropContext >
+    </DragDropContext>
   );
 }

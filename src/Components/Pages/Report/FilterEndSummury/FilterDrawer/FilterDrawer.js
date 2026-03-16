@@ -14,16 +14,14 @@ import {
 } from "@mui/material";
 import { CircleX, X } from "lucide-react";
 import React, { useEffect, useRef, useState } from "react";
-import { FaFilter } from "react-icons/fa";
 import { MdExpandMore, MdOutlineFilterAltOff } from "react-icons/md";
 import { useSearchParams } from "react-router-dom";
-import { renderFilter } from "../FilterFunction/FilterFunction";
+import { renderFilter, renderFilterOld } from "./FilterFunction/FilterFunction";
 import {
   Box,
   Button,
   Stack,
 } from "@mui/material";
-import CloseIcon from "@mui/icons-material/Close";
 import FilterListIcon from "@mui/icons-material/FilterList";
 import FilterAltOffIcon from "@mui/icons-material/FilterAltOff";
 import FirstPageRoundedIcon from '@mui/icons-material/FirstPageRounded';
@@ -388,8 +386,6 @@ const FilterDrawer = ({
                     checked={(draftFilters[col.field] || []).includes(value)}
                     onChange={(e) => {
                       const checked = e.target.checked;
-
-                      // Update draftFilters
                       setDraftFilters((prev) => {
                         const existing = prev[col.field] || [];
                         return {
@@ -400,7 +396,6 @@ const FilterDrawer = ({
                         };
                       });
 
-                      // Update filtersShowDraf
                       setFiltersShowDraf((prev) => {
                         const key = col.headerNamesingle;
                         const existing = prev[key] || [];
@@ -813,12 +808,11 @@ const FilterDrawer = ({
               textTransform: "none",
               fontWeight: 600,
               px: 2.5,
-
-              background: `linear-gradient(
-      135deg,
-      ${theme.palette.primary.main},
-      ${theme.palette.primary.dark}
-    )`,
+                        background: `linear-gradient(
+                135deg,
+                ${theme.palette.primary.main},
+                ${theme.palette.primary.dark}
+              )`,
             })}
             size="small"
           >
@@ -928,6 +922,20 @@ const FilterDrawer = ({
               );
             })}
         </div>
+
+        {/* <div style={{ margin: '0px 20px', display: 'flex', gap: '10px', flexDirection: 'column' }}>
+          {columnsHide
+            .filter(col => col.filterable && col.IsOnScreenFilter !== "True")
+            .map((col) => {
+              const filterElements = renderFilterOld(col, draftFilters, setDraftFilters, setFiltersShowDraf);
+              if (filterElements.length === 0) return null;
+              return (
+                <div key={col.FieldName} style={{ display: "flex", gap: "10px" }}>
+                  {filterElements}
+                </div>
+              );
+            })}
+        </div> */}
 
 
         <div style={{ margin: '0px 20px', display: 'flex', gap: '10px', flexDirection: 'column' }}>

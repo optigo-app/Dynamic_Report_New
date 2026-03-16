@@ -41,6 +41,10 @@ import AreaChartView from "../ChartView/AreaChart";
 import { ChartCard } from "../ChartView/Customstyled";
 import PersonWiseDailyCallCount from "../ChartView/PersonWiseDailyCallCount";
 import LongCallChart from "../ChartView/LongCallChart";
+import AreaChartD from "../ChartView/Dynamic/AreaChartD";
+import BarChartD from "../ChartView/Dynamic/BarChartD";
+import PieChartD from "../ChartView/Dynamic/PieChartD";
+import PersonWiseDailyCallCountD from "../ChartView/Dynamic/PersonWiseDailyCallCountD";
 
 export default function MainReport({
   OtherKeyData,
@@ -56,6 +60,7 @@ export default function MainReport({
   spliterReportShow,
   colorMaster,
   currencyMaster,
+  chartViewData
 }) {
   const [isLoading, setIsLoading] = useState(isLoadingChek);
   const [showImageView, setShowImageView] = useState(false);
@@ -123,6 +128,7 @@ export default function MainReport({
   const endDate = filterState?.dateRange?.endDate;
   const [homeType, setHomeType] = useState(null);
   const [currentOpenReport, setCurrentOpenReport] = useState("mainreport");
+  const [subReportFilterValue, setSubReportFilterValue] = useState();
 
   const isOldHome = window.location.pathname
     .toLowerCase()
@@ -774,7 +780,7 @@ export default function MainReport({
                 navigator.clipboard
                   .writeText(displayValue)
                   .then(() => {
-                    console.log("Copied to clipboard");
+                    console.warn("Copied to clipboard");
                   })
                   .catch((err) => {
                     console.error("Failed to copy: ", err);
@@ -864,37 +870,33 @@ export default function MainReport({
 
     const srColumn = {
       field: "sr",
-      headerName: (
-        <>
-          <div style={{ display: "flex", alignItems: "center" }}>
-            {masterKeyData?.CheckBoxSelection == "True" && (
-              <Checkbox
-                checked={
-                  filteredRows?.length > 0 &&
-                  selectionModel.length === filteredRows.length
+      renderHeader: () => (
+        <div style={{ display: "flex", alignItems: "center" }}>
+          {masterKeyData?.CheckBoxSelection == "True" && (
+            <Checkbox
+              checked={
+                filteredRows?.length > 0 &&
+                selectionModel.length === filteredRows.length
+              }
+              indeterminate={
+                selectionModel.length > 0 &&
+                selectionModel.length < filteredRows.length
+              }
+              onChange={(e) => {
+                if (e.target.checked) {
+                  const start = paginationModel.page * paginationModel.pageSize;
+                  const end = start + paginationModel.pageSize;
+                  const pageRows = filteredRows?.slice(start, end);
+                  setSelectionModel(pageRows.map((r) => r.id));
+                } else {
+                  setSelectionModel([]);
                 }
-                indeterminate={
-                  selectionModel.length > 0 &&
-                  selectionModel.length < filteredRows.length
-                }
-                onChange={(e) => {
-                  if (e.target.checked) {
-                    const start =
-                      paginationModel.page * paginationModel.pageSize;
-                    const end = start + paginationModel.pageSize;
-                    const pageRows = filteredRows.slice(start, end);
-                    setSelectionModel(pageRows.map((r) => r.id));
-                  } else {
-                    // ✅ Clear all
-                    setSelectionModel([]);
-                  }
-                }}
-                size="small"
-              />
-            )}
-            <p style={{ fontWeight: "500" }}>Sr#</p>
-          </div>
-        </>
+              }}
+              size="small"
+            />
+          )}
+          <p style={{ fontWeight: "500" }}>Sr#</p>
+        </div>
       ),
       width: 90,
       sortable: false,
@@ -902,7 +904,6 @@ export default function MainReport({
       filterable: false,
       ColumnAlign: "left",
       renderCell: (params) => {
-        const isChecked = selectionModel.includes(params.id);
         return (
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             {masterKeyData?.CheckBoxSelection == "True" && (
@@ -911,14 +912,13 @@ export default function MainReport({
                 checked={selectionModel.includes(params.id)}
                 onChange={() => {
                   if (selectionModel.includes(params.id)) {
-                    setSelectionModel((prev) =>
-                      prev.filter((id) => id !== params.id)
-                    );
+                    setSelectionModel((prev) => prev.filter((id) => id !== params.id));
                   } else {
                     setSelectionModel((prev) => [...prev, params.id]);
                   }
                 }}
               />
+
             )}
             {paginationModel.page * paginationModel.pageSize +
               params.api.getRowIndexRelativeToVisibleRows(params.id) +
@@ -927,7 +927,6 @@ export default function MainReport({
         );
       },
     };
-
     const visibleColumns = [
       srColumn,
       ...columnData.filter((col) => col.HideColumn !== "True"),
@@ -1205,6 +1204,16 @@ export default function MainReport({
     } else {
       setFilteredRows(rowsWithSrNo);
     }
+
+    const formattedFilters = Object.entries(filters).map(([key, value]) => ({
+      FilterKey: key,
+      FilterValue: value
+    }));
+
+    setSubReportFilterValue(prev => [
+      ...(prev || []),
+      ...formattedFilters
+    ]);
   }, [
     filters,
     commonSearch,
@@ -1677,6 +1686,9 @@ export default function MainReport({
             setAllColumDataBack={setAllColumDataBack}
             setCurrentOpenReport={setCurrentOpenReport}
             currentOpenReport={currentOpenReport}
+            filters={filters}
+            subReportFilterValue={subReportFilterValue}
+            setSubReportFilterValue={setSubReportFilterValue}
           />
           <div
             ref={gridRef}
@@ -1699,51 +1711,110 @@ export default function MainReport({
               </div>
             ) : chartView ? (
               <div style={{ marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                <Grid item md={12} xs={12}>
-                  <ChartCard>
-                    <AreaChartView
-                      filteredRows={filteredRows}
-                      sortModel={sortModel}
-                      columns={columns} />
-                  </ChartCard>
-                </Grid>
+                {
+                  chartViewData[0]?.AreaChart &&
+                  <Grid item md={12} xs={12}>
+                    <ChartCard>
+                      <AreaChartD
+                        filteredRows={filteredRows}
+                        chartDataD={chartViewData[0]}
+                      />
+                    </ChartCard>
+                  </Grid>
+                }
+                {
+                  chartViewData[2]?.BarChart &&
+                  <Grid item md={12} xs={12}>
+                    <ChartCard>
+                      <BarChartD
+                        filteredRows={filteredRows}
+                        chartDataD={chartViewData[2]}
+                      />
+                    </ChartCard>
+                  </Grid>
+                }
 
-                <Grid item md={12} xs={12}>
-                  <ChartCard>
-                    <BarChartView
-                      filteredRows={filteredRows}
-                      sortModel={sortModel}
-                      columns={columns}
-                    />
-                  </ChartCard>
-                </Grid>
+
                 <Grid container spacing={3}>
-                  <Grid item md={8} xs={12}>
-                    <ChartCard>
-                      <PersonWiseDailyCallCount
-                        filteredRows={filteredRows}
-                        sortModel={sortModel}
-                        columns={columns}
-                      />
-                    </ChartCard>
-                  </Grid>
+                  {
+                    chartViewData[3]?.BarChart2 &&
+                    <Grid item md={8} xs={12}>
+                      <ChartCard>
+                        <PersonWiseDailyCallCountD
+                          filteredRows={filteredRows}
+                          chartDataD={chartViewData[2]}
+                        />
+                      </ChartCard>
+                    </Grid>
+                  }
 
-                  <Grid item md={4} xs={12}>
-                    <ChartCard>
-                      <PieChartView
-                        filteredRows={filteredRows}
-                        sortModel={sortModel}
-                        columns={columns}
-                      />
-
-                      <LongCallChart
-                        filteredRows={filteredRows}
-                        sortModel={sortModel}
-                        columns={columns}
-                      />
-                    </ChartCard>
-                  </Grid>
+                  {
+                    chartViewData[1]?.PieChart &&
+                    <Grid item md={4} xs={12}>
+                      <ChartCard>
+                        <PieChartD
+                          filteredRows={filteredRows}
+                          chartDataD={chartViewData[1]}
+                        />
+                      </ChartCard>
+                    </Grid>
+                  }
                 </Grid>
+
+
+                {pid == 18418 &&
+                  <Grid item md={12} xs={12}>
+                    <ChartCard>
+                      <AreaChartView
+                        filteredRows={filteredRows}
+                        sortModel={sortModel}
+                        columns={columns}
+                      />
+                    </ChartCard>
+                  </Grid>
+                }
+
+                {pid == 18418 &&
+                  <Grid item md={12} xs={12}>
+                    <ChartCard>
+                      <BarChartView
+                        filteredRows={filteredRows}
+                        sortModel={sortModel}
+                        columns={columns}
+                      />
+                    </ChartCard>
+                  </Grid>
+                }
+
+                {pid == 18418 &&
+                  <Grid container spacing={3}>
+                    <Grid item md={8} xs={12}>
+                      <ChartCard>
+                        <PersonWiseDailyCallCount
+                          filteredRows={filteredRows}
+                          sortModel={sortModel}
+                          columns={columns}
+                        />
+                      </ChartCard>
+                    </Grid>
+
+                    <Grid item md={4} xs={12}>
+                      <ChartCard>
+                        <PieChartView
+                          filteredRows={filteredRows}
+                          sortModel={sortModel}
+                          columns={columns}
+                        />
+
+                        <LongCallChart
+                          filteredRows={filteredRows}
+                          sortModel={sortModel}
+                          columns={columns}
+                        />
+                      </ChartCard>
+                    </Grid>
+                  </Grid>
+                }
               </div>
             ) : (
               <Warper>

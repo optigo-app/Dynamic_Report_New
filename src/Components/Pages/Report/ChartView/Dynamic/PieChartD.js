@@ -7,38 +7,40 @@ const COLORS = [
   "#8B5CF6", "#06B6D4", "#84CC16", "#EC4899", "#A855F7",
 ];
 
-const PieChartView = ({ filteredRows, selectedMonth = null }) => {
+const PieChartD = ({ filteredRows, chartDataD }) => {
   const pieData = useMemo(() => {
+    if (!filteredRows?.length) return [];
+    if (!chartDataD?.PieDataColum) return [];
+
+    const column = chartDataD.PieDataColum;
+
     const map = {};
 
-    filteredRows?.forEach(row => {
-      const date = new Date(row.date);
-      const month = date.getMonth();
+    filteredRows.forEach(row => {
 
-      if (selectedMonth !== null && month !== selectedMonth) return;
+      const value = row[column] ?? "Unknown";
 
-      const callType = row.CallType || "Unknown";
-      const company = row.company || "Unknown";
-
-      if (!map[callType]) {
-        map[callType] = {
-          name: callType,
-          value: 0,
-          companies: {}
-        };
+      if (!map[value]) {
+        map[value] = 0;
       }
 
-      map[callType].value += 1;
+      map[value] += 1;
 
-      map[callType].companies[company] =
-        (map[callType].companies[company] || 0) + 1;
     });
 
-    return Object.values(map);
-  }, [filteredRows, selectedMonth]);
+    return Object.entries(map)
+      .map(([name, value]) => ({
+        name,
+        value
+      }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 10);   // 🔥 Top 10
+
+  }, [filteredRows, chartDataD]);
 
   const CustomTooltip = ({ active, payload }) => {
-    if (!active || !payload || !payload.length) return null;
+
+    if (!active || !payload?.length) return null;
 
     const data = payload[0].payload;
 
@@ -50,31 +52,28 @@ const PieChartView = ({ filteredRows, selectedMonth = null }) => {
           borderRadius: 2,
           p: 1.5,
           fontSize: 13,
-          minWidth: 150
+          minWidth: 120
         }}
       >
-        <Typography fontWeight={600} mb={0.5}>
-          {data.name} — {data.value} Calls
+        <Typography fontWeight={600}>
+          {data.name} — {data.value}
         </Typography>
-
-        {Object.entries(data.companies).map(([company, count]) => (
-          <Typography key={company} fontSize={12}>
-            {company}: {count}
-          </Typography>
-        ))}
       </Box>
     );
   };
 
   return (
     <Box>
+
       <Typography variant="h6" fontWeight={500} mb={2}>
-        Month Wise Call Type Count
+        Top 10 {chartDataD?.PieDataColum}
       </Typography>
 
       <Box display="flex" alignItems="center" gap={4}>
+
         <ResponsiveContainer width="60%" height={260}>
           <PieChart>
+
             <Pie
               data={pieData}
               dataKey="value"
@@ -90,6 +89,7 @@ const PieChartView = ({ filteredRows, selectedMonth = null }) => {
             </Pie>
 
             <Tooltip content={<CustomTooltip />} />
+
           </PieChart>
         </ResponsiveContainer>
 
@@ -118,9 +118,10 @@ const PieChartView = ({ filteredRows, selectedMonth = null }) => {
             </Box>
           ))}
         </Stack>
+
       </Box>
     </Box>
   );
 };
 
-export default PieChartView;
+export default PieChartD;

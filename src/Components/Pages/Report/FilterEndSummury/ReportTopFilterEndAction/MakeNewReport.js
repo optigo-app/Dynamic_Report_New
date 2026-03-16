@@ -14,39 +14,6 @@ import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import IconButton from "@mui/material/IconButton";
 import ReusableConfirmModal from "../../../../ui/Modal";
 
-const reportBtnStyle = (active) => (theme) => ({
-  textTransform: "none",            // no uppercase, cleaner look
-  fontWeight: 600,                  // bold but not too heavy
-  fontSize: "0.95rem",
-  borderRadius: "5px",             // soft rounded corners
-  px: 3, py: 1.25,                  // comfortable padding
-  minWidth: 140,
-  transition: "all 0.3s ease",      // smooth hover/focus
-
-  color: active ? theme.palette.primary.contrastText : theme.palette.text.primary,
-  background: active
-    ? `linear-gradient(135deg, ${theme.palette.primary.light}, ${theme.palette.primary.main})`
-    : alpha(theme.palette.grey[200], 0.7),
-
-  boxShadow: active
-    ? `0px 6px 16px ${alpha(theme.palette.primary.main, 0.25)}`
-    : "none",
-
-  "&:hover": {
-    background: active
-      ? `linear-gradient(135deg, ${theme.palette.primary.light}, ${theme.palette.primary.dark})`
-      : alpha(theme.palette.grey[300], 0.9),
-    transform: "translateY(-2px)",   // subtle lift
-    boxShadow: active
-      ? `0px 8px 20px ${alpha(theme.palette.primary.main, 0.35)}`
-      : `0px 4px 12px ${alpha(theme.palette.grey[500], 0.15)}`,
-  },
-  "&:focus-visible": {
-    outline: `2px solid ${theme.palette.primary.main}`,
-    outlineOffset: "2px",
-  },
-});
-
 const MakeNewReport = ({
     setAllColumData,
     allColumDataBack,
@@ -60,6 +27,10 @@ const MakeNewReport = ({
     setOpenSaveModal,
     currentOpenReport,
     setCurrentOpenReport,
+    subReportFilterValue,
+    setCommonSearch,
+    filters,
+    setFilters
 }) => {
     const [searchParams] = useSearchParams();
     const [reportNameError, setReportNameError] = useState("");
@@ -81,6 +52,7 @@ const MakeNewReport = ({
         setSelectedDeleteReport(report);
         setDeleteDialogOpen(true);
     };
+
     const handleConfirmDelete = async () => {
         if (!selectedDeleteReport) return;
         const body = {
@@ -109,9 +81,22 @@ const MakeNewReport = ({
 
     const handleChangeReport = (data) => {
         if (data === "mainreport") {
+            setCommonSearch("");
+            setFilters({});
             setAllColumData(allColumDataBack);
             setCurrentOpenReport("mainreport");
         } else {
+            const parsed = JSON?.parse(data?.Filters) || [];
+            const formattedFilters = parsed.reduce((acc, item) => {
+                if (!item?.FilterKey) return acc;
+                if (item.FilterKey === "mainFilter") {
+                    setCommonSearch(item.FilterValue);
+                } else {
+                    acc[item.FilterKey] = item.FilterValue;
+                }
+                return acc;
+            }, {});
+            setFilters(formattedFilters);
             setCurrentOpenReport(data?.SubReportName);
             const subReportColumns = JSON.parse(data?.Columns);
             const updatedColumns = allColumDataBack
@@ -138,15 +123,16 @@ const MakeNewReport = ({
     const [anchorEl, setAnchorEl] = useState(null);
     const visibleReports = otherReport.slice(0, MAX_VISIBLE - 1);
     const hiddenReports = otherReport.slice(3);
-
     const open = Boolean(anchorEl);
+
     const reportBtnStyle = (active) => ({
         whiteSpace: "nowrap",
-        border: "1px solid #6f53ff",
-        borderRadius: "5px",
+        border: "1px solid #9f90ec",
+        borderRadius: "30px",
         px: 2,
         py: 0.7,
         minWidth: "fit-content",
+        // background: active && "linear-gradient(to right, #6400b8,#8d0096)",
         backgroundColor: active ? "#6f53ff" : "transparent",
         color: active ? "#fff" : "#6f53ff",
         "&:hover": {
@@ -175,7 +161,6 @@ const MakeNewReport = ({
 
     const handleSaveReport = async () => {
         setReportNameError("");
-
         if (!selectedColumns.length) {
             setReportNameError('Please select at least one column');
             return;
@@ -205,6 +190,7 @@ const MakeNewReport = ({
         const reportId = matchingKey.split("_")[1];
         // const columnsToSave = mapColumnsForSave(allColumData);
         const columnsToSave = mapColumnsForSave(selectedColumns);
+        console.log('subReportFilterValue: ', subReportFilterValue);
         const body = {
             con: JSON.stringify({
                 mode: "SaveSubReportData",
@@ -215,7 +201,7 @@ const MakeNewReport = ({
                 ReportId: reportId,
                 SubReportId: 0,
                 SubReportName: subReportName.trim(),
-                Filters: [],
+                Filters: subReportFilterValue,
                 Columns: columnsToSave,
             }),
             f: "DynamicReport ( SaveSubReportData )",
@@ -487,7 +473,7 @@ const MakeNewReport = ({
                                 sx: {
                                     borderRadius: "12px",
                                     width: "400px",
-                                    marginTop:1
+                                    marginTop: 1
                                 },
                             }}
                         >
@@ -573,33 +559,3 @@ const MakeNewReport = ({
 };
 
 export default MakeNewReport;
-
-
-
-
-
-
-
-
-
-{/* <Dialog
-                open={deleteDialogOpen}
-                onClose={() => setDeleteDialogOpen(false)}
-            >
-                <div style={{ padding: 20, width: 350 }}>
-                    <p style={{ fontSize: 16, fontWeight: 600 }}>
-                        Are you sure you want to delete{" "}
-                        {selectedDeleteReport?.SubReportName} report?
-                    </p>
-                    <p style={{ color: "#666" }}></p>
-                    <DialogActions>
-                        <Button onClick={() => setDeleteDialogOpen(false)}>Cancel</Button>
-                        <Button
-                            onClick={handleConfirmDelete}
-                            style={{ background: "#fc4141", color: "#fff" }}
-                        >
-                            Delete
-                        </Button>
-                    </DialogActions>
-                </div>
-            </Dialog> */}

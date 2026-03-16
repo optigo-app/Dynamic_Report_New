@@ -34,6 +34,10 @@ function RouterContent() {
   const [dateOptionsShow, setLargeDataShow] = useState(false);
   const [spliterReportShow, setSpliterReportShow] = useState(false);
   const [spliterReportFirstPanel, setSpliterReportFirstPanel] = useState();
+  const [spliterReportFirstPanelShowAll, setSpliterReportFirstPanelShowAll] = useState();
+  const [spliterReportSecondPanelShowAll, setSpliterReportSecondPanelShowAll] = useState();
+  const [spliterReportAllDataButton, setSpliterReportAllDataButton] = useState();
+  const [chartViewData , setChartViewData] = useState();
   const [spliterReportSecondPanel, setSpliterReportSecondPanel] = useState();
   const [spliterReportMonthRestiction, setSpliterReportMonthRestiction] =
     useState();
@@ -111,16 +115,19 @@ function RouterContent() {
           setSpliterReportFirstPanel(data.SpliterFirstPanel);
           setSpliterReportSecondPanel(data.SpliterSecondPanel);
           setSpliterReportMonthRestiction(data.DateMonthRestriction);
+          setSpliterReportFirstPanelShowAll(data?.SpliterFirstPanelAll);
+          setSpliterReportAllDataButton(data?.SpliterReportAllDataButton);
+          setSpliterReportSecondPanelShowAll(data?.SpliterSecondPanelAll);
           setReportName(data.ReportName);
           setOtherSpliterSideData1(JSON?.parse(data.otherSpliterSideData1));
           setOtherSpliterSideData2(JSON.parse(data.otherSpliterSideData2));
+          setChartViewData(JSON.parse(data.chartViewData));
           setDateOptions(response?.rd1);
           const key = `${pid}_${data.ReportId}`;
           sessionStorage.setItem(key, data.ReportId);
         }
         setReady(true);
       } catch (err) {
-        console.log(err);
         setTokenMissing(true);
       }
     };
@@ -169,6 +176,10 @@ function RouterContent() {
                 otherSpliterSideData2={otherSpliterSideData2}
                 colorMaster={colorMaster}
                 currencyMaster={currencyMaster}
+                spliterReportFirstPanelShowAll={spliterReportFirstPanelShowAll}
+                spliterReportSecondPanelShowAll={spliterReportSecondPanelShowAll}
+                chartViewData={chartViewData}
+                spliterReportAllDataButton={spliterReportAllDataButton}
               />
             }
           />
