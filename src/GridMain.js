@@ -33,7 +33,8 @@ const GridMain = ({
   spliterReportSecondPanelShowAll,
   spliterReportFirstPanelShowAll,
   chartViewData,
-  spliterReportAllDataButton
+  spliterReportAllDataButton,
+  imageViewData
 }) => {
 
   // useEffect(() => {
@@ -99,6 +100,7 @@ const GridMain = ({
               spliterReportSecondPanelShowAll={spliterReportSecondPanelShowAll}
               chartViewData={chartViewData}
               spliterReportAllDataButton={spliterReportAllDataButton}
+              imageViewData={imageViewData}
             />
           }
         />
@@ -117,6 +119,7 @@ const GridMain = ({
               colorMaster={colorMaster}
               currencyMaster={currencyMaster}
               chartViewData={chartViewData}
+              imageViewData={imageViewData}
             />
           }
         />

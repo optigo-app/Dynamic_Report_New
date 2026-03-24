@@ -177,7 +177,8 @@ export default function ReportHome({
   reportName,
   colorMaster,
   currencyMaster,
-  chartViewData
+  chartViewData,
+  imageViewData
 }) {
   const [isLoading, setIsLoading] = useState(false);
   const [spData, setSpData] = useState(null);
@@ -197,7 +198,7 @@ export default function ReportHome({
   const [filteredValue, setFilteredValue] = useState();
   const [selectedDateOption, setSelectedDateOption] = useState("");
   const clientIpAddress = sessionStorage.getItem("clientIpAddress");
-  
+
   useEffect(() => {
     setShowReportMaster(largeData);
   }, [largeData]);
@@ -788,6 +789,8 @@ export default function ReportHome({
                 colorMaster={colorMaster}
                 currencyMaster={currencyMaster}
                 chartViewData={chartViewData}
+                imageViewData={imageViewData}
+                refreshFunction={() => fetchReportData({}, "0")}
               />
             </div>
           )}

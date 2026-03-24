@@ -10,9 +10,6 @@ import { DeviceStatusProvider } from "./DeviceStatusContext";
 import { lazy, Suspense, useEffect, useMemo, useState } from "react";
 import {
   CircularProgress,
-  CssBaseline,
-  IconButton,
-  ThemeProvider,
 } from "@mui/material";
 import ReportListPage from "./Components/Pages/ReportListPage/ReportListPage";
 import { CallApi } from "./API/CallApi/CallApi";
@@ -38,6 +35,7 @@ function RouterContent() {
   const [spliterReportSecondPanelShowAll, setSpliterReportSecondPanelShowAll] = useState();
   const [spliterReportAllDataButton, setSpliterReportAllDataButton] = useState();
   const [chartViewData , setChartViewData] = useState();
+  const [imageViewData , setImageViewData] = useState();
   const [spliterReportSecondPanel, setSpliterReportSecondPanel] = useState();
   const [spliterReportMonthRestiction, setSpliterReportMonthRestiction] =
     useState();
@@ -121,6 +119,7 @@ function RouterContent() {
           setReportName(data.ReportName);
           setOtherSpliterSideData1(JSON?.parse(data.otherSpliterSideData1));
           setOtherSpliterSideData2(JSON.parse(data.otherSpliterSideData2));
+          setImageViewData(JSON.parse(data.ImageDataArray));
           setChartViewData(JSON.parse(data.chartViewData));
           setDateOptions(response?.rd1);
           const key = `${pid}_${data.ReportId}`;
@@ -180,6 +179,7 @@ function RouterContent() {
                 spliterReportSecondPanelShowAll={spliterReportSecondPanelShowAll}
                 chartViewData={chartViewData}
                 spliterReportAllDataButton={spliterReportAllDataButton}
+                imageViewData={imageViewData}
               />
             }
           />

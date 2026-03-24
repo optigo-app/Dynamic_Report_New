@@ -327,10 +327,10 @@ const CustomDualDatePicker = ({
                                         height: '30px',
                                         textTransform: 'none',
                                         borderRadius: '5px',
-                                        bgcolor:'#6f53ff',
-                                        color:'white',
+                                        bgcolor: '#6f53ff',
+                                        color: 'white',
                                         '&:hover': {
-                                            bgcolor:'#6f53ff',
+                                            bgcolor: '#6f53ff',
                                         }
                                     }}
                                 >
@@ -341,7 +341,7 @@ const CustomDualDatePicker = ({
                     ),
                 }}
                 sx={{
-                    minWidth:350,
+                    minWidth: 350,
                     '& .MuiOutlinedInput-notchedOutline': {
                         border: 'none',
                     },
@@ -396,6 +396,69 @@ const CustomDualDatePicker = ({
                             startDate: tempRange.startDate || undefined,
                             endDate: tempRange.endDate || undefined,
                         }}
+                        definedRanges={[
+                            { label: "Today", startDate: new Date(), endDate: new Date() },
+                            {
+                                label: "Yesterday",
+                                startDate: new Date(
+                                    new Date().setDate(new Date().getDate() - 1)
+                                ),
+                                endDate: new Date(
+                                    new Date().setDate(new Date().getDate() - 1)
+                                ),
+                            },
+                            {
+                                label: "This Week",
+                                startDate: new Date(
+                                    new Date().setDate(
+                                        new Date().getDate() - new Date().getDay()
+                                    )
+                                ),
+                                endDate: new Date(),
+                            },
+                            {
+                                label: "Last Week",
+                                startDate: new Date(
+                                    new Date().setDate(
+                                        new Date().getDate() - new Date().getDay() - 7
+                                    )
+                                ),
+                                endDate: new Date(
+                                    new Date().setDate(
+                                        new Date().getDate() - new Date().getDay() - 1
+                                    )
+                                ),
+                            },
+                            {
+                                label: "Last 7 Days",
+                                startDate: new Date(
+                                    new Date().setDate(new Date().getDate() - 6)
+                                ),
+                                endDate: new Date(),
+                            },
+                            {
+                                label: "This Month",
+                                startDate: new Date(
+                                    new Date().getFullYear(),
+                                    new Date().getMonth(),
+                                    1
+                                ),
+                                endDate: new Date(),
+                            },
+                            {
+                                label: "Last Month",
+                                startDate: new Date(
+                                    new Date().getFullYear(),
+                                    new Date().getMonth() - 1,
+                                    1
+                                ),
+                                endDate: new Date(
+                                    new Date().getFullYear(),
+                                    new Date().getMonth(),
+                                    0
+                                ),
+                            },
+                        ]}
                     />
                     <Stack direction="row" justifyContent="flex-end" mt={2} spacing={1}>
                         {error && (

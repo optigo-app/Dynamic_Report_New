@@ -80,6 +80,7 @@ const MakeNewReport = ({
     };
 
     const handleChangeReport = (data) => {
+        console.log('data: ', data);
         if (data === "mainreport") {
             setCommonSearch("");
             setFilters({});
@@ -190,7 +191,6 @@ const MakeNewReport = ({
         const reportId = matchingKey.split("_")[1];
         // const columnsToSave = mapColumnsForSave(allColumData);
         const columnsToSave = mapColumnsForSave(selectedColumns);
-        console.log('subReportFilterValue: ', subReportFilterValue);
         const body = {
             con: JSON.stringify({
                 mode: "SaveSubReportData",
@@ -228,11 +228,11 @@ const MakeNewReport = ({
             SubReportId: statusObj.SubReportId,
             ReportId: reportId,
             SubReportName: subReportName.trim(),
-            Filters: JSON.stringify([]),
+            Filters: JSON.stringify(subReportFilterValue),
             Columns: mappedColumnsForOtherReport,
         };
 
-        setOtherReprot((prev) => [...prev, newSubReport]); // add to end
+        setOtherReprot((prev) => [...prev, newSubReport]);
         const columnsForUI = JSON.parse(mappedColumnsForOtherReport).map((col) => {
             const fullCol = allColumData.find(
                 (c) => Number(c.ColId) === Number(col.ColId),

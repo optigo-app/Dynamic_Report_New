@@ -13,56 +13,49 @@ import { ReportCallApi } from "../../../../API/ReportCommonAPI/ReportCallApi";
 import MainReport from "../MainReport/MainReport";
 import DualDatePicker from "../../../../Utils/DatePicker/DualDatePicker";
 import { CircleX } from "lucide-react";
-import KeyboardArrowRightRoundedIcon from '@mui/icons-material/KeyboardArrowRightRounded';
 
-
-const GlassIconButton = () => {
-  return (
-    <IconButton
-      disableRipple
-      sx={{
-        width: 35,
-        height: 35,
-        borderRadius: '50%',
-
-        /* Glass effect */
-        background: 'rgba(255, 255, 255, 0.55)',
-        backdropFilter: 'blur(12px)',
-        WebkitBackdropFilter: 'blur(12px)', // Edge/Safari support
-
-        /* Premium border & shadow */
-        border: '1px solid rgba(255, 255, 255, 0.35)',
-        boxShadow: `
-          0 8px 24px rgba(0,0,0,0.12),
-          inset 0 1px 0 rgba(255,255,255,0.6)
-        `,
-
-        color: '#4f46e5', // premium indigo
-
-        transition: 'all 0.25s ease',
-
-        '&:hover': {
-          background: 'rgba(255, 255, 255, 0.75)',
-          transform: 'translateY(-1px)',
-          boxShadow: `
-            0 12px 30px rgba(0,0,0,0.18),
-            inset 0 1px 0 rgba(255,255,255,0.8)
-          `,
-        },
-
-        '&:active': {
-          transform: 'scale(0.95)',
-        },
-        position: 'absolute',
-        zIndex: 9999999999999999,
-        top: 45,
-        left: 46
+const SplitterWithToggle = ({ index, onDrag, isCollapsed, onToggle, isDragging }) => (
+  <div style={{ position: "relative", width: 0, zIndex: 100, display: "flex", alignItems: "center", flexShrink: 0 }}>
+    {/* Drag zone */}
+    <div
+      className={`splitter ${isDragging ? "active" : ""}`}
+      style={{ position: "absolute", width: 10, left: -5, top: 0, height: "100%", cursor: "col-resize", zIndex: 1 }}
+      onMouseDown={(e) => !isCollapsed && onDrag(index, e)}
+    />
+    {/* Toggle button */}
+    <button
+      onClick={onToggle}
+      title={isCollapsed ? `Expand panel ${index + 1}` : `Collapse panel ${index + 1}`}
+      style={{
+        position: "absolute",
+        left: 0,
+        zIndex: 20,
+        width: 18,
+        height: 34,
+        borderRadius: "0 6px 6px 0",
+        border: "1px solid rgba(115, 103, 240, 0.35)",
+        background: "rgba(255,255,255,0.75)",
+        backdropFilter: "blur(8px)",
+        WebkitBackdropFilter: "blur(8px)",
+        cursor: "pointer",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 0,
+        boxShadow: "0 2px 8px rgba(115,103,240,0.15)",
+        transition: "all 0.2s ease",
+        color: "#7367f0",
       }}
+      onMouseEnter={e => e.currentTarget.style.background = "rgba(115,103,240,0.12)"}
+      onMouseLeave={e => e.currentTarget.style.background = "rgba(255,255,255,0.75)"}
     >
-      <KeyboardArrowRightRoundedIcon fontSize="medium" />
-    </IconButton>
-  );
-};
+      <svg width="10" height="10" viewBox="0 0 10 10" fill="none"
+        stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d={isCollapsed ? "M3 2 L7 5 L3 8" : "M7 2 L3 5 L7 8"} />
+      </svg>
+    </button>
+  </div>
+);
 
 
 const formatToYYYYMMDD = (date) => {
@@ -91,7 +84,8 @@ export default function SpliterReport({
   spliterReportSecondPanelShowAll,
   spliterReportFirstPanelShowAll,
   chartViewData,
-  spliterReportAllDataButton
+  spliterReportAllDataButton,
+  imageViewData
 }) {
   const [isLoading, setIsLoading] = useState(false);
   const [spData, setSpData] = useState(null);
@@ -121,6 +115,11 @@ export default function SpliterReport({
   const [secondPanelSearch, setSecondPanelSearch] = useState("");
   const clientIpAddress = sessionStorage.getItem("clientIpAddress");
   const [IsDragging, setIsDragging] = useState(false)
+  const [collapsed, setCollapsed] = useState([false, false]);
+  const savedWidths = useRef(
+    spliterReportSecondPanel ? [18, 18] : [18]
+  );
+  const COLLAPSED_W = 32; // px width when collapsed
 
   useEffect(() => {
     const now = new Date();
@@ -394,7 +393,8 @@ export default function SpliterReport({
   };
 
   const handleDrag = (index, e) => {
-    setIsDragging(true)
+    if (collapsed[index]) return;
+    setIsDragging(true);
     const startX = e.clientX;
     const start = paneWidths.map((x) => parseFloat(x));
     const cw = containerRef.current.offsetWidth;
@@ -404,18 +404,49 @@ export default function SpliterReport({
       const w = [...start];
       w[index] = Math.max(5, start[index] + delta);
       w[index + 1] = Math.max(5, start[index + 1] - delta);
-
       if (w.reduce((a, b) => a + b, 0) <= 100)
         setPaneWidths(w.map((x) => `${x}%`));
     };
     const up = () => {
       document.removeEventListener("mousemove", move);
       document.removeEventListener("mouseup", up);
-      setIsDragging(false)
+      setIsDragging(false);
     };
-
     document.addEventListener("mousemove", move);
     document.addEventListener("mouseup", up);
+  };
+
+  const toggleCollapse = (index) => {
+    const cw = containerRef.current.offsetWidth;
+    const collapsedPct = (COLLAPSED_W / cw) * 100;
+
+    setCollapsed(prev => {
+      const next = [...prev];
+      if (!prev[index]) {
+        // Collapsing
+        savedWidths.current[index] = parseFloat(paneWidths[index]);
+        next[index] = true;
+        setPaneWidths(w => {
+          const nw = [...w].map(x => parseFloat(x));
+          const freed = nw[index] - collapsedPct;
+          nw[index] = collapsedPct;
+          nw[nw.length - 1] += freed; // give freed space to main report
+          return nw.map(x => `${x}%`);
+        });
+      } else {
+        // Expanding
+        next[index] = false;
+        const restore = savedWidths.current[index];
+        setPaneWidths(w => {
+          const nw = [...w].map(x => parseFloat(x));
+          const needed = restore - nw[index];
+          nw[index] = restore;
+          nw[nw.length - 1] = Math.max(20, nw[nw.length - 1] - needed);
+          return nw.map(x => `${x}%`);
+        });
+      }
+      return next;
+    });
   };
 
   const buildMasterValueMap = (mData) => {
@@ -599,168 +630,236 @@ export default function SpliterReport({
     []
   );
 
+
   return (
     <DragDropContext onDragEnd={() => { }}>
       <Box
         sx={{ height: "100vh", display: "flex", flexDirection: "row" }}
         ref={containerRef}
       >
-        <div className="pane" style={{ width: paneWidths[0], padding: 8 }}>
-          <div>
-            <div
-              style={{
-                margin: "5px 0px 5px 5px",
-              }}
-            >
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <DualDatePicker
-                  filterState={filterState}
-                  setFilterState={setFilterState}
-                  validDay={spliterReportMonthRestiction * 31}
-                  validMonth={spliterReportMonthRestiction}
-                  withountDateFilter={false}
-                  hideDisplay={
-                    filterState.dateRange.startDate?.getFullYear?.() === 1990
-                  }
-                />
-                {
-                  spliterReportAllDataButton &&
-                  <Button
-                    variant="contained"
-                    size="small"
-                    onClick={() => {
-                      setFilterState({
-                        dateRange: {
-                          startDate: "",
-                          endDate: "",
-                        }
-                      });
-                      fetchReportData("" , 0, true);
-                    }}
-                    sx={{
-                      minWidth: 'auto',
-                      padding: '17px 12px',
-                      fontSize: '0.95rem',
-                      height: '30px',
-                      textTransform: 'none',
-                      borderRadius: '5px',
-                      bgcolor: '#6f53ff',
-                      color: 'white',
-                      '&:hover': {
+        <div
+          className="pane"
+          style={{
+            width: collapsed[0] ? COLLAPSED_W : paneWidths[0],
+            minWidth: collapsed[0] ? COLLAPSED_W : undefined,
+            maxWidth: collapsed[0] ? COLLAPSED_W : undefined,
+            padding: collapsed[0] ? 0 : 8,
+            overflow: "hidden",
+            transition: "width 0.22s cubic-bezier(.4,0,.2,1)",
+            display: "flex",
+            flexDirection: "column",
+            alignItems: collapsed[0] ? "center" : undefined,
+            background: collapsed[0] ? "rgba(244,241,241,0.5)" : undefined,
+            cursor: collapsed[0] ? "pointer" : undefined,
+          }}
+          onClick={collapsed[0] ? () => toggleCollapse(0) : undefined}
+        >
+          {collapsed[0] ? (
+            <div style={{
+              writingMode: "vertical-rl",
+              textOrientation: "mixed",
+              fontSize: 11,
+              fontWeight: 500,
+              color: "#7367f0",
+              letterSpacing: "0.08em",
+              padding: "16px 0",
+              userSelect: "none",
+            }}>
+              {Array.isArray(filteredColumns) && filteredColumns[0]?.HeaderName || "Panel 1"}
+            </div>
+          ) : (
+            <div>
+              <div
+                style={{
+                  margin: "5px 0px 5px 5px",
+                }}
+              >
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <DualDatePicker
+                    filterState={filterState}
+                    setFilterState={setFilterState}
+                    validDay={spliterReportMonthRestiction * 31}
+                    validMonth={spliterReportMonthRestiction}
+                    withountDateFilter={false}
+                    hideDisplay={
+                      filterState.dateRange.startDate?.getFullYear?.() === 1990
+                    }
+                  />
+                  {
+                    spliterReportAllDataButton &&
+                    <Button
+                      variant="contained"
+                      size="small"
+                      onClick={() => {
+                        setFilterState({
+                          dateRange: {
+                            startDate: "",
+                            endDate: "",
+                          }
+                        });
+                        fetchReportData("", 0, true);
+                      }}
+                      sx={{
+                        minWidth: 'auto',
+                        padding: '17px 12px',
+                        fontSize: '0.95rem',
+                        height: '30px',
+                        textTransform: 'none',
+                        borderRadius: '5px',
                         bgcolor: '#6f53ff',
-                      }
-                    }}
-                  >
-                    All
-                  </Button>
-                }
-              </div>
-              {hasFirstPanelData && (
+                        color: 'white',
+                        '&:hover': {
+                          bgcolor: '#6f53ff',
+                        }
+                      }}
+                    >
+                      All
+                    </Button>
+                  }
+                </div>
+                {/* {hasFirstPanelData && ( */}
                 <p className="reportSpliter_top_headername">
                   {Array.isArray(filteredColumns) &&
                     filteredColumns.length > 0 &&
                     filteredColumns[0]?.HeaderName}
                 </p>
-              )}
-              {hasFirstPanelData && (
-                <SearchBox
-                  value={firstPanelSearch}
-                  onChange={setFirstPanelSearch}
-                  onClear={() => setFirstPanelSearch("")}
-                  placeholder="Search..."
-                />
-              )}
-            </div>
-            <div className="spliter1_maindiv">
-              {hasFirstPanelData ? (
-                <>
-                  {spliterReportFirstPanelShowAll && (
-                    <div
-                      onClick={() => handleFirstPanelSelection("__ALL__")}
-                      style={{
-                        background:
-                          selectedFirstPanelKey === "__ALL__"
-                            ? "linear-gradient(270deg,#7367f0b3,#7367f0)"
-                            : "rgb(244 241 241 / 36%)",
-                        fontWeight: selectedFirstPanelKey === "__ALL__" ? "600" : "400",
-                        color: selectedFirstPanelKey === "__ALL__" ? "white" : "black",
-                      }}
-                      className="spliter1_showname"
-                    >
-                      <div className="spliter1_deatil_title">ALL</div>
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", columnGap: "10px", rowGap: "4px", marginTop: "10px" }}>
-                        {Object.entries(getSummaryForValue("__ALL__")).map(([label, val]) => (
-                          <div key={label} style={{ fontSize: "11px" }}>{label}: {val}</div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {filteredFirstPanelValues?.map((v) => (
-                    <div
-                      key={v}
-                      onClick={() => handleFirstPanelSelection(v)}
-                      style={{
-                        background:
-                          selectedFirstPanelKey === v
-                            ? "linear-gradient(270deg,#7367f0b3,#7367f0)"
-                            : "rgb(244 241 241 / 36%)",
-                        fontWeight: selectedFirstPanelKey === v ? "600" : "400",
-                        color: selectedFirstPanelKey === v ? "white" : "black",
-                      }}
-                      className="spliter1_showname"
-                    >
-                      <div className="spliter1_deatil_title">
-                        {getDisplayValue(v, spliterReportFirstPanel)}
-                      </div>
+                {/* // )} */}
+                {hasFirstPanelData && (
+                  <SearchBox
+                    value={firstPanelSearch}
+                    onChange={setFirstPanelSearch}
+                    onClear={() => setFirstPanelSearch("")}
+                    placeholder="Search..."
+                  />
+                )}
+              </div>
+              <div className="spliter1_maindiv">
+                {hasFirstPanelData ? (
+                  <>
+                    {spliterReportFirstPanelShowAll && (
                       <div
+                        onClick={() => handleFirstPanelSelection("__ALL__")}
                         style={{
-                          marginTop:
-                            Object.keys(getSummaryForValue(v)).length > 0
-                              ? "10px"
-                              : "0px",
-                          display: "grid",
-                          gridTemplateColumns: "1fr 1fr", // 🔥 two columns
-                          columnGap: "10px",
-                          rowGap: "4px",
+                          background:
+                            selectedFirstPanelKey === "__ALL__"
+                              ? "linear-gradient(270deg,#7367f0b3,#7367f0)"
+                              : "rgb(244 241 241 / 36%)",
+                          fontWeight: selectedFirstPanelKey === "__ALL__" ? "600" : "400",
+                          color: selectedFirstPanelKey === "__ALL__" ? "white" : "black",
                         }}
+                        className="spliter1_showname"
                       >
-                        {Object.entries(getSummaryForValue(v)).map(
-                          ([label, val]) => (
-                            <div key={label} style={{ fontSize: "11px" }}>
-                              {label}: {val}
-                            </div>
-                          )
-                        )}
+                        <div className="spliter1_deatil_title">ALL</div>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", columnGap: "10px", rowGap: "4px", marginTop: "10px" }}>
+                          {Object.entries(getSummaryForValue("__ALL__")).map(([label, val]) => (
+                            <div key={label} style={{ fontSize: "11px" }}>{label}: {val}</div>
+                          ))}
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </>
+                    )}
+                    {filteredFirstPanelValues?.map((v) => (
+                      <div
+                        key={v}
+                        onClick={() => handleFirstPanelSelection(v)}
+                        style={{
+                          background:
+                            selectedFirstPanelKey === v
+                              ? "linear-gradient(270deg,#7367f0b3,#7367f0)"
+                              : "rgb(244 241 241 / 36%)",
+                          fontWeight: selectedFirstPanelKey === v ? "600" : "400",
+                          color: selectedFirstPanelKey === v ? "white" : "black",
+                        }}
+                        className="spliter1_showname"
+                      >
+                        <div className="spliter1_deatil_title">
+                          {getDisplayValue(v, spliterReportFirstPanel)}
+                        </div>
+                        <div
+                          style={{
+                            marginTop:
+                              Object.keys(getSummaryForValue(v)).length > 0
+                                ? "10px"
+                                : "0px",
+                            display: "grid",
+                            gridTemplateColumns: "1fr 1fr", // 🔥 two columns
+                            columnGap: "10px",
+                            rowGap: "4px",
+                          }}
+                        >
+                          {Object.entries(getSummaryForValue(v)).map(
+                            ([label, val]) => (
+                              <div key={label} style={{ fontSize: "11px" }}>
+                                {label}: {val}
+                              </div>
+                            )
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </>
 
-              ) : (
-                <div
-                  style={{
-                    height: "75%",
-                    display: "flex",
-                    justifyContent: "center",
-                    alignItems: "center",
-                  }}
-                >
-                  <p>No Data</p>
-                </div>
-              )}
+                ) : (
+                  <div
+                    style={{
+                      height: "75%",
+                      display: "flex",
+                      justifyContent: "center",
+                      alignItems: "center",
+                    }}
+                  >
+                    <p>No Data</p>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </div>
-        {/* <GlassIconButton/> */}
         <div
           className={`splitter ${IsDragging ? 'active' : ''}`}
-
           onMouseDown={(e) => handleDrag(0, e)} />
+        <SplitterWithToggle
+          index={0}
+          onDrag={handleDrag}
+          isCollapsed={collapsed[0]}
+          onToggle={() => toggleCollapse(0)}
+          isDragging={IsDragging}
+        />
+
         {spliterReportSecondPanel && (
           <>
-            <div className="pane" style={{ width: paneWidths[1], padding: 8 }}>
-              <div>
-                {hasSecondPanelData && (
+            {/* ─── SECOND PANE ─── */}
+            <div
+              className="pane"
+              style={{
+                width: collapsed[1] ? COLLAPSED_W : paneWidths[1],
+                minWidth: collapsed[1] ? COLLAPSED_W : undefined,
+                maxWidth: collapsed[1] ? COLLAPSED_W : undefined,
+                padding: collapsed[1] ? 0 : 8,
+                overflow: "hidden",
+                transition: "width 0.22s cubic-bezier(.4,0,.2,1)",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: collapsed[1] ? "center" : undefined,
+                background: collapsed[1] ? "rgba(244,241,241,0.5)" : undefined,
+                cursor: collapsed[1] ? "pointer" : undefined,
+              }}
+              onClick={collapsed[1] ? () => toggleCollapse(1) : undefined}
+            >
+              {collapsed[1] ? (
+                <div style={{
+                  writingMode: "vertical-rl",
+                  textOrientation: "mixed",
+                  fontSize: 11,
+                  fontWeight: 500,
+                  color: "#7367f0",
+                  letterSpacing: "0.08em",
+                  padding: "16px 0",
+                  userSelect: "none",
+                }}>
+                  {Array.isArray(filteredColumns2) && filteredColumns2[0]?.HeaderName || "Panel 2"}
+                </div>
+              ) : (
+                <div>
                   <div
                     style={{
                       margin: "5px 0px 5px 5px",
@@ -771,110 +870,119 @@ export default function SpliterReport({
                         filteredColumns2.length > 0 &&
                         filteredColumns2[0]?.HeaderName}
                     </p>
-                    <SearchBox
-                      value={secondPanelSearch}
-                      onChange={setSecondPanelSearch}
-                      onClear={() => setSecondPanelSearch("")}
-                      placeholder="Search..."
-                    />
+                    {hasSecondPanelData && (
+                      <SearchBox
+                        value={secondPanelSearch}
+                        onChange={setSecondPanelSearch}
+                        onClear={() => setSecondPanelSearch("")}
+                        placeholder="Search..."
+                      />
+                    )}
                   </div>
-                )}
-                <div className="spliter2_maindiv">
-                  {hasSecondPanelData ? (
-                    <>
-                      {spliterReportSecondPanelShowAll && (
-                        <div
-                          onClick={() => handleSecondPanelSelection("__ALL__")}
-                          style={{
-                            background:
-                              selectedSecondPanelKey === "__ALL__"
-                                ? "linear-gradient(270deg,#7367f0b3,#7367f0)"
-                                : "rgb(244 241 241 / 36%)",
-                            color: selectedSecondPanelKey === "__ALL__" ? "white" : "black",
-                            fontWeight: selectedSecondPanelKey === "__ALL__" ? "600" : "400",
-                          }}
-                          className="spliter1_showname"
-                        >
-                          <div className="spliter1_deatil_title">ALL</div>
-                          {/* Optional: show aggregated summary for all second panel values */}
-                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", columnGap: "10px", rowGap: "4px", marginTop: "10px" }}>
-                            {(() => {
-                              const firstFiltered =
-                                selectedFirstPanelKey === "__ALL__"
-                                  ? spData.rd3
-                                  : spData.rd3.filter((r) => r[firstKey] === selectedFirstPanelKey);
-                              return Object.entries(calculateSummaryForSecondPanel(firstFiltered)).map(([label, val]) => (
-                                <div key={label} style={{ fontSize: "11px" }}>{label}: {val}</div>
-                              ));
-                            })()}
-                          </div>
-                        </div>
-                      )}
-                      {filteredSecondPanelValues?.map((v) => {
-                        const rows =
-                          selectedFirstPanelKey === "__ALL__"
-                            ? spData.rd3.filter((r) => r[secondKey] === v)
-                            : spData.rd3.filter(
-                              (r) => r[firstKey] === selectedFirstPanelKey && r[secondKey] === v
-                            );
-                        const summary = calculateSummaryForSecondPanel(rows);
-                        return (
+                  <div className="spliter2_maindiv">
+                    {hasSecondPanelData ? (
+                      <>
+                        {spliterReportSecondPanelShowAll && (
                           <div
-                            key={v}
-                            onClick={() => handleSecondPanelSelection(v)}
+                            onClick={() => handleSecondPanelSelection("__ALL__")}
                             style={{
                               background:
-                                selectedSecondPanelKey === v
+                                selectedSecondPanelKey === "__ALL__"
                                   ? "linear-gradient(270deg,#7367f0b3,#7367f0)"
                                   : "rgb(244 241 241 / 36%)",
-                              color:
-                                selectedSecondPanelKey === v ? "white" : "black",
-                              fontWeight:
-                                selectedSecondPanelKey === v ? "600" : "400",
+                              color: selectedSecondPanelKey === "__ALL__" ? "white" : "black",
+                              fontWeight: selectedSecondPanelKey === "__ALL__" ? "600" : "400",
                             }}
                             className="spliter1_showname"
                           >
-                            <div className="spliter1_deatil_title">
-                              {getDisplayValue(v, spliterReportSecondPanel)}
-                            </div>
-                            <div
-                              style={{
-                                marginTop:
-                                  Object.entries(summary).length > 0
-                                    ? "10px"
-                                    : "0px",
-                                display: "grid",
-                                gridTemplateColumns: "1fr 1fr",
-                                columnGap: "10px",
-                                rowGap: "4px",
-                              }}
-                            >
-                              {Object.entries(summary).map(([label, val]) => (
-                                <div key={label} style={{ fontSize: "11px" }}>
-                                  {label}: {val}
-                                </div>
-                              ))}
+                            <div className="spliter1_deatil_title">ALL</div>
+                            {/* Optional: show aggregated summary for all second panel values */}
+                            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", columnGap: "10px", rowGap: "4px", marginTop: "10px" }}>
+                              {(() => {
+                                const firstFiltered =
+                                  selectedFirstPanelKey === "__ALL__"
+                                    ? spData.rd3
+                                    : spData.rd3.filter((r) => r[firstKey] === selectedFirstPanelKey);
+                                return Object.entries(calculateSummaryForSecondPanel(firstFiltered)).map(([label, val]) => (
+                                  <div key={label} style={{ fontSize: "11px" }}>{label}: {val}</div>
+                                ));
+                              })()}
                             </div>
                           </div>
-                        );
-                      })}
-                    </>
-                  ) : (
-                    <div
-                      style={{
-                        height: "100%",
-                        display: "flex",
-                        justifyContent: "center",
-                        alignItems: "center",
-                      }}
-                    >
-                      <p>No Data</p>
-                    </div>
-                  )}
+                        )}
+                        {filteredSecondPanelValues?.map((v) => {
+                          const rows =
+                            selectedFirstPanelKey === "__ALL__"
+                              ? spData.rd3.filter((r) => r[secondKey] === v)
+                              : spData.rd3.filter(
+                                (r) => r[firstKey] === selectedFirstPanelKey && r[secondKey] === v
+                              );
+                          const summary = calculateSummaryForSecondPanel(rows);
+                          return (
+                            <div
+                              key={v}
+                              onClick={() => handleSecondPanelSelection(v)}
+                              style={{
+                                background:
+                                  selectedSecondPanelKey === v
+                                    ? "linear-gradient(270deg,#7367f0b3,#7367f0)"
+                                    : "rgb(244 241 241 / 36%)",
+                                color:
+                                  selectedSecondPanelKey === v ? "white" : "black",
+                                fontWeight:
+                                  selectedSecondPanelKey === v ? "600" : "400",
+                              }}
+                              className="spliter1_showname"
+                            >
+                              <div className="spliter1_deatil_title">
+                                {getDisplayValue(v, spliterReportSecondPanel)}
+                              </div>
+                              <div
+                                style={{
+                                  marginTop:
+                                    Object.entries(summary).length > 0
+                                      ? "10px"
+                                      : "0px",
+                                  display: "grid",
+                                  gridTemplateColumns: "1fr 1fr",
+                                  columnGap: "10px",
+                                  rowGap: "4px",
+                                }}
+                              >
+                                {Object.entries(summary).map(([label, val]) => (
+                                  <div key={label} style={{ fontSize: "11px" }}>
+                                    {label}: {val}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </>
+                    ) : (
+                      <div
+                        style={{
+                          height: "100%",
+                          display: "flex",
+                          justifyContent: "center",
+                          alignItems: "center",
+                        }}
+                      >
+                        <p>No Data</p>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
             <div className="splitter" onMouseDown={(e) => handleDrag(1, e)} />
+            <SplitterWithToggle
+              index={1}
+              onDrag={handleDrag}
+              isCollapsed={collapsed[1]}
+              onToggle={() => toggleCollapse(1)}
+              isDragging={IsDragging}
+            />
           </>
         )}
         <div className="pane" style={{ width: paneWidths.at(-1) }}>
@@ -891,6 +999,7 @@ export default function SpliterReport({
             reportName={reportName}
             spliterReportShow={spliterReportShow}
             chartViewData={chartViewData}
+            imageViewData={imageViewData}
           />
         </div>
       </Box>

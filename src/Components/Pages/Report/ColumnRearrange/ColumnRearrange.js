@@ -45,10 +45,10 @@ const DraggableColumn = ({
             border: "1px solid",
             borderColor: snapshot.isDragging ? "rgb(115, 103, 240, 0.4)" : "#E5E7EB",
             boxShadow: snapshot.isDragging
-              ? "0px 12px 24px rgba(0, 0, 0, 0.08)" 
-              : "0px 1px 2px rgba(0, 0, 0, 0.02)", 
+              ? "0px 12px 24px rgba(0, 0, 0, 0.08)"
+              : "0px 1px 2px rgba(0, 0, 0, 0.02)",
             transition: "box-shadow 0.2s ease, border-color 0.2s ease, background-color 0.2s ease",
-            
+
             "&:hover": {
               backgroundColor: "#FFFFFF",
               borderColor: snapshot.isDragging ? "rgb(115, 103, 240, 0.4)" : "#D1D5DB",
@@ -56,11 +56,11 @@ const DraggableColumn = ({
           }}
         >
           <Box sx={{ display: "flex", alignItems: "center", gap: "12px" }}>
-            <GripHorizontal 
-              size={18} 
-              color={snapshot.isDragging ? "rgb(115, 103, 240)" : "#9CA3AF"} 
+            <GripHorizontal
+              size={18}
+              color={snapshot.isDragging ? "rgb(115, 103, 240)" : "#9CA3AF"}
               style={{
-                transform :'rotate(-15deg)'
+                transform: 'rotate(-15deg)'
               }}
             />
             <Typography
@@ -69,7 +69,7 @@ const DraggableColumn = ({
                 color: "#374151",
                 fontWeight: 500,
                 fontSize: "0.95rem",
-                userSelect: "none", 
+                userSelect: "none",
               }}
             >
               {col.HeaderName}
@@ -81,8 +81,8 @@ const DraggableColumn = ({
                 checked={!!checkedColumns[col.FieldName]}
                 onChange={() => handleCheckboxChange(col.FieldName)}
                 sx={{
-                  color: "#D1D5DB", 
-                  padding: "4px", 
+                  color: "#D1D5DB",
+                  padding: "4px",
                   "&.Mui-checked": {
                     color: "rgb(115, 103, 240)",
                   },
@@ -91,7 +91,7 @@ const DraggableColumn = ({
             }
             label=""
             sx={{
-              marginRight: -1, 
+              marginRight: -1,
             }}
           />
         </Box>
@@ -134,7 +134,7 @@ const DraggableColumn = ({
 //             <p style={{ margin: "0px" }}>{col.HeaderName}</p>
 //           </div>
 //           <FormControlLabel
-          
+
 //             control={
 //               <Checkbox
 //                 checked={!!checkedColumns[col.FieldName]}
@@ -177,6 +177,10 @@ const ColumnRearrange = ({
   const [openSnackbar, setOpenSnackbar] = useState(false);
   const [checkedColumns, setCheckedColumns] = useState({});
   const [columSaveLoding, setColumSaveLoding] = useState(false);
+  const visibleColumns = tempColumns.filter((col) => col.HideColumn !== "True");
+
+  const allChecked = visibleColumns.length > 0 && visibleColumns.every((col) => !!checkedColumns[col.FieldName]);
+  const someChecked = visibleColumns.some((col) => !!checkedColumns[col.FieldName]);
 
   useEffect(() => {
     if (allColumData?.length > 0) {
@@ -377,6 +381,14 @@ const ColumnRearrange = ({
     }));
   }, []);
 
+  const handleSelectAll = useCallback(() => {
+    const newChecked = {};
+    visibleColumns.forEach((col) => {
+      newChecked[col.FieldName] = !allChecked; // if all checked → uncheck all, else check all
+    });
+    setCheckedColumns((prev) => ({ ...prev, ...newChecked }));
+  }, [allChecked, visibleColumns]);
+
   return (
     <>
       <DialogTitle
@@ -402,8 +414,55 @@ const ColumnRearrange = ({
           <CloseIcon />
         </IconButton>
       </DialogTitle>
+
       <div className="colum_setting_model_main">
         <div className="filterDrawer">
+          <Box
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              padding: "8px 16px",
+              margin: "10px 5px",
+              borderRadius: "8px",
+              border: "1px solid",
+              borderColor: allChecked ? "rgb(115,103,240,0.35)" : "#E5E7EB",
+              background: allChecked ? "rgb(115,103,240,0.06)" : "#FAFAFA",
+              transition: "all 0.2s ease",
+            }}
+          >
+            <Typography
+              sx={{
+                fontWeight: 600,
+                fontSize: "0.9rem",
+                color: allChecked ? "rgb(115,103,240)" : "#374151",
+                userSelect: "none",
+              }}
+            >
+              {allChecked ? "Deselect All" : someChecked ? "Select Remaining" : "Select All"}
+            </Typography>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={allChecked}
+                  indeterminate={someChecked && !allChecked}  // shows dash when partially checked
+                  onChange={handleSelectAll}
+                  sx={{
+                    color: "#D1D5DB",
+                    padding: "4px",
+                    "&.Mui-checked": { color: "rgb(115,103,240)" },
+                    "&.MuiCheckbox-indeterminate": { color: "rgb(115,103,240)" },
+                  }}
+                />
+              }
+              label=""
+              sx={{ marginRight: -1 }}
+            />
+          </Box>
+
+          {/* Divider */}
+          <Box sx={{ height: "1px", background: "#F0F0F0", marginBottom: "6px" }} />
+
           <Droppable droppableId="columns-list" type="COLUMN">
             {(provided) => (
               <div
@@ -439,48 +498,48 @@ const ColumnRearrange = ({
           </Alert>
         </Snackbar>
       </div>
-        <DialogActions
+      <DialogActions
+        sx={{
+          borderTop: "1px solid #F0F0F0",
+          padding: '10px 24px',
+        }}
+      >
+        <Button
+          variant="contained"
+          color="primary"
+          className="btn_SaveColumModel"
+          onClick={handleSaveSettings}
+          disabled={columSaveLoding}
           sx={{
-            borderTop: "1px solid #F0F0F0",
-            padding: '10px 24px',
+            minWidth: 100
           }}
         >
-           <Button
-              variant="contained"
-              color="primary"
-              className="btn_SaveColumModel"
-              onClick={handleSaveSettings}
-              disabled={columSaveLoding}
-              sx={{
-                minWidth:100
-              }}
-            >
-              {columSaveLoding ? (
-                <span className="loading-text">
-                  {"Loading...".split("").map((char, index) => (
-                    <span key={index} style={{ "--i": index }}>
-                      {char}
-                    </span>
-                  ))}
+          {columSaveLoding ? (
+            <span className="loading-text">
+              {"Loading...".split("").map((char, index) => (
+                <span key={index} style={{ "--i": index }}>
+                  {char}
                 </span>
-              ) : (
-                "Save"
-              )}
-            </Button>
+              ))}
+            </span>
+          ) : (
+            "Save"
+          )}
+        </Button>
 
 
-          <Button
-              variant="contained"
-              color="error"
-              className="btn_CancelColumModel"
-              onClick={handleClosePopup}
-              sx={{
-                minWidth:100
-              }}
-            >
-              cancel
-            </Button>
-        </DialogActions>
+        <Button
+          variant="contained"
+          color="error"
+          className="btn_CancelColumModel"
+          onClick={handleClosePopup}
+          sx={{
+            minWidth: 100
+          }}
+        >
+          cancel
+        </Button>
+      </DialogActions>
     </>
   );
 };

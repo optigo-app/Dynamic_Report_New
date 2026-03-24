@@ -1,5 +1,5 @@
 import { Button, Dialog, IconButton, Tooltip, Box, Typography, Grid, Card } from "@mui/material";
-import { ArrowLeft, CircleArrowRight, CircleChevronLeft, CircleChevronRight } from "lucide-react";
+import { ArrowLeft, CircleArrowRight, CircleChevronLeft, CircleChevronRight, RotateCcw } from "lucide-react";
 import React, { useEffect, useRef, useState } from "react";
 import { AiFillSetting } from "react-icons/ai";
 import ColumnRearrange from "../../ColumnRearrange/ColumnRearrange";
@@ -23,7 +23,8 @@ const SummaryEndFilteredValue = ({
   setTempColumns,
   currentOpenReport,
   otherReport,
-  setOtherReprot
+  setOtherReprot,
+  refreshFunction
 }) => {
 
   const [openPopup, setOpenPopup] = useState(false);
@@ -76,8 +77,8 @@ const SummaryEndFilteredValue = ({
     return <>
       <Box sx={{ padding: { xs: "8px", sm: "12px" }, width: "100%", boxSizing: "border-box" }}>
         <Grid container spacing={1}
-        rowSpacing={2.5}
-        alignItems="stretch">
+          rowSpacing={2.5}
+          alignItems="stretch">
           {sortedSummaryColumns.map((col) => {
             // -------------------------------------------------------------
             // LOGIC REMAINS EXACTLY THE SAME - NO FUNCTIONALITY TOUCHED
@@ -131,38 +132,38 @@ const SummaryEndFilteredValue = ({
                   }}
                 >
                   {/* TOP: Title / Subtitle */}
-                 <Box
-                 sx={{
-                  display:'flex',
-                  alignItems:'center',
-                  gap:'8px',
-                  justifyContent:'space-between',
-                  width:'100%'
-                 }}
-                 >
-                   <Typography
+                  <Box
                     sx={{
-                      fontSize: "12px",
-                      fontWeight: 600,
-                      color: "#6B7280", // Light gray
-                      textTransform: "uppercase",
-                      letterSpacing: "0.5px",
-                      whiteSpace: "nowrap",
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      justifyContent: 'space-between',
+                      width: '100%'
                     }}
-                    title={
-                      columnMeta?.SummaryTitle == null || columnMeta?.SummaryTitle === ""
-                        ? col?.headerNameSub
-                        : columnMeta?.SummaryTitle
-                    }
                   >
-                    {columnMeta?.SummaryTitle == null || columnMeta?.SummaryTitle === ""
-                      ? col?.headerNameSub
-                      : columnMeta?.SummaryTitle}
-                  </Typography>
-                  {/* <KpiCardLogo/> */}
-                 </Box>
+                    <Typography
+                      sx={{
+                        fontSize: "12px",
+                        fontWeight: 600,
+                        color: "#6B7280", // Light gray
+                        textTransform: "uppercase",
+                        letterSpacing: "0.5px",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                      title={
+                        columnMeta?.SummaryTitle == null || columnMeta?.SummaryTitle === ""
+                          ? col?.headerNameSub
+                          : columnMeta?.SummaryTitle
+                      }
+                    >
+                      {columnMeta?.SummaryTitle == null || columnMeta?.SummaryTitle === ""
+                        ? col?.headerNameSub
+                        : columnMeta?.SummaryTitle}
+                    </Typography>
+                    {/* <KpiCardLogo/> */}
+                  </Box>
                   <Box sx={{ display: "flex" }}>
                     <Box sx={{ display: "flex", alignItems: "baseline", gap: "2px", maxWidth: "100%" }}>
                       <Typography
@@ -544,7 +545,27 @@ const SummaryEndFilteredValue = ({
             )}
           </Box>
         </Box>
-        <Box sx={{ flexShrink: 0, display: "flex", alignItems: "center" }}>
+        <Box sx={{ flexShrink: 0, display: "flex", alignItems: "center" , gap: '10px'}}>
+
+          <Tooltip title="Refresh" disablePortal PopperProps={{ container: gridContainerRef.current }}>
+            <IconButton
+              onClick={refreshFunction}
+              sx={{
+                background: "#cdd5ff",
+                color: "#6f53ff",
+                height: "38px",
+                width: "38px",
+                borderRadius: 3,
+                transition: "all .2s ease",
+                "&:hover": {
+                  backgroundColor: "#cdd5ff",
+                },
+              }}
+            >
+              <RotateCcw size={20}  />
+            </IconButton>
+          </Tooltip>
+
           {masterKeyData?.ColumnSettingModel === "True" && (
             <Tooltip title="Column Rearrange" disablePortal PopperProps={{ container: gridContainerRef.current }}>
               <IconButton

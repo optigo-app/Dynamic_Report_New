@@ -2,7 +2,7 @@ import { IconButton } from "@mui/material";
 import React, { useState } from "react";
 import noFoundImg from "../../../images/noFound.jpg";
 
-const ImageView = ({ filteredRows, sortModel, columns }) => {
+const ImageView = ({ filteredRows, sortModel, columns, imageViewData }) => {
   const pageSize = 250;
   const [currentPage, setCurrentPage] = useState(1);
 
@@ -23,6 +23,10 @@ const ImageView = ({ filteredRows, sortModel, columns }) => {
     return pages;
   };
 
+  const sortedImageData = [...imageViewData].sort(
+    (a, b) => Number(a.displayorder || 0) - Number(b.displayorder || 0)
+  );
+  console.log('sortedImageData: ', sortedImageData);
   return (
     <div>
       <div
@@ -125,7 +129,7 @@ const ImageView = ({ filteredRows, sortModel, columns }) => {
             }
             return String(x).localeCompare(String(y)) * order;
           })
-          .slice((currentPage - 1) * pageSize, currentPage * pageSize) // ✅ PAGINATION APPLIED
+          .slice((currentPage - 1) * pageSize, currentPage * pageSize)
           .map((item, idx) => {
             const defaultImg = noFoundImg;
             const src = String(item?.ImgUrl ?? "").trim() || defaultImg;
@@ -134,7 +138,6 @@ const ImageView = ({ filteredRows, sortModel, columns }) => {
                 key={idx}
                 style={{
                   width: 200,
-                  height: 230,
                   display: "flex",
                   flexDirection: "column",
                 }}
@@ -160,9 +163,51 @@ const ImageView = ({ filteredRows, sortModel, columns }) => {
                   style={{
                     display: "flex",
                     justifyContent: "space-between",
-                    marginTop: "4px",
+                    marginTop: "2px",
                   }}
                 >
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(2, 1fr)",
+                      gap: "5px",
+                      marginTop: "0px",
+                      width: '100%'
+                    }}
+                  >
+                    {sortedImageData.map((iteImage, index) => (
+                      <div
+                        key={index}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "6px",
+                          justifyContent: index % 2 === 0 ? "flex-start" : "flex-end",
+                        }}
+                      >
+                        {iteImage.lable && <span
+                          style={{
+                            fontSize: iteImage.fontsizel || 12,
+                            fontWeight: iteImage.fontweightl || 500,
+                            color: "#555",
+                          }}
+                        >
+                          {iteImage.lable}
+                        </span>
+                        }
+
+                        <span
+                          style={{
+                            fontSize: iteImage.fontsizev || 13,
+                            fontWeight: iteImage.fontweightv || 500,
+                            color: "#000",
+                          }}
+                        >
+                          {item?.[iteImage.value] || "-"}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
                   <div>
                     <p
                       style={{
@@ -220,7 +265,6 @@ const ImageView = ({ filteredRows, sortModel, columns }) => {
                       <span>{item?.metalcolor}</span>
                     </p>
                   </div>
-
                   <p
                     style={{
                       margin: 0,

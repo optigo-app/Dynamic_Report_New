@@ -154,6 +154,7 @@ const DualDatePicker = ({
     setAnchorEl(null);
     setError("");
   };
+  
   const handleDateChange = (range) => {
     setTempDateRange(range);
     setError("");

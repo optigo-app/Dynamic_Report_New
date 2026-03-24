@@ -60,7 +60,9 @@ export default function MainReport({
   spliterReportShow,
   colorMaster,
   currencyMaster,
-  chartViewData
+  chartViewData,
+  imageViewData,
+  refreshFunction
 }) {
   const [isLoading, setIsLoading] = useState(isLoadingChek);
   const [showImageView, setShowImageView] = useState(false);
@@ -124,6 +126,7 @@ export default function MainReport({
   const [filterState, setFilterState] = useState({
     dateRange: { startDate: null, endDate: null },
   });
+  const [columnWidths, setColumnWidths] = useState({});
   const startDate = filterState?.dateRange?.startDate;
   const endDate = filterState?.dateRange?.endDate;
   const [homeType, setHomeType] = useState(null);
@@ -505,7 +508,7 @@ export default function MainReport({
           headerNameSub: col.HeaderName,
           headerNamesingle: col.HeaderName,
           FieldName: col.FieldName,
-          width: col.Width,
+          width: columnWidths[col.FieldName] || col.Width,
           align: col.ColumnAlign || "left",
           headerAlign: col?.HeaderAlign,
           filterable: col.ColumnFilter,
@@ -875,18 +878,19 @@ export default function MainReport({
           {masterKeyData?.CheckBoxSelection == "True" && (
             <Checkbox
               checked={
-                filteredRows?.length > 0 &&
+                (filteredRows?.length || 0) > 0 &&
                 selectionModel.length === filteredRows.length
+            
               }
               indeterminate={
                 selectionModel.length > 0 &&
-                selectionModel.length < filteredRows.length
+                selectionModel.length < (filteredRows?.length || 0)
               }
               onChange={(e) => {
                 if (e.target.checked) {
                   const start = paginationModel.page * paginationModel.pageSize;
                   const end = start + paginationModel.pageSize;
-                  const pageRows = filteredRows?.slice(start, end);
+                  const pageRows = filteredRows?.slice(start, end) || [];
                   setSelectionModel(pageRows.map((r) => r.id));
                 } else {
                   setSelectionModel([]);
@@ -977,7 +981,6 @@ export default function MainReport({
     [masterData]
   );
 
-  //Single Colum Clikc All Colum Sepret
   useEffect(() => {
     if (apiRef.current) {
       const gridElement = apiRef.current.rootElementRef.current;
@@ -1019,7 +1022,9 @@ export default function MainReport({
 
       return { id: index, ...formattedRow };
     });
+
   const isFirstLoad = useRef(true);
+
   useEffect(() => {
     if (allColumData) {
       const dateCols = allColumData?.filter((col) => col.ColumnType == "Date");
@@ -1621,6 +1626,7 @@ export default function MainReport({
               currentOpenReport={currentOpenReport}
               otherReport={otherReport}
               setOtherReprot={setOtherReport}
+              refreshFunction={refreshFunction}
             // setOpenPopup={setOpenPopup}
             />
           </div>
@@ -1707,6 +1713,7 @@ export default function MainReport({
                   filteredRows={filteredRows}
                   sortModel={sortModel}
                   columns={columns}
+                  imageViewData={imageViewData}
                 />
               </div>
             ) : chartView ? (
@@ -1870,6 +1877,12 @@ export default function MainReport({
                   sortingMode="client"
                   paginationModel={paginationModel}
                   onPaginationModelChange={handlePaginationChange}
+                  onColumnWidthChange={(params) => {
+                    setColumnWidths((prev) => ({
+                      ...prev,
+                      [params.colDef.field]: params.width,
+                    }));
+                  }}
                   className="simpleGridView"
                   pagination
                   sx={{
